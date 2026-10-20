@@ -65,6 +65,7 @@
 
 ## วิธีพัฒนาต่อ
 
+0. เครื่องใหม่: `git clone https://github.com/Artaliss/tower-of-fate.git` (ต้องมี Node.js) — ทั้งโฟลเดอร์อยู่ใน repo รวม `tools/` และ `.claude/launch.json`; branch `main` = ขึ้นเว็บจริง, branch `wip` = snapshot งานที่ยังไม่เสร็จ (ไม่ขึ้นเว็บหลัก)
 1. `node tools/serve.js` แล้วเปิด http://localhost:8765
 2. แก้ไฟล์ → `node --check <file>.js` → ลองเล่นในเบราว์เซอร์ (ดู console error, ความกว้างมือถือ 375px)
 3. บาลานซ์: `node tools/autosim.js 2000` ดู p10/median/p90, % ถึงชั้น 100, % ชนะ (เป้าปัจจุบัน: ค่ากลาง ~ชั้น 45–55, ชนะ ~3–4%)
