@@ -6,7 +6,7 @@ const AUDIO=window.AUDIO;
 let rnd=Math.random;
 const rr=(a,b)=>a+(b-a)*rnd(), pick=a=>a[Math.floor(rnd()*a.length)], clamp=(v,a,b)=>v<a?a:v>b?b:v;
 function wIdx(ws){let s=0;for(const w of ws)s+=w;let r=rnd()*s;for(let i=0;i<ws.length;i++){r-=ws[i];if(r<0)return i;}return ws.length-1;}
-const BAL={mh0:38,mh1:4.2,mh2:0.03,ma0:9,ma1:0.62,ma2:0.0045,md0:3,md1:0.3,md2:0.002,bHp:2.0,bAtk:1.18,bDef:1.1,ex0:9,ex1:2.0,g0:4,g1:1.5,regen:0.03,gr:1.5,gp:1.5};
+const BAL={mh0:38,mh1:4.2,mh2:0.03,ma0:9,ma1:0.62,ma2:0.0045,md0:3,md1:0.3,md2:0.002,bHp:2.0,bAtk:1.18,bDef:1.1,ex0:9,ex1:2.0,g0:4,g1:1.5,regen:0.03,gr:0.75,gp:0.7};
 const CLS_SUM=CLASSES.reduce((a,c)=>a+c.w,0);
 const genName=()=>pick(NA)+pick(NB)+(rnd()<.4?pick(NB):'');
 const PETK=Object.keys(PETS);
