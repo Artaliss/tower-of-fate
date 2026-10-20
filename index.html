@@ -214,6 +214,58 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
 .lgsum{margin:8px 0 12px;padding:8px;border:2px solid var(--line2);background:var(--bg2);border-radius:3px;font-size:14px;animation:lgIn .3s ease-out both}
 .lgsum .big{font-size:20px;color:var(--gold)}
 @keyframes lgIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.chip.pulse{animation:pulse .45s ease-out}
+@keyframes pulse{40%{box-shadow:0 0 0 2px var(--gold);transform:scale(1.06)}}
+.stance{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-4px 0 10px}
+.stance[hidden]{display:none}
+.stance #stBtns{display:flex;flex-wrap:wrap;gap:6px}
+.stance button{background:var(--panel2);border:2px solid var(--line2);border-radius:3px;padding:4px 10px;font-size:13px;font-weight:500;min-height:32px}
+.stance button[aria-pressed="true"]{background:#2a2a1c;border-color:var(--gold);color:var(--gold)}
+.stance .note{font-size:12px;color:var(--dim);flex:1 1 200px}
+.mileban{position:absolute;left:50%;top:30px;transform:translateX(-50%);max-width:94%;background:#000c;border:2px solid var(--gold2);color:var(--gold);padding:3px 10px;font-size:13px;border-radius:3px;text-align:center;animation:lgIn .3s ease-out both;pointer-events:none}
+.mileban[hidden]{display:none}
+.cert.anim .rv{animation:rvIn .4s ease-out both;animation-delay:var(--d,0ms)}
+@keyframes rvIn{from{opacity:0;transform:translateY(6px) scale(.97)}to{opacity:1;transform:none}}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0 4px}
+.tile{background:#d9c79a;border-radius:2px;padding:5px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;min-width:0}
+.tile .tl{font-size:11px;color:#6b5634}
+.tile b{font-size:13px;font-weight:600;line-height:1.2}
+.tile .tp{font-size:12px;color:#8a2a12}
+.tile .rk{font-size:14px;padding:0 6px}.tile .cls{font-size:13px;padding:1px 6px}
+.odds.big{margin:8px 0 4px}.odds.big b{font-size:24px}
+.odds .sm{display:block;font-size:11.5px;color:#6b5634}
+.inhbox{margin:6px 0 0;padding:5px 8px;border:2px dashed #4a7a2a;background:#dfe6bd;border-radius:2px;font-size:12.5px;text-align:center}
+.dcert{border:2px solid #8b6a3a;background:#1d1a14;padding:10px;border-radius:3px;margin-bottom:6px}
+.dcert .dh{font-weight:600;color:var(--parch);letter-spacing:.04em;border-bottom:1px dashed #8b6a3a;padding-bottom:4px;margin-bottom:6px}
+.dcert .eu{margin-top:8px;font-size:14px;color:var(--parch)}
+.coh{list-style:none;margin:0 0 6px;padding:0;font-size:13px}
+.coh li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:6px;padding:4px 0;border-bottom:1px dashed #2a3e46}
+.coh .x{color:var(--muted);font-size:12px}
+.qb{margin:4px 0 8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--line);border-radius:3px}
+.qbr{display:flex;align-items:center;gap:6px}
+.qbr .ql{font-size:11px;color:var(--muted);width:24px;flex:none}
+.qbars{flex:1;display:flex;gap:2px;align-items:center;height:40px}
+.qbars span{flex:1;display:flex;flex-direction:column;height:100%}
+.qbars b{flex:1;display:flex}
+.qbars b.up{align-items:flex-end}.qbars b.dn{align-items:flex-start;border-top:1px solid var(--line2)}
+.qbars i{display:block;width:100%;background:var(--good)}
+.qbars b.dn i{background:var(--bad)}
+.qbf{display:flex;justify-content:space-between;font-family:var(--fP);font-size:10px;color:var(--dim);padding-left:30px}
+.shopl{display:flex;flex-wrap:wrap;gap:4px 8px;font-size:12px;margin:2px 0 8px}
+.shopl span{background:var(--bg2);border:1px solid var(--line);border-radius:2px;padding:1px 6px}
+.shopl .ok{color:var(--good)}.shopl .lk{color:var(--dim)}
+.oldtag{font-size:10.5px;background:#2a3a40;color:var(--muted);padding:0 4px;border-radius:2px}
+.memomore{width:100%;margin-top:8px;flex:none}
+#lineage{font-size:13px}
+#lineage .linehd{color:var(--parch);margin-bottom:4px}
+#lineage .chain{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+#lineage .lv{background:var(--bg2);border:1px solid var(--line);border-radius:2px;padding:1px 6px}
+#lineage .lv.now{border-color:var(--gold2);color:var(--gold)}
+#lineage .ar{color:var(--dim)}
+#lineage .others{margin-top:6px;color:var(--muted);font-size:12px}
+.hdbtn{flex:none;background:var(--bg2);border:1px solid var(--line);border-radius:3px;padding:2px 9px;font-size:13px;line-height:1.5;color:var(--gold)}
+.hdbtn[hidden]{display:none}
+@media (max-width:700px){.tile b{font-size:12px}.odds.big b{font-size:20px}}
 </style>
 </head>
 <body>
@@ -221,6 +273,7 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
  <header class="hud" aria-label="สถานะนักผจญภัย">
   <div class="who"><div class="nm" id="hName">—</div><div class="sub" id="hSub"></div></div>
   <div class="flr"><span class="lbl">ชั้น</span><span class="px big" id="hFloor">0</span><span class="px dim">/100</span></div>
+  <button class="hdbtn" id="btnLB" type="button" hidden>🏆 อันดับ & ความสำเร็จ</button>
   <button class="mute" id="btnMute" type="button" aria-label="เปิด/ปิดเสียง" aria-pressed="true" title="เปิด/ปิดเสียง">♪</button>
  </header>
  <div class="prog"><div class="track" role="progressbar" aria-label="ความคืบหน้าหอคอย" aria-valuemin="0" aria-valuemax="100" id="track"><div class="fill" id="pFill"></div><div id="pTicks"></div><div class="mark" id="pMark"></div></div>
@@ -231,6 +284,7 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
   <button type="button" data-speed="1" class="px">1x</button><button type="button" data-speed="2" class="px">2x</button><button type="button" data-speed="4" class="px">4x</button><button type="button" data-speed="8" class="px">8x</button><button type="button" data-speed="16" class="px">16x</button>
   <span class="note" id="ctlNote"></span>
  </div>
+ <div class="stance" id="stanceBox" hidden role="group" aria-label="ท่าที"><span class="dim" style="font-size:12px" data-tip="stance">ท่าที</span><span id="stBtns"></span><span class="note" id="stNote" aria-live="off"></span></div>
  <div class="nextbox" id="nextBox" hidden><div class="nt" role="presentation"><i id="nextBar"></i></div><span id="nextTxt" aria-live="off"></span></div>
  <main class="main">
   <section class="sceneBox"><div class="scnwrap"><canvas id="scene" width="192" height="128" aria-label="ฉากในหอคอย"></canvas>
@@ -244,17 +298,21 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
    <div class="chip" id="c-gold" title="เหรียญทอง"><canvas class="ico" data-ico="coin" width="8" height="8"></canvas><span class="px v" id="v-gold"></span></div>
    <div class="chip fate" id="c-fate" title="ดวงชะตา: โอกาสตายในชั้นนี้">☽ <span class="v" id="v-fate"></span></div>
   </div>
-</div><div class="biome" id="biomeTag"></div><div class="forms" id="formBox" hidden aria-label="เลือกร่างของฮีโร่"></div></section>
+<div class="mileban" id="mileBan" hidden role="status"></div></div><div class="biome" id="biomeTag"></div><div class="forms" id="formBox" hidden aria-label="เลือกร่างของฮีโร่"></div></section>
   <section class="card" id="card" aria-live="polite"></section>
  </main>
  <section class="lower">
   <div class="panel"><h2>ปาร์ตี้</h2><div id="party"></div></div>
   <div class="panel"><h2>บันทึกการผจญภัย</h2><ol id="log"></ol></div>
  </section>
+ <section class="panel memo"><h2 data-tip="lineage">สายตระกูล</h2><div id="lineage"></div></section>
  <section class="panel memo"><h2>สุสานนักผจญภัย</h2><div id="memo"></div></section>
  <footer class="keys">ปุ่มลัด: 1–4 เลือก · Space หยุด/เดินต่อ · Enter ดำเนินต่อ</footer>
 </div>
 <script src="sprites.js"></script>
+<script src="share.js"></script>
+<script src="achievements.js"></script>
+<script src="leaderboard.js"></script>
 <script src="events.js"></script>
 <script src="audio.js"></script>
 <script src="auto.js"></script>
