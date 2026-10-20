@@ -1,5 +1,1 @@
-.claude/
-tools/orig.html
-tools/split.js
-tools/sim.js
-tools/*-rea.md
+# nothing ignored: whole folder is versioned for multi-machine dev
