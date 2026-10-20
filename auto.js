@@ -656,8 +656,8 @@ const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=n=>Math.round(n).toLocaleString('th-TH');
-const BASE_MS=1300;
-const decMs=K=>Math.round(clamp((K.text.length+K.ch.reduce((a,c)=>a+c.t.length,0))/12,7,13))*1000;
+const BASE_MS=30000;
+const decMs=K=>30000;
 let S=null;
 const VIS={hf:0,ef:0,nums:[],coins:[],shake:0,edead:false,walk0:0,show:null,dieAt:0};
 const PXF='8px '+((getComputedStyle(document.documentElement).getPropertyValue('--fP')||'monospace').trim());
@@ -773,7 +773,7 @@ function startRun(){S.R=newRun(S.hero);S.R.xseen=loadSeen();S.runId=Date.now();s
  S.frame={f:1,tag:'ชั้น 1 · ทางเข้า',title:'ประตูหอคอยเปิดออก',text:'บันไดหินวนขึ้นไปจนลับตา ไม่มีใครรู้ว่าตัวเองจะไปได้ถึงไหน',msgs:o.msgs};
  S.phase='flow';VIS.walk0=performance.now();VIS.show=null;AUDIO.music(0);render();schedule(floorMs());}
 const floorMs=()=>BASE_MS/S.speed;
-function schedule(ms){clearTimeout(S.tm);S.tm=setTimeout(tick,ms);}
+function schedule(ms){clearTimeout(S.tm);S.due=performance.now()+ms;S.tm=setTimeout(tick,ms);}
 let fxT=[];function clearFx(){fxT.forEach(clearTimeout);fxT=[];}
 function evFrame(f,ev){const b=BIOMES[biome(f)];
  if(ev.kind==='mon')return{tag:`ชั้น ${f} · ${b} · มอนสเตอร์`,title:ev.en.n,text:'',vis:{t:'en',en:ev.en}};
@@ -896,10 +896,10 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
 function newBirth(){if(S){clearTimeout(S.tm);clearInterval(cdI);clearTimeout(dyT);clearTimeout(cbTimer);}clearFx();AUDIO.music(0);
  const sp=S?S.speed:loadSpeed();S={phase:'birth',hero:rollHero(),rerolled:false,R:null,K:null,cb:null,cmp:null,saved:false,runId:0,speed:sp,paused:false,tm:0,frame:null};
  snap=null;VIS.coins=[];VIS.show=null;render();}
-function loadSpeed(){try{const v=+localStorage.getItem('tof-auto-speed');return[1,2,4].includes(v)?v:1;}catch(e){return 1;}}
-function setSpeed(v){S.speed=v;try{localStorage.setItem('tof-auto-speed',String(v));}catch(e){}renderCtl();if(S.phase==='flow'&&!S.paused)schedule(Math.min(floorMs(),400));}
+function loadSpeed(){try{const v=+localStorage.getItem('tof-auto-speed');return[1,2,4,8,16].includes(v)?v:1;}catch(e){return 1;}}
+function setSpeed(v){const o=S.speed;S.speed=v;try{localStorage.setItem('tof-auto-speed',String(v));}catch(e){}renderCtl();if(S.phase==="flow"&&!S.paused)schedule(Math.max(200,((S.due||0)-performance.now())*o/v));}
 function togglePause(){if(!['flow','decide','combat'].includes(S.phase))return;S.paused=!S.paused;renderCtl();
- if(S.phase==='flow'){renderFlow();if(S.paused)clearTimeout(S.tm);else schedule(250);}else if(S.phase==='decide')updCd();}
+ if(S.phase==='flow'){renderFlow();if(S.paused){clearTimeout(S.tm);S.rem=Math.max(250,(S.due||0)-performance.now());}else schedule(S.rem||250);}else if(S.phase==='decide')updCd();}
 $('btnPause').onclick=togglePause;
 document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.speed));
 document.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;const k=e.key;
