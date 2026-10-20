@@ -6,7 +6,7 @@ const AUDIO=window.AUDIO;
 let rnd=Math.random;
 const rr=(a,b)=>a+(b-a)*rnd(), pick=a=>a[Math.floor(rnd()*a.length)], clamp=(v,a,b)=>v<a?a:v>b?b:v;
 function wIdx(ws){let s=0;for(const w of ws)s+=w;let r=rnd()*s;for(let i=0;i<ws.length;i++){r-=ws[i];if(r<0)return i;}return ws.length-1;}
-const BAL={mh0:38,mh1:4.2,mh2:0.03,ma0:9,ma1:0.62,ma2:0.0045,md0:3,md1:0.3,md2:0.002,bHp:2.0,bAtk:1.18,bDef:1.1,ex0:9,ex1:2.0,g0:4,g1:1.5,regen:0.03,gr:0.75,gp:0.7};
+const BAL={mh0:38,mh1:4.2,mh2:0.03,ma0:9,ma1:0.62,ma2:0.0045,md0:3,md1:0.3,md2:0.002,bHp:2.0,bAtk:1.18,bDef:1.1,ex0:9,ex1:2.0,g0:4,g1:1.5,regen:0.03,gr:0.75,gp:0.7,fH:0.7,fA:0.8,fR:80};
 const CLS_SUM=CLASSES.reduce((a,c)=>a+c.w,0);
 const genName=()=>pick(NA)+pick(NB)+(rnd()<.4?pick(NB):'');
 const PETK=Object.keys(PETS);
@@ -38,7 +38,7 @@ function mkMon(t,f,k){const gr=1+BAL.gr*Math.pow(f/100,BAL.gp),hp=(BAL.mh0+BAL.m
 const monsOf=b=>MONS.filter(m=>m.b.includes(b));
 function genMonster(f){return mkMon(pick(monsOf(biome(f))),f,1);}
 function mkBoss(f){const b=biome(f),B=BOSSES[b],second=f%20===0,fin=f===100;
- const base=mkMon({hp:1,atk:1,def:1},f,1),hk=BAL.bHp*(fin?1.5:1)*(f<=20?.75:1),ak=BAL.bAtk*(fin?1.15:1);
+ const base=mkMon({hp:1,atk:1,def:1},f,1),hk=BAL.bHp*(fin?BAL.fH:1)*(f<=20?.75:1),ak=BAL.bAtk*(fin?BAL.fA:1);
  return{id:B.id,n:second?B.n2:B.n,hp:base.hp*hk,mhp:base.hp*hk,atk:base.atk*ak,def:base.def*BAL.bDef,boss:true,x:B.x};}
 function genComp(f){const c=pick(['war','mag','arc','pri']);return{n:pick(COMPN),cls:c,pw:4+f*.6};}
 const compCost=R=>Math.round(25*scl(R.floor));
@@ -50,7 +50,7 @@ function fight(R,en,o){o=o||{};const h=R.h,id=cid(R),A=eAtk(R),D=eDef(R),cc=crit
  const hit=(a,d)=>a*a/(a+d);
  if(mp>=10){mp-=10;if(id==='pri'){hp=Math.min(h.mhp,hp+h.mhp*.25);rec&&ev.push({t:'heal',hp,ehp});}else{const d=hit(A,en.def)*(id==='mag'?2.5:1.3)*bm;ehp-=d;rec&&ev.push({t:'skill',d,hp,ehp});}}
  if(o.ambush){const d=hit(en.atk*em,D)*rr(.85,1.15);hp-=d;rec&&ev.push({t:'e',d,hp,ehp});}
- for(let r=0;r<40&&ehp>0&&hp>0;r++){
+ for(let r=0;r<(en.boss&&R.floor===100?BAL.fR:40)&&ehp>0&&hp>0;r++){
   const cr=rnd()<cc;let d=hit(A,en.def)*rr(.85,1.15)*(cr?1.8:1)*bm;ehp-=d;rec&&ev.push({t:'h',d,cr,hp,ehp});if(ehp<=0)break;
   for(const c of R.comps){if(c.cls==='pri')hp=Math.min(h.mhp,hp+h.mhp*.03);const d2=hit(c.pw,en.def)*rr(.8,1.2)*(c.cls==='pri'?.5:1);ehp-=d2;rec&&ev.push({t:'c',n:c.n,d:d2,hp,ehp});if(ehp<=0)break;}
   if(ehp<=0)break;
