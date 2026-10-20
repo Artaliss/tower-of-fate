@@ -142,6 +142,11 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
 .kv dt{color:var(--muted)}.kv dd{margin:0}
 .judge{margin:8px 0;padding:8px;border-left:3px solid var(--karma);background:#1b1a24;font-size:14px}
 .shopg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.scnwrap{position:relative}
+.chips.onscene{position:absolute;left:6px;right:6px;bottom:6px;flex:none;gap:4px;justify-content:center;pointer-events:auto}
+.chips.onscene .chip{background:rgba(8,14,16,.8);border-color:#3d5a66cc;padding:2px 6px;box-shadow:0 2px 0 #0007}
+.chips.onscene .chip .v{font-size:12.5px}
+@media (max-width:700px){.chips.onscene{left:4px;right:4px;bottom:4px;gap:3px}.chips.onscene .chip{padding:1px 5px}.chips.onscene .chip .bar{width:22px}.chips.onscene .chip .v{font-size:11.5px}}
 .formbar[hidden],.ftrow[hidden]{display:none!important}
 .formbar{display:flex;gap:8px;padding:8px;background:var(--panel);border-top:2px solid var(--line)}
 .formbar .btn{flex:1 1 0;font-size:15px}
@@ -204,16 +209,6 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
  <header class="hud" aria-label="สถานะนักผจญภัย">
   <div class="who"><div class="nm" id="hName">—</div><div class="sub" id="hSub"></div></div>
   <div class="flr"><span class="lbl">ชั้น</span><span class="px big" id="hFloor">0</span><span class="px dim">/100</span></div>
-  <div class="chips">
-   <div class="chip" id="c-hp" title="พลังชีวิต"><canvas class="ico" data-ico="heart" width="8" height="8"></canvas><span class="px v" id="v-hp"></span><span class="bar"><i id="b-hp"></i></span></div>
-   <div class="chip" id="c-atk" title="พลังโจมตี"><canvas class="ico" data-ico="sword" width="8" height="8"></canvas><span class="px v" id="v-atk"></span></div>
-   <div class="chip" id="c-def" title="พลังป้องกัน"><canvas class="ico" data-ico="shield" width="8" height="8"></canvas><span class="px v" id="v-def"></span></div>
-   <div class="chip" id="c-luk" title="โชค"><canvas class="ico" data-ico="clover" width="8" height="8"></canvas><span class="px v" id="v-luk"></span></div>
-   <div class="chip" id="c-mp" title="มานา"><canvas class="ico" data-ico="drop" width="8" height="8"></canvas><span class="px v" id="v-mp"></span><span class="bar"><i id="b-mp"></i></span></div>
-   <div class="chip" id="c-lv" title="เลเวล / EXP"><canvas class="ico" data-ico="star" width="8" height="8"></canvas><span class="px v" id="v-lv"></span><span class="bar"><i id="b-lv"></i></span></div>
-   <div class="chip" id="c-gold" title="เหรียญทอง"><canvas class="ico" data-ico="coin" width="8" height="8"></canvas><span class="px v" id="v-gold"></span></div>
-   <div class="chip fate" id="c-fate" title="ดวงชะตา (ชั้นที่ชะตาจะขาด)">☽ <span class="v" id="v-fate"></span></div>
-  </div>
   <button class="mute" id="btnMute" type="button" aria-label="เปิด/ปิดเสียง" aria-pressed="true" title="เปิด/ปิดเสียง">♪</button>
  </header>
  <div class="prog"><div class="track" role="progressbar" aria-label="ความคืบหน้าหอคอย" aria-valuemin="0" aria-valuemax="100" id="track"><div class="fill" id="pFill"></div><div id="pTicks"></div><div class="mark" id="pMark"></div></div>
@@ -226,7 +221,18 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
  </div>
  <div class="ftrow" id="ftRow" hidden><div class="cd" role="timer" aria-label="เวลาก่อนขึ้นชั้นถัดไป"><i id="ftBar"></i></div><span class="cdl" id="ftTxt"></span></div>
  <main class="main">
-  <section class="sceneBox"><canvas id="scene" width="192" height="128" aria-label="ฉากในหอคอย"></canvas><div class="biome" id="biomeTag"></div><div class="formbar" id="formBar" role="group" aria-label="เลือกร่าง" hidden></div></section>
+  <section class="sceneBox"><div class="scnwrap"><canvas id="scene" width="192" height="128" aria-label="ฉากในหอคอย"></canvas>
+  <div class="chips onscene" aria-label="ค่าสถานะ">
+   <div class="chip" id="c-hp" title="พลังชีวิต"><canvas class="ico" data-ico="heart" width="8" height="8"></canvas><span class="px v" id="v-hp"></span><span class="bar"><i id="b-hp"></i></span></div>
+   <div class="chip" id="c-atk" title="พลังโจมตี"><canvas class="ico" data-ico="sword" width="8" height="8"></canvas><span class="px v" id="v-atk"></span></div>
+   <div class="chip" id="c-def" title="พลังป้องกัน"><canvas class="ico" data-ico="shield" width="8" height="8"></canvas><span class="px v" id="v-def"></span></div>
+   <div class="chip" id="c-luk" title="โชค"><canvas class="ico" data-ico="clover" width="8" height="8"></canvas><span class="px v" id="v-luk"></span></div>
+   <div class="chip" id="c-mp" title="มานา"><canvas class="ico" data-ico="drop" width="8" height="8"></canvas><span class="px v" id="v-mp"></span><span class="bar"><i id="b-mp"></i></span></div>
+   <div class="chip" id="c-lv" title="เลเวล / EXP"><canvas class="ico" data-ico="star" width="8" height="8"></canvas><span class="px v" id="v-lv"></span><span class="bar"><i id="b-lv"></i></span></div>
+   <div class="chip" id="c-gold" title="เหรียญทอง"><canvas class="ico" data-ico="coin" width="8" height="8"></canvas><span class="px v" id="v-gold"></span></div>
+   <div class="chip fate" id="c-fate" title="ดวงชะตา (ชั้นที่ชะตาจะขาด)">☽ <span class="v" id="v-fate"></span></div>
+  </div>
+</div><div class="biome" id="biomeTag"></div><div class="formbar" id="formBar" role="group" aria-label="เลือกร่าง" hidden></div></section>
   <section class="card" id="card" aria-live="polite"></section>
  </main>
  <section class="lower">

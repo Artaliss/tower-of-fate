@@ -258,7 +258,7 @@ function curStats(){const R=S.R,h=R?R.h:S.hero;let hp=h.hp;if(S.phase==='combat'
 function renderHUD(){const {h,hp,R}=curStats(),C=CLASSES[h.cls];
  $('hName').textContent=h.name;$('hSub').textContent=`แรงค์ ${RANKS[h.rank].k} · ${C.n} · ${h.village}`;
  const f=R?R.floor:0;$('hFloor').textContent=f;
- $('v-hp').textContent=`${Math.ceil(hp)}/${Math.round(h.mhp)}`;$('b-hp').style.width=clamp(hp/h.mhp*100,0,100)+'%';
+ $('v-hp').textContent=`${Math.ceil(hp)}/${Math.ceil(h.mhp)}`;$('b-hp').style.width=clamp(hp/h.mhp*100,0,100)+'%';
  const A=R?eAtk(R):h.atk,D=R?eDef(R):h.def,Lk=R?eLuk(R):h.luk;
  $('v-atk').textContent=Math.round(A);$('v-def').textContent=Math.round(D);$('v-luk').textContent=Math.round(Lk);
  $('v-mp').textContent=`${Math.round(h.mp)}`;$('b-mp').style.width=clamp(h.mp/h.mmp*100,0,100)+'%';
