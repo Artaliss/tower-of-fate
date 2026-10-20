@@ -68,7 +68,7 @@ const A={muted:(()=>{try{return localStorage.getItem(MKEY)==="1";}catch(e){retur
   try{
    const AC=typeof window!=='undefined'&&(window.AudioContext||window.webkitAudioContext);if(!AC){this._ok=false;return;}
    const c=new AC();this.ctx=c;
-   this.master=c.createGain();this.master.gain.value=this.muted?0:MASTER;this.master.connect(c.destination);
+   this.master=c.createGain();this.master.gain.value=this.muted?0:this._g();this.master.connect(c.destination);
    const len=c.sampleRate,b=c.createBuffer(1,len,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;this.noise=b;
    PAT=null;
    if(typeof document!=='undefined')document.addEventListener('visibilitychange',()=>{try{if(document.hidden)c.suspend().catch(()=>{});else if(!this.muted)c.resume().catch(()=>{});}catch(e){}});
@@ -76,13 +76,17 @@ const A={muted:(()=>{try{return localStorage.getItem(MKEY)==="1";}catch(e){retur
    if(this.muted){c.suspend&&c.suspend().catch(()=>{});}else this._start();
   }catch(e){this._ok=false;this.ctx=null;}
  },
+ vol:(()=>{try{const v=parseFloat(localStorage.getItem("tof-volume"));return isFinite(v)?Math.min(1,Math.max(0,v)):.5;}catch(e){return .5;}})(),
+ _g(){return MASTER*2*this.vol;},
+ setVolume(v){this.vol=Math.min(1,Math.max(0,+v||0));try{localStorage.setItem("tof-volume",String(this.vol));}catch(e){}
+  const c=this.ctx;if(!c||this.muted)return;try{const t=c.currentTime,g=this.master.gain;g.cancelScheduledValues(t);g.setValueAtTime(g.value,t);g.linearRampToValueAtTime(this._g(),t+.08);}catch(e){}},
  setMuted(m){
   this.muted=!!m;try{localStorage.setItem(MKEY,this.muted?"1":"0");}catch(e){}const c=this.ctx;if(!c)return;
   try{
    const t=c.currentTime,g=this.master.gain;g.cancelScheduledValues(t);g.setValueAtTime(g.value,t);
    if(this.muted){g.linearRampToValueAtTime(0,t+.15);this._stop();
     setTimeout(()=>{if(this.muted&&this.ctx)this.ctx.suspend().catch(()=>{});},250);}
-   else{c.resume().catch(()=>{});g.linearRampToValueAtTime(MASTER,t+.2);this._start();}
+   else{c.resume().catch(()=>{});g.linearRampToValueAtTime(this._g(),t+.2);this._start();}
   }catch(e){}
  },
  setHero(o){
@@ -195,4 +199,19 @@ function pulse(c,duty){if(PW[duty]&&PW[duty].c===c)return PW[duty].w;const n=32,
  for(let k=1;k<n;k++)re[k]=2/(k*Math.PI)*Math.sin(k*Math.PI*duty);
  const w=c.createPeriodicWave(re,im);PW[duty]={c,w};return w;}
 if(typeof document!=="undefined"){const go=()=>{A.init();if(A.ctx){document.removeEventListener("keydown",go,true);document.removeEventListener("pointerdown",go,true);}};document.addEventListener("keydown",go,true);document.addEventListener("pointerdown",go,true);}
+if(typeof document!=="undefined"){
+ const css=document.createElement("style");css.textContent=".volpop{position:fixed;z-index:70;background:var(--panel,#15232a);border:2px solid var(--gold2,#b97a22);border-radius:4px;padding:10px 12px;box-shadow:0 4px 0 #0008;display:flex;flex-direction:column;gap:8px;min-width:200px;font:300 13px var(--fT,system-ui);color:var(--ink,#f1e7d0)}.volpop[hidden]{display:none!important}.volpop .row{display:flex;align-items:center;gap:8px}.volpop input[type=range]{flex:1;accent-color:var(--gold,#f4bb4a)}.volpop .pct{font-family:var(--fP,monospace);min-width:3ch;text-align:right;color:var(--gold,#f4bb4a)}.volpop button{background:var(--panel2,#1c2e36);border:2px solid var(--line2,#3d5a66);border-radius:3px;color:var(--ink,#f1e7d0);padding:5px 10px;font:inherit;cursor:pointer}";
+ document.head.appendChild(css);
+ let pop=null,btn=null;
+ const sync=()=>{if(btn)btn.setAttribute("aria-pressed",A.muted?"true":"false");if(!pop)return;pop.querySelector(".mt").textContent=A.muted?"🔇 เปิดเสียง":"🔊 ปิดเสียง";const r=pop.querySelector("input");r.value=Math.round(A.vol*100);pop.querySelector(".pct").textContent=r.value;};
+ const build=()=>{pop=document.createElement("div");pop.className="volpop";pop.hidden=true;pop.setAttribute("role","dialog");pop.setAttribute("aria-label","ระดับเสียง");
+  pop.innerHTML='<div class="row"><span>เสียงเพลง</span><input type="range" min="0" max="100" step="5" aria-label="ระดับเสียงเพลง"><span class="pct"></span></div><button type="button" class="mt"></button>';
+  document.body.appendChild(pop);
+  pop.querySelector("input").addEventListener("input",e=>{A.init();if(A.muted&&+e.target.value>0)A.setMuted(false);A.setVolume(e.target.value/100);if(+e.target.value===0)A.setMuted(true);sync();});
+  pop.querySelector(".mt").addEventListener("click",()=>{A.init();A.setMuted(!A.muted);if(!A.muted&&A.vol===0)A.setVolume(.5);if(!A.muted&&A.cur>=0)A.music(A.cur);sync();});
+  document.addEventListener("pointerdown",e=>{if(pop.hidden)return;if(pop.contains(e.target)||(btn&&btn.contains(e.target)))return;pop.hidden=true;},true);
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!pop.hidden){pop.hidden=true;btn&&btn.focus();}});};
+ document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("#btnMute");if(!b)return;e.stopPropagation();e.preventDefault();btn=b;if(!pop)build();
+  if(!pop.hidden){pop.hidden=true;return;}A.init();sync();pop.hidden=false;const r=b.getBoundingClientRect(),w=pop.offsetWidth;pop.style.left=Math.max(8,Math.min(innerWidth-w-8,r.right-w))+"px";pop.style.top=(r.bottom+6)+"px";pop.querySelector("input").focus();},true);
+}
 window.AUDIO=A;})();
