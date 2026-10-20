@@ -388,7 +388,11 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  <div class="acts"><button class="btn pri" id="btnReborn" data-enter>เกิดใหม่ ↻<span class="kb">[Enter]</span></button></div>`;
  $('btnReborn').onclick=newBirth;renderMemo();if(document.activeElement===document.body||!document.activeElement)focusPrimary();}
 function newBirth(){AUDIO.music(0);S={v:1,phase:'birth',hero:rollHero(),rerolled:false,R:null,ev:null,out:null,cb:null,cmp:null,saved:false,runId:0};snap=null;VIS.coins=[];render();}
-function save(){}
+// ---- save/resume: whole state in localStorage, survives refresh & game updates ----
+const SKEY='tof-save-v1';
+function save(){try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}}
+function loadSave(){try{const st=JSON.parse(localStorage.getItem(SKEY)||'null');if(!st||st.v!==1||!st.hero)return null;
+ if(st.R)st.R=Object.assign(newRun(st.R.h||st.hero),st.R);return st;}catch(e){return null;}}
 document.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;const k=e.key;
  if(/^[1-9]$/.test(k)){const b=card.querySelector(`button[data-k="${k}"]`);if(b&&!b.disabled){e.preventDefault();b.click();}}
  else if(k==='Enter'){if(document.activeElement&&document.activeElement.tagName==='BUTTON')return;const b=card.querySelector('[data-enter]');if(b&&!b.disabled){e.preventDefault();b.click();}}
@@ -401,9 +405,9 @@ document.addEventListener('pointerdown',()=>{if(audioInit)return;audioInit=true;
 card.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!b.disabled)AUDIO.sfx('click');});
 (function(){const b=$('btnMute');if(!b)return;const sync=()=>b.setAttribute('aria-pressed',AUDIO.muted?'true':'false');sync();
  b.addEventListener('click',()=>{if(!audioInit){audioInit=true;try{AUDIO.init();}catch(e){}}AUDIO.setMuted(!AUDIO.muted);sync();if(S&&S.R)AUDIO.music(biome(S.R.floor));});})();
-function start(data){let st=data&&data.state;
- if(st&&st.v===1&&st.hero){S=st;if(S.phase==='combat'){S.phase=S.R&&S.R.alive?'result':'end';}renderMemo();render();}
- else{renderMemo();newBirth();}
+function start(data){let st=data&&data.state;if(!(st&&st.v===1&&st.hero))st=loadSave();
+ let ok=false;if(st){try{S=st;if(S.phase==='combat'){S.phase=S.R&&S.R.alive?'result':'end';}if(S.phase!=='birth'&&!S.R)S.phase='birth';renderMemo();render();ok=true;}catch(e){}}
+ if(!ok){try{localStorage.removeItem(SKEY);}catch(e){}renderMemo();newBirth();}
  requestAnimationFrame(loop);}
 try{window.claude?.hot?.snapshot?.(()=>({state:S}));}catch(e){}
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
