@@ -142,6 +142,10 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
 .kv dt{color:var(--muted)}.kv dd{margin:0}
 .judge{margin:8px 0;padding:8px;border-left:3px solid var(--karma);background:#1b1a24;font-size:14px}
 .shopg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.formbar{display:flex;gap:8px;padding:8px;background:var(--panel);border-top:2px solid var(--line)}
+.formbar .btn{flex:1 1 0;font-size:15px}
+.formbar .btn[aria-pressed="true"]{border-color:var(--gold);background:#2a2a1c;color:var(--gold)}
+.ftrow{display:flex;align-items:center;gap:8px;margin:-4px 0 10px}.ftrow .cd{flex:1;margin:0}.ftrow .cdl{font-size:12px;color:var(--muted);white-space:nowrap}
 @media (max-width:700px){
  .main,.lower{grid-template-columns:minmax(0,1fr)}
  .chips{flex-basis:100%}
@@ -219,8 +223,9 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
   <button type="button" data-speed="1" class="px">1x</button><button type="button" data-speed="2" class="px">2x</button><button type="button" data-speed="4" class="px">4x</button><button type="button" data-speed="8" class="px">8x</button><button type="button" data-speed="16" class="px">16x</button>
   <span class="note" id="ctlNote"></span>
  </div>
+ <div class="ftrow" id="ftRow" hidden><div class="cd" role="timer" aria-label="เวลาก่อนขึ้นชั้นถัดไป"><i id="ftBar"></i></div><span class="cdl" id="ftTxt"></span></div>
  <main class="main">
-  <section class="sceneBox"><canvas id="scene" width="192" height="128" aria-label="ฉากในหอคอย"></canvas><div class="biome" id="biomeTag"></div></section>
+  <section class="sceneBox"><canvas id="scene" width="192" height="128" aria-label="ฉากในหอคอย"></canvas><div class="biome" id="biomeTag"></div><div class="formbar" id="formBar" role="group" aria-label="เลือกร่าง" hidden></div></section>
   <section class="card" id="card" aria-live="polite"></section>
  </main>
  <section class="lower">

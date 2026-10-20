@@ -292,7 +292,10 @@ function partsHTML(P){return P.map(p=>`<span class="${p.c||''}">${esc(p.t)}</spa
 function chBtns(cs,onPick){return`<div class="chs">${cs.map((c,i)=>`<button class="ch" id="ch${i+1}" data-k="${i+1}" ${c.dis?'disabled':''}><span class="k">${i+1}</span><span><span class="t">${esc(c.t)}</span><span class="s">${partsHTML(c.P)}</span></span></button>`).join('')}</div>`;}
 function bindChoices(fn){card.querySelectorAll('button.ch').forEach((b,i)=>b.addEventListener('click',()=>fn(i)));}
 function focusPrimary(){const b=card.querySelector('[data-enter]')||card.querySelector('button:not(:disabled)');if(b&&document.activeElement&&document.activeElement!==document.body&&!card.contains(document.activeElement))return;if(b)try{b.focus({preventScroll:true});}catch(e){}}
-function render(){renderHUD();renderParty();renderLog();
+function renderFormBar(){const el=$('formBar');if(!el)return;const on=S.phase==='birth';el.hidden=!on;if(!on)return;const cur=window.ART.heroLook(S.hero).form;
+ el.innerHTML=[['slime','สไลม์'],['human','คน']].map(([f,n])=>`<button class="btn" type="button" data-form="${f}" aria-pressed="${cur===f}">ร่าง: ${n}</button>`).join('');
+ el.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{const f=b.dataset.form;rollHero.form=f;S.hero.look=Object.assign({},window.ART.heroLook(S.hero),{form:f});render();});}
+function render(){renderHUD();renderParty();renderLog();renderFormBar();
  const ph=S.phase;
  if(ph==='birth')renderBirth();else if(ph==='floor')renderFloor();else if(ph==='combat')renderCombat();else if(ph==='result')renderResult();else if(ph==='shop')renderShop();else if(ph==='end')renderEnd();
  focusPrimary();save();}
@@ -305,10 +308,8 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank];const mx
  <div class="odds">คุณคือ <b>1 ใน ${fmt(h.odds)}</b></div>
  <div class="rchart" aria-label="การกระจายแรงค์">${bars}</div><div class="rlab">${RANKS.map(r=>`<span>${r.k}</span>`).join('')}</div>
  <div class="foot">โอกาสได้แรงค์ ${Rk.k}: <b class="px">${Rk.w}%</b> · อาชีพ${C.n}: <b class="px">${(C.w/CLS_SUM*100).toFixed(1)}%</b></div></div>
- <div class="acts">${[['slime','สไลม์'],['human','คน']].map(([f,n])=>`<button class="btn" data-form="${f}" aria-pressed="${window.ART.heroLook(h).form===f}"${window.ART.heroLook(h).form===f?' style="border-color:var(--gold2)"':''}>ร่าง: ${n}</button>`).join('')}</div>
  <div class="acts"><button class="btn" id="btnReroll" data-k="1" ${S.rerolled?'disabled':''}>สุ่มใหม่ 1 ครั้ง${S.rerolled?' (ใช้แล้ว)':''}<span class="kb">[1]</span></button>
  <button class="btn pri" id="btnEnter" data-k="2" data-enter>เข้าหอ ▲<span class="kb">[Enter]</span></button></div>`;
- card.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{const f=b.dataset.form;rollHero.form=f;S.hero.look=Object.assign({},window.ART.heroLook(S.hero),{form:f});render();});
  $('btnReroll').onclick=()=>{if(S.rerolled)return;S.rerolled=true;S.hero=rollHero();render();};
  $('btnEnter').onclick=()=>{S.R=newRun(S.hero);S.runId=Date.now();snap=null;const o={msgs:[]};say(S.R,o,`${S.hero.name} ก้าวเข้าสู่หอคอยโชคชะตา`,'lv');nextEvent();};}
 function nextEvent(){S.ev=genEvent(S.R);S.cb=null;S.out=null;VIS.edead=false;S.phase='floor';AUDIO.music(biome(S.R.floor));if(S.ev.kind==='boss')AUDIO.sfx('boss');render();}

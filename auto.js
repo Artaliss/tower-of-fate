@@ -656,8 +656,8 @@ const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=n=>Math.round(n).toLocaleString('th-TH');
-const BASE_MS=30000;
-const decMs=K=>30000;
+const BASE_MS=5000;
+const decMs=K=>15000;
 let S=null;
 const VIS={hf:0,ef:0,nums:[],coins:[],shake:0,edead:false,walk0:0,show:null,dieAt:0};
 const PXF='8px '+((getComputedStyle(document.documentElement).getPropertyValue('--fP')||'monospace').trim());
@@ -743,10 +743,16 @@ function renderMemo(){const a=loadMemo();$('memo').innerHTML=a.length?a.slice(0,
 const card=$('card');
 function partsHTML(P){return P.map(p=>`<span class="${p.c||''}">${esc(p.t)}</span>`).join(' ');}
 function focusPrimary(){const b=card.querySelector('[data-enter]')||card.querySelector('button:not(:disabled)');if(b&&document.activeElement&&document.activeElement!==document.body&&!card.contains(document.activeElement))return;if(b)try{b.focus({preventScroll:true});}catch(e){}}
-function render(){if(S.phase!=='decide')card.classList.remove('legend');renderHUD();renderParty();renderLog();renderCtl();
+function renderFormBar(){const el=$('formBar');if(!el)return;const on=S.phase==='birth';el.hidden=!on;if(!on)return;const cur=window.ART.heroLook(S.hero).form;
+ el.innerHTML=[['slime','สไลม์'],['human','คน']].map(([f,n])=>`<button class="btn" type="button" data-form="${f}" aria-pressed="${cur===f}">ร่าง: ${n}</button>`).join('');
+ el.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{const f=b.dataset.form;rollHero.form=f;S.hero.look=Object.assign({},window.ART.heroLook(S.hero),{form:f});render();});}
+function render(){if(S.phase!=='decide')card.classList.remove('legend');renderHUD();renderParty();renderLog();renderCtl();renderFormBar();if(S.phase==='birth')saveBirth();
  const ph=S.phase;
  if(ph==='birth')renderBirth();else if(ph==='flow')renderFlow();else if(ph==='decide')renderDecide();else if(ph==='combat')renderCombat();else if(ph==='dying')renderDying();else if(ph==='end')renderEnd();
  if(ph!=='flow')focusPrimary();}
+setInterval(()=>{const row=$('ftRow');if(!row||!S)return;const on=S.phase==='flow'&&S.due;row.hidden=!on;if(!on)return;
+ const left=S.paused?(S.rem||0):Math.max(0,S.due-performance.now()),tot=S.dueTot||1;$('ftBar').style.width=(clamp(left/tot,0,1)*100)+'%';
+ $('ftTxt').textContent=S.paused?'หยุดเวลาไว้':`ชั้นถัดไปใน ${(left/1000).toFixed(1)} วินาที`;},100);
 function renderCtl(){const on=S.phase==='flow'||S.phase==='decide'||S.phase==='combat';$('ctl').hidden=!on;if(!on)return;
  const p=$('btnPause');p.textContent=S.paused?'▶ เดินต่อ':'⏸ หยุด';p.setAttribute('aria-pressed',S.paused?'true':'false');
  document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.speed===S.speed?'true':'false'));
@@ -763,17 +769,15 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  <div class="rchart" aria-label="การกระจายแรงค์">${bars}</div><div class="rlab">${RANKS.map(r=>`<span>${r.k}</span>`).join('')}</div>
  <div class="foot">โอกาสได้แรงค์ ${Rk.k}: <b class="px">${Rk.w}%</b> · อาชีพ${C.n}: <b class="px">${(C.w/CLS_SUM*100).toFixed(1)}%</b></div></div>
  <p class="dim" style="font-size:13px;margin:10px 0 0">ในโหมดนี้ชีวิตเดินไปเอง คุณได้ตัดสินใจเฉพาะตอนสำคัญ โดยมีเวลาคิดราว 10 วินาที ส่วนจะตายที่ชั้นไหน ชะตากำหนดไว้แล้วตั้งแต่เกิด</p>
- <div class="acts">${[['slime','สไลม์'],['human','คน']].map(([f,n])=>`<button class="btn" data-form="${f}" aria-pressed="${look(h).form===f}"${look(h).form===f?' style="border-color:var(--gold2)"':''}>ร่าง: ${n}</button>`).join('')}</div>
  <div class="acts"><button class="btn" id="btnReroll" data-k="1" ${S.rerolled?'disabled':''}>สุ่มใหม่ 1 ครั้ง${S.rerolled?' (ใช้แล้ว)':''}<span class="kb">[1]</span></button>
  <button class="btn pri" id="btnEnter" data-k="2" data-enter>เข้าหอ ▲<span class="kb">[Enter]</span></button></div>`;
- card.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{const f=b.dataset.form;rollHero.form=f;S.hero.look=Object.assign({},look(S.hero),{form:f});render();});
  $('btnReroll').onclick=()=>{if(S.rerolled)return;S.rerolled=true;S.hero=rollHero();render();};
  $('btnEnter').onclick=startRun;}
-function startRun(){S.R=newRun(S.hero);S.R.xseen=loadSeen();S.runId=Date.now();snap=null;const o=mkOut();say(S.R,o,`${S.hero.name} ก้าวเข้าสู่หอคอยโชคชะตา`,'lv');
+function startRun(){try{localStorage.removeItem(BKEY);}catch(e){}S.R=newRun(S.hero);S.R.xseen=loadSeen();S.runId=Date.now();snap=null;const o=mkOut();say(S.R,o,`${S.hero.name} ก้าวเข้าสู่หอคอยโชคชะตา`,'lv');
  S.frame={f:1,tag:'ชั้น 1 · ทางเข้า',title:'ประตูหอคอยเปิดออก',text:'บันไดหินวนขึ้นไปจนลับตา ไม่มีใครรู้ว่าตัวเองจะไปได้ถึงไหน',msgs:o.msgs};
  S.phase='flow';VIS.walk0=performance.now();VIS.show=null;AUDIO.music(0);render();schedule(floorMs());}
 const floorMs=()=>BASE_MS/S.speed;
-function schedule(ms){clearTimeout(S.tm);S.due=performance.now()+ms;S.tm=setTimeout(tick,ms);}
+function schedule(ms){clearTimeout(S.tm);S.due=performance.now()+ms;S.dueTot=Math.max(ms,S.dueTot&&S.dueRe?S.dueTot:ms);S.dueRe=false;S.tm=setTimeout(tick,ms);}
 let fxT=[];function clearFx(){fxT.forEach(clearTimeout);fxT=[];}
 function evFrame(f,ev){const b=BIOMES[biome(f)];
  if(ev.kind==='mon')return{tag:`ชั้น ${f} · ${b} · มอนสเตอร์`,title:ev.en.n,text:'',vis:{t:'en',en:ev.en}};
@@ -893,13 +897,16 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  <h2 style="margin-top:12px">เทียบกับชะตาของนักผจญภัย 2,000 คน</h2>${cmpH}
  <div class="acts"><button class="btn pri" id="btnReborn" data-enter>เกิดใหม่ ↻<span class="kb">[Enter]</span></button></div>`;
  $('btnReborn').onclick=newBirth;renderMemo();}
-function newBirth(){if(S){clearTimeout(S.tm);clearInterval(cdI);clearTimeout(dyT);clearTimeout(cbTimer);}clearFx();AUDIO.music(0);
- const sp=S?S.speed:loadSpeed();S={phase:'birth',hero:rollHero(),rerolled:false,R:null,K:null,cb:null,cmp:null,saved:false,runId:0,speed:sp,paused:false,tm:0,frame:null};
+const BKEY='tof-auto-birth-v1';
+function saveBirth(){try{localStorage.setItem(BKEY,JSON.stringify({hero:S.hero,rerolled:S.rerolled}));}catch(e){}}
+function loadBirth(){try{const b=JSON.parse(localStorage.getItem(BKEY)||'null');return b&&b.hero&&b.hero.name&&CLASSES[b.hero.cls]&&RANKS[b.hero.rank]?b:null;}catch(e){return null;}}
+function newBirth(fromLoad){const B=fromLoad===true?loadBirth():null;if(S){clearTimeout(S.tm);clearInterval(cdI);clearTimeout(dyT);clearTimeout(cbTimer);}clearFx();AUDIO.music(0);
+ const sp=S?S.speed:loadSpeed();S={phase:'birth',hero:B?B.hero:rollHero(),rerolled:B?!!B.rerolled:false,R:null,K:null,cb:null,cmp:null,saved:false,runId:0,speed:sp,paused:false,tm:0,frame:null};
  snap=null;VIS.coins=[];VIS.show=null;render();}
 function loadSpeed(){try{const v=+localStorage.getItem('tof-auto-speed');return[1,2,4,8,16].includes(v)?v:1;}catch(e){return 1;}}
-function setSpeed(v){const o=S.speed;S.speed=v;try{localStorage.setItem('tof-auto-speed',String(v));}catch(e){}renderCtl();if(S.phase==="flow"&&!S.paused)schedule(Math.max(200,((S.due||0)-performance.now())*o/v));}
+function setSpeed(v){const o=S.speed;S.speed=v;if(S.dueTot)S.dueTot=S.dueTot*o/v;S.dueRe=true;try{localStorage.setItem('tof-auto-speed',String(v));}catch(e){}renderCtl();if(S.phase==="flow"&&!S.paused)schedule(Math.max(200,((S.due||0)-performance.now())*o/v));}
 function togglePause(){if(!['flow','decide','combat'].includes(S.phase))return;S.paused=!S.paused;renderCtl();
- if(S.phase==='flow'){renderFlow();if(S.paused){clearTimeout(S.tm);S.rem=Math.max(250,(S.due||0)-performance.now());}else schedule(S.rem||250);}else if(S.phase==='decide')updCd();}
+ if(S.phase==='flow'){renderFlow();if(S.paused){clearTimeout(S.tm);S.rem=Math.max(250,(S.due||0)-performance.now());}else{S.dueRe=true;schedule(S.rem||250);}}else if(S.phase==='decide')updCd();}
 $('btnPause').onclick=togglePause;
 document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.speed));
 document.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;const k=e.key;
@@ -913,6 +920,6 @@ document.addEventListener('pointerdown',()=>{if(audioInit)return;audioInit=true;
 card.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!b.disabled)AUDIO.sfx('click');});
 (function(){const b=$('btnMute');if(!b)return;const sync=()=>b.setAttribute('aria-pressed',AUDIO.muted?'true':'false');sync();
  b.addEventListener('click',()=>{if(!audioInit){audioInit=true;try{AUDIO.init();}catch(e){}}AUDIO.setMuted(!AUDIO.muted);sync();if(S&&S.R)AUDIO.music(biome(S.R.floor));else AUDIO.music(0);});})();
-renderMemo();newBirth();requestAnimationFrame(loop);
+renderMemo();newBirth(true);requestAnimationFrame(loop);
 window.__auto={get S(){return S;},tick,choose};
 })();
