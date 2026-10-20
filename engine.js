@@ -246,7 +246,7 @@ function drawScene(t){const R=S.R,h=R?R.h:S.hero;const b=R?biome(R.floor):0;
   else if(ev&&ev.kind==='comp'&&ph==='floor')blit(cx,heroSpr(ev.comp.cls),128,84+bob,{flip:true,key:'c'+ev.comp.cls});
  }
  // numbers & coins
- cx.font='8px "Pixelify Sans",monospace';cx.textAlign='center';
+ cx.font='8px "DotGothic16",monospace';cx.textAlign='center';
  VIS.nums=VIS.nums.filter(n=>t-n.t0<900);for(const n of VIS.nums){const k=(t-n.t0)/900;cx.globalAlpha=1-k;cx.fillStyle='#000';cx.fillText(n.s,n.x+1,n.y-k*14+1);cx.fillStyle=n.c;cx.fillText(n.s,n.x,n.y-k*14);}cx.globalAlpha=1;
  VIS.coins=VIS.coins.filter(c=>c.y<140);for(const c of VIS.coins){c.vy+=.18;c.x+=c.vx;c.y+=c.vy;if(c.y>104&&c.vy>0){c.vy*=-.45;c.y=104;c.b++;if(c.b>3)c.y=200;}blit(cx,COIN,c.x,c.y);}
  cx.restore();}
