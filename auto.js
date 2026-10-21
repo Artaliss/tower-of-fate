@@ -1609,7 +1609,7 @@ function saveMemo(e){const a=loadMemo();a.unshift(e);
  for(let k=a.length-1;k>=-1;k--){try{localStorage.setItem(MKEY,JSON.stringify(a));return;}catch(err){if(k<0)return;MEMO_BULK.forEach(f=>{if(a[k])delete a[k][f];});}}}
 let memoAll=false;
 function renderMemo(){const a=[...loadMemo(),...loadOldMemo()].sort((x,y)=>(y.t||0)-(x.t||0)),N=12,show=memoAll?a:a.slice(0,N);
- $('memo').innerHTML=a.length?show.map(m=>`<div class="row"><span class="px" style="color:${RANKS[m.rank]?RANKS[m.rank].col:'#fff'}">${esc(RANKS[m.rank]?RANKS[m.rank].k:'?')}</span><span>${esc(m.name)}${m.drg==='f'?' 🐉':m.drg==='s'?' ⚔':''} · ${esc(m.cls)}${m.gen>1?` · รุ่นที่ ${m.gen}`:''}${m.old?' <span class="oldtag">โหมดเก่า</span>':''}${m.pat?` <span class="mpat" title="ลวดลายชะตา: ${esc(m.patN||'')}">${esc(m.pat)}${m.patN?' '+esc(m.patN):''}</span>`:''}<br><span class="x">${esc(m.cause)}</span></span><span class="px">${m.won?'👑 ':''}${m.floor}F</span></div>`).join('')
+ $('memo').innerHTML=a.length?show.map(m=>`<div class="row"><span class="px" style="color:${RANKS[m.rank]?RANKS[m.rank].col:'#fff'}">${esc(RANKS[m.rank]?RANKS[m.rank].k:'?')}</span><span>${esc(m.name)}${m.drg==='f'?' 🐉':m.drg==='s'?' ⚔':''} · ${esc(m.cls)}${m.gen>1?` · รุ่นที่ ${m.gen}`:''}${m.old?' <span class="oldtag">โหมดเก่า</span>':''}${m.pat?` <span class="mpat"${patTip(m.pat,m.patN)}>${esc(patEmo(m.pat))}${m.patN?' '+esc(m.patN):''}</span>`:''}<br><span class="x">${esc(m.cause)}</span></span><span class="px">${m.won?'👑 ':''}${m.floor}F</span></div>`).join('')
   +(a.length>N?`<button type="button" class="btn memomore" id="memoMore">${memoAll?'ย่อรายการ':`ดูเพิ่ม (อีก ${a.length-N} คน)`}</button>`:''):'<div class="dim" style="font-size:13px">ยังไม่มีใครนอนอยู่ที่นี่</div>';
  const b=$('memoMore');if(b)b.onclick=()=>{memoAll=!memoAll;renderMemo();};}
 // ---- lineage (สายตระกูล): every life is appended to its line; apprentices continue the line, rebirth starts a new one ----
@@ -2089,7 +2089,9 @@ function endBar(on){const b=$('endBar');if(!b)return;if(ebIO){ebIO.disconnect();
  ebIO=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)vis.add(e.target);else vis.delete(e.target);});upd();},{threshold:.4});acts.forEach(a=>ebIO.observe(a));
  if(!b._w){b._w=1;$('ebShare').onclick=()=>openShare(false);$('ebReborn').onclick=()=>{const r=$('btnReborn');if(r)r.click();};}}
 // ---- ลวดลายชะตา: 16 patterns from four two-pole axes (log-ratio lean with a prior, so short runs stay near the middle) ----
-const PAX=[{L:'บุก',R:'ระวังตัว',cL:'บ',cR:'ร'},{L:'หาของ',R:'ช่วยเหลือ',cL:'ห',cR:'ช'},{L:'ไปคนเดียว',R:'มีเพื่อน',cL:'ด',cR:'พ'},{L:'กรรมดี',R:'กรรมชั่ว',cL:'☀',cR:'☾'}];
+// cL/cR: the letters stored in saves and share links (keep them), eL/eR: what players see
+const PAX=[{L:'บุก',R:'ระวังตัว',cL:'บ',cR:'ร',eL:'⚔️',eR:'🛡️'},{L:'หาของ',R:'ช่วยเหลือ',cL:'ห',cR:'ช',eL:'💰',eR:'🤝'},{L:'ไปคนเดียว',R:'มีเพื่อน',cL:'ด',cR:'พ',eL:'🚶',eR:'👥'},{L:'กรรมดี',R:'กรรมชั่ว',cL:'☀',cR:'☾',eL:'☀️',eR:'🌙'}];
+const patEmo=code=>Array.from(code||'').map((c,i)=>!PAX[i]?c:c===PAX[i].cL?PAX[i].eL:c===PAX[i].cR?PAX[i].eR:c).join('');
 const PATS={
  'บหด☀':['พรานเดี่ยวใจซื่อ','บุกไปข้างหน้าคนเดียว เก็บทุกอย่างที่เจอ แต่ไม่เคยหยิบของของใคร'],
  'บหด☾':['โจรสลัดแห่งหอคอย','ลุยเข้าไปคนเดียวแล้วกวาดทุกอย่างที่ขวางทาง ไม่สนว่าเป็นของใคร'],
@@ -2119,11 +2121,15 @@ function fatePattern(R){const H=R.stH||'',cnt=c=>H.split(c).length-1,p=R.h.pers,
   leanOf(fl-pw,pw,4,w3),leanOf(g,b,3,w3)];
  const sd=shash(R.h.name+'|'+fl);v.forEach((x,i)=>{if(!x)v[i]=(sd>>i)&1?1:-1;});
  const code=v.map((x,i)=>x<0?PAX[i].cL:PAX[i].cR).join(''),P=PATS[code]||['นักผจญภัย',''];return{code,n:P[0],d:P[1],v};}
+// tooltip attributes for a pattern code: what each of the four letters means
+function patTip(code,name){const L=Array.from(code||'');if(L.length!==4)return' data-tip="pat"';
+ const d=L.map((c,i)=>c===PAX[i].cL?`${PAX[i].eL} ${PAX[i].L}`:`${PAX[i].eR} ${PAX[i].R}`).join(' · ');
+ return` data-tip="pat" tabindex="0" data-tipn="${esc(patEmo(code)+(name?' '+name:''))}" data-tipd="${esc(d+(PATS[code]&&PATS[code][1]?'\n'+PATS[code][1]:''))}"`;}
 function leanLab(x,ax){const a=Math.abs(x),pole=x<0?ax.L:ax.R;return a<12?'เกือบตรงกลาง':a<40?`เอนไปทาง${pole}นิดหน่อย`:a<75?`ค่อนไปทาง${pole}`:`${pole}เต็มตัว`;}
 function patHTML(pt){if(!pt)return'';
- return`<div class="patc"><div class="pth"><span class="ptk">ลวดลายชะตา</span><span class="ptcode">${esc(pt.code)}</span></div><div class="ptn">${esc(pt.n)}</div><div class="ptd">${esc(pt.d)}</div>
- <div class="ptax">${PAX.map((ax,i)=>`<div class="pta"><span class="pl${pt.v[i]<0?' on':''}">${ax.cL} ${ax.L}</span><span class="ptr" role="img" aria-label="${esc(leanLab(pt.v[i],ax))}"><i style="left:${(50+pt.v[i]/2).toFixed(1)}%"></i></span><span class="pr${pt.v[i]>0?' on':''}">${ax.R} ${ax.cR}</span><span class="ptl">${esc(leanLab(pt.v[i],ax))}</span></div>`).join('')}</div>
- <details class="ptmore"><summary>ลวดลายทั้ง 16 แบบ</summary><ul>${Object.keys(PATS).map(k=>`<li${k===pt.code?' class="me"':''}><b class="px">${k}</b> ${esc(PATS[k][0])}</li>`).join('')}</ul></details>
+ return`<div class="patc"><div class="pth"><span class="ptk" data-tip="pat">ลวดลายชะตา</span><span class="ptcode"${patTip(pt.code,pt.n)}>${esc(patEmo(pt.code))}</span></div><div class="ptn">${esc(pt.n)}</div><div class="ptd">${esc(pt.d)}</div>
+ <div class="ptax">${PAX.map((ax,i)=>`<div class="pta"><span class="pl${pt.v[i]<0?' on':''}">${ax.eL} ${ax.L}</span><span class="ptr" role="img" aria-label="${esc(leanLab(pt.v[i],ax))}"><i style="left:${(50+pt.v[i]/2).toFixed(1)}%"></i></span><span class="pr${pt.v[i]>0?' on':''}">${ax.R} ${ax.eR}</span><span class="ptl">${esc(leanLab(pt.v[i],ax))}</span></div>`).join('')}</div>
+ <details class="ptmore"><summary>ลวดลายทั้ง 16 แบบ</summary><ul>${Object.keys(PATS).map(k=>`<li${k===pt.code?' class="me"':''}><b class="px"${patTip(k,PATS[k][0])}>${patEmo(k)}</b> ${esc(PATS[k][0])}</li>`).join('')}</ul></details>
  <p class="ptnote">คิดจากท่าทีที่ใช้ ของที่เก็บกับคนที่ช่วย เวลาที่มีเพื่อนร่วมทาง และบัญชีกรรม ไม่มีลวดลายไหนดีกว่ากัน</p></div>`;}
 
 // ---- end cinematic (after 1in8b): title → montage of key moments → funeral (or summit fireworks) → epitaph → "ดูบันทึก" ----
@@ -2187,7 +2193,7 @@ function cineSteps(R){const h=R.h,won=R.won,fl=won?100:R.floor,C=CLASSES[h.cls],
   :{k:'m',fr:{kind:'fun',f:fl,cap:`ร่างของ${h.name}ถูกฝังไว้ที่เชิงหอคอย`,sub:wj?`${wj} มายืนส่งเป็นครั้งสุดท้าย`:'ไม่มีใครมาส่ง มีแค่ลมที่พัดลงมาจากหอคอย'},d:5600,fun:1});
  const eu=S.eu||{who:'',line:''},pt=S.pat;
  St.push({k:'e',lines:[won?`เกิดที่${h.village} และได้ยืนบนยอดหอคอย`:`เกิดที่${h.village} และหลับลงที่${BIOMES[biome(fl)]} ชั้น ${fl}`,
-  `ผ่านไป ${fl} ชั้น เลือกทางเอง ${R.keys} ครั้ง${R.kills?` ปราบมอนสเตอร์ ${fmt(R.kills)} ตัว`:''}`,eu.who?`「${eu.who}」`:'',pt?`ลวดลายชะตา ${pt.code} · ${pt.n}`:''].filter(Boolean),
+  `ผ่านไป ${fl} ชั้น เลือกทางเอง ${R.keys} ครั้ง${R.kills?` ปราบมอนสเตอร์ ${fmt(R.kills)} ตัว`:''}`,eu.who?`「${eu.who}」`:'',pt?`ลวดลายชะตา ${patEmo(pt.code)} · ${pt.n}`:''].filter(Boolean),
   close:'หอคอยร้อยชั้นนี้ เดินแบบนี้ได้เพียงครั้งเดียว'});
  return St;}
 function cineBuild(){const R=S.R,h=R.h,fl=R.won?100:R.floor;let el=CINE.el;if(el)el.remove();

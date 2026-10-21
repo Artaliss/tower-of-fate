@@ -57,6 +57,7 @@ const T=[
 {k:'day',g:'หอคอย',n:'หัวข้อของวัน',kw:['หัวข้อวันนี้'],d:'ทุกคนที่เกิดในวันเดียวกัน (ตามเวลาไทย) ได้หัวข้อเดียวกัน หัวข้อจะทำให้เรื่องบางแบบโผล่บ่อยขึ้น บางวันก็มีผลกับทองหรือมอนสเตอร์ด้วย ตอนจบจะบอกว่าชีวิตนี้ได้เจอเรื่องของวันนั้นไหม แล้วเทียบกับคนอื่นที่เข้าหอวันเดียวกัน ถ้าเกิดก่อนเที่ยงคืนแล้วเล่นข้ามวัน หัวข้อเดิมยังอยู่จนจบชีวิตนั้น'},
 {k:'clan',g:'สายตระกูล',hid:1,n:'ฉายาตระกูล / รอยมังกร',kw:['ดยุกปราบมังกร','สหายมังกร','คำสาปนักล่ามังกร','ตระกูลนักล่ามังกร','ฉายาตระกูล'],d:'ตระกูลที่เคยปะทะมังกรจะได้ฉายาติดไปทุกรุ่น · สหายมังกร: ซาลาแมนเดอร์ไม่ทำร้ายคนในตระกูล บอสมังกรก็ออมมือให้ 20% · นักล่ามังกร: ติดคำสาป มอนและบอสสายมังกรแรงขึ้น 25% จนกว่าคนในตระกูลจะล้มมังกรครบ 3 ตัว (นับบอสมังกรชั้น 70 กับ 80 มังกรเกล็ดเขียวในตำนาน และมังกรบนชั้นลับ) · ดยุกปราบมังกร: คำสาปหายแล้ว ฉายายังอยู่'},
 {k:'clanpet',g:'สายตระกูล',hid:1,n:'สัตว์ประจำตระกูล',kw:['สัตว์ประจำตระกูล','ไข่มังกร'],d:'ไข่ที่เอากลับมาจากชั้นลับจะฟักตอนลูกหลานคนถัดไปเกิด กลายเป็นสัตว์ประจำตระกูล ทุกชีวิตหลังจากนั้นเริ่มเกมมาพร้อมมันเลย'},
+{k:'pat',g:'ตัวละคร',hid:1,n:'ลวดลายชะตา',kw:[],d:'อีโมจิ 4 ตัวที่สรุปว่าชีวิตนี้เดินทางแบบไหน ตัวแรกคือบุก ⚔️ หรือระวังตัว 🛡️ ตัวที่สองคือหาของ 💰 หรือช่วยเหลือ 🤝 ตัวที่สามคือไปคนเดียว 🚶 หรือมีเพื่อน 👥 ตัวสุดท้ายคือกรรมดี ☀️ หรือกรรมชั่ว 🌙 มีทั้งหมด 16 แบบ และไม่มีแบบไหนดีกว่ากัน'},
 {k:'dsl',g:'ตัวละคร',hid:1,n:'อาชีพลับ: นักล่ามังกร',kw:['อาชีพลับ','นักล่ามังกร'],d:'สุ่มได้เฉพาะตระกูลที่เคยฆ่ามังกรมาแล้ว สกิลติดตัว: ตีมังกรแรงขึ้น 1.5 เท่า ตีบอสแรงขึ้น 10%'}];
 const BY={};T.forEach(t=>BY[t.k]=t);
 const KW=T.flatMap(t=>t.kw.map(w=>[w,t.k])).sort((a,b)=>b[0].length-a[0].length);
@@ -132,10 +133,11 @@ const css=document.createElement('style');css.textContent=`
 .tipbox{position:fixed;z-index:60;max-width:min(300px,calc(100vw - 24px));background:#0d1619;color:var(--ink,#f1e7d0);border:2px solid var(--gold2,#b97a22);border-radius:4px;padding:8px 10px;font:300 13px/1.5 var(--fT,system-ui);box-shadow:0 4px 0 #0008;pointer-events:none}
 .tipbox .th{display:flex;align-items:flex-start;gap:8px;margin-bottom:2px}
 .tipbox .th b{flex:1;color:var(--gold,#f4bb4a);font-weight:500}
+.tipbox .td{white-space:pre-line}
 .tipbox .tx,.tipbox .tm{display:none}
 .tipbox.pin{pointer-events:auto}
 .tipbox.pin .tx{display:block;flex:none;background:none;border:1px solid var(--line2,#3d5a66);border-radius:3px;color:var(--ink,#f1e7d0);min-width:28px;min-height:28px;padding:0 6px;font-size:13px;line-height:1;margin:-2px -4px 0 0}
-.tipbox.pin .tm{display:block;margin-top:6px;background:none;border:0;padding:4px 0;color:var(--gold,#f4bb4a);font:inherit;text-decoration:underline;text-underline-offset:3px}
+.tipbox.pin:not(.nomore) .tm{display:block;margin-top:6px;background:none;border:0;padding:4px 0;color:var(--gold,#f4bb4a);font:inherit;text-decoration:underline;text-underline-offset:3px}
 .helpbtn{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:50;background:var(--gold,#f4bb4a);color:#1a1206;border:2px solid #7a5214;border-radius:20px;padding:6px 12px;font:500 14px var(--fT,system-ui);box-shadow:0 3px 0 #0008}
 .helpdlg{border:2px solid var(--line2,#3d5a66);background:var(--panel,#15232a);color:var(--ink,#f1e7d0);border-radius:6px;padding:0;width:min(580px,calc(100vw - 24px));max-height:min(86vh,720px);box-sizing:border-box}
 .helpdlg[open]{display:flex;flex-direction:column}
@@ -194,9 +196,10 @@ let cur=null,pinned=false;
 function place(el){const r=el.getBoundingClientRect(),bw=box.offsetWidth,bh=box.offsetHeight;
  let x=Math.min(Math.max(8,r.left+r.width/2-bw/2),innerWidth-bw-8),y=r.bottom+8;if(y+bh>innerHeight-8)y=Math.max(8,r.top-bh-8);
  box.style.left=x+'px';box.style.top=y+'px';}
-function show(el,pin){const t=BY[el.dataset.tip];if(!t)return;cur=el;pinned=!!pin;
- box.querySelector('.th b').textContent=t.n;box.querySelector('.td').textContent=t.d;
- box.classList.toggle('pin',pinned);box.setAttribute('role',pinned?'dialog':'tooltip');box.setAttribute('aria-label',t.n);
+// data-tipn / data-tipd on the element override the term's title and text (for per-item tips such as a fate pattern code)
+function show(el,pin){const t=BY[el.dataset.tip];if(!t)return;cur=el;pinned=!!pin;const n=el.dataset.tipn||t.n;
+ box.querySelector('.th b').textContent=n;box.querySelector('.td').textContent=el.dataset.tipd||t.d;
+ box.classList.toggle('pin',pinned);box.classList.toggle('nomore',!TAB_OF[el.dataset.tip]);box.setAttribute('role',pinned?'dialog':'tooltip');box.setAttribute('aria-label',n);
  box.hidden=false;place(el);setP('tip',pinned);}
 function hide(){if(box.hidden&&!cur)return;box.hidden=true;cur=null;pinned=false;box.classList.remove('pin');setP('tip',false);}
 const tipOf=t=>t&&t.closest&&t.closest('[data-tip]');

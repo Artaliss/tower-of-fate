@@ -93,11 +93,12 @@ function normB(d){d=Object.assign({},d||{});d.birth=true;d.name=str(d.name)||'�
  const ci=CLS_IDS.indexOf(d.clsId);d.clsN=str(d.clsN)||(ci>=0?CLS_N[ci]:'');d.odds=Math.max(0,Math.round(+d.odds||0));d.clsOdds=Math.max(0,Math.round(+d.clsOdds||0));
  d.omenN=str(d.omenN);d.omenK=str(d.omenK);d.dayN=str(d.dayN);d.lookName=str(d.lookName);d.gen=Math.max(1,Math.round(+d.gen||1));d.house=str(d.house);
  d.note=cleanNote(d.note);d.date=d.date||Date.now();d.floor=1;d.won=false;d.pets=[];d.drg='';d.secret=false;return d;}
-// ลวดลายชะตา row: code + name on the left, four mini lean bars on the right (poles: บ/ร ห/ช ด/พ ☀/☾)
+// ลวดลายชะตา row: code + name on the left, four mini lean bars on the right. Codes travel as letters (บ/ร ห/ช ด/พ ☀/☾) and show as emoji.
+const PAT_E={'บ':'⚔️','ร':'🛡️','ห':'💰','ช':'🤝','ด':'🚶','พ':'👥','☀':'☀️','☾':'🌙'},patEmo=c=>Array.from(c||'').map(x=>PAT_E[x]||x).join('');
 const PAT_P=[['บุก','ระวังตัว'],['หาของ','ช่วยเหลือ'],['คนเดียว','มีเพื่อน'],['กรรมดี','กรรมชั่ว']];
 function drawPat(ctx,d,y){const p=d.pat;
  line(ctx,'ลวดลายชะตา',64,y+28,{size:22,col:P.ink3,maxW:300});
- setF(ctx,600,40);const cw=Math.min(190,ctx.measureText(p.code).width);line(ctx,p.code,64,y+72,{size:40,weight:600,col:P.stamp,maxW:190,min:24});
+ setF(ctx,600,40);const pc=patEmo(p.code),cw=Math.min(190,ctx.measureText(pc).width);line(ctx,pc,64,y+72,{size:40,weight:600,col:P.stamp,maxW:190,min:24});
  line(ctx,p.n,64+cw+22,y+70,{size:34,weight:600,col:P.ink,maxW:600-64-cw-22,min:20});
  const bx=738,bw=176;p.v.forEach((v,i)=>{const yy=y+9+i*18;
   line(ctx,PAT_P[i][0],bx-10,yy+7,{size:17,col:v<0?P.stamp:P.ink3,maxW:96,min:12,align:'right'});line(ctx,PAT_P[i][1],bx+bw+10,yy+7,{size:17,col:v>0?P.stamp:P.ink3,maxW:96,min:12});
@@ -323,7 +324,7 @@ function hooks(d){const k=d.hk||{},out=[],seed=hashStr(d.name+'|'+d.floor+'|'+d.
   add('drg','drg',d.drg==='n'?4.5:9,d.drg==='f'?`ขึ้นไปถึงชั้นลับเหนือยอดหอ ตีมังกร${c}จนยอมแพ้แล้วไว้ชีวิตมัน`:d.drg==='s'?`ขึ้นไปถึงชั้นลับเหนือยอดหอ แล้วฆ่ามังกร${c}ตาย`:d.drg==='x'?`ขึ้นไปถึงชั้นลับเหนือยอดหอ แต่ไปตายต่อหน้ามังกร${c}`:'เจอบันไดลับเหนือยอดหอ แต่ไม่ขึ้นไป',100);}
  if(d.lift)add('lift','lift',8.5,'ตระกูลล้มมังกรครบ 3 ตัว คำสาปนักล่ามังกรเลยหายไป',100.5);
  if(d.title)add('title','title',k.gold?6:3,`ได้ฉายา「${d.title}」`,96);
- if(d.pat)add('pat','pat',4.2,`ลวดลายชะตาคือ ${d.pat.code} 「${d.pat.n}」`,96.5);
+ if(d.pat)add('pat','pat',4.2,`ลวดลายชะตาคือ ${patEmo(d.pat.code)} 「${d.pat.n}」`,96.5);
  if(Math.abs(d.karma)>=15)add('karma','karma',4,d.karma>0?`ทำบุญไว้จนกรรมดีถึง +${d.karma}`:`สะสมกรรมชั่วไว้ถึง ${d.karma}`,95);
  if(d.scars>=3)add('scar','scar',3,`มีแผลเป็น ${d.scars} แผล แต่ก็ยังเดินต่อ`,94);
  out.sort((a,b)=>b.s-a.s);const g={},pick=[];for(const h of out){if(g[h.g])continue;g[h.g]=1;pick.push(h);if(pick.length>=3)break;}
