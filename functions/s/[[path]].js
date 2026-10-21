@@ -7,7 +7,8 @@
 // decode() / cleanTxt() / fnv8() below must stay identical to the copies in share.js.
 
 const ORIGIN = 'https://tower-of-fate.pages.dev';
-const CLS_IDS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra'], CLS_N = ['นักรบ', 'จอมเวท', 'นักธนู', 'นักบวช', 'โจร', 'ชาวไร่', 'อัศวินมังกร'];
+// append only: same order as share.js (index is packed into the code)
+const CLS_IDS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra', 'dsl'], CLS_N = ['นักรบ', 'จอมเวท', 'นักธนู', 'นักบวช', 'โจร', 'ชาวไร่', 'อัศวินมังกร', 'นักล่ามังกร'];
 const RANK_K = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'];
 
 // ---- shared with share.js (keep identical) ----
@@ -20,12 +21,12 @@ function cleanTxt(s,max){s=str(s).replace(/<[^>]*>/g,'').replace(/[\u0000-\u001f
 function decode(code){
  try{code=String(code||'');if(!/^[A-Za-z0-9_-]{8,120}$/.test(code))return null;
   const b=unb64u(code);if(b.length<7)return null;const body=b.subarray(0,b.length-1);if(fnv8(body)!==b[b.length-1])return null;
-  const ver=b[0];if(ver!==1&&ver!==2)return null;const rank=b[1]>>3,cls=b[1]&7,floor=b[2]&127,won=!!(b[2]&128),pct=b[3]&127,human=!!(b[3]&128);
-  if(rank>7||cls>6||floor<1||floor>100||pct>100||(won&&floor!==100))return null;
+  const ver=b[0];if(ver!==1&&ver!==2)return null;const rank=(b[1]>>3)&7,cls=b[1]&7,dg=b[1]>>6,floor=b[2]&127,won=!!(b[2]&128),pct=b[3]&127,human=!!(b[3]&128);
+  if(dg>2||(dg&&!won)||floor<1||floor>100||pct>100||(won&&floor!==100))return null;
   const rest=body.subarray(4),z=rest.indexOf(0);if(z<1)return null;
   const dec=x=>ver===1?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
   const name=cleanTxt(dec(rest.subarray(0,z)),16),title=cleanTxt(dec(rest.subarray(z+1)),18);if(!name)return null;
-  return{rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],floor,won,pct,form:human?'human':'slime',name,title};
+  return{rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],floor,won,pct,form:human?'human':'slime',name,title,drg:['','f','s'][dg]};
  }catch(e){return null;}}
 // -----------------------------------------------
 
@@ -37,7 +38,8 @@ export function codeOf(pathname) {
 // text for the link preview; every value is already stripped of < > " ' ` \ & by cleanTxt()
 export function metaFor(r, code) {
   const who = `${r.name} ${r.clsN}แรงค์ ${r.rankK}`;
-  const title = r.won ? `${who} พิชิตยอดหอคอยโชคชะตาได้` : `${who} ไปถึงชั้น ${r.floor} ของหอคอยโชคชะตา`;
+  const drg = r.drg === 'f' ? ' แล้วไว้ชีวิตมังกรบนชั้นลับ' : r.drg === 's' ? ' แล้วล้มมังกรบนชั้นลับได้' : '';
+  const title = r.won ? (drg ? `${who} พิชิตยอดหอคอยโชคชะตา${drg}` : `${who} พิชิตยอดหอคอยโชคชะตาได้`) : `${who} ไปถึงชั้น ${r.floor} ของหอคอยโชคชะตา`;
   const odds = r.won ? `${r.pct}% ของรุ่นเดียวกันขึ้นไปไม่ถึงยอด` : r.pct >= 50 ? `${r.pct}% ของรุ่นเดียวกันไปไม่ถึงชั้นนี้` : `อีก ${100 - r.pct}% ของรุ่นเดียวกันไปได้ไกลกว่านี้`;
   const desc = [r.title ? `ฉายา「${r.title}」` : '', odds, 'คุณจะไปได้ถึงชั้นไหน? ลองเกิดดูสักชาติ'].filter(Boolean).join(' · ');
   return { title, desc, url: `${ORIGIN}/s/${code}` };

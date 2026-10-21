@@ -13,7 +13,8 @@ const W=1080,H=1350;
 const P={paper:'#efe4c8',paper2:'#e4d5b0',card:'#f6eedb',ink:'#2b2118',ink2:'#5c4b39',ink3:'#8b7a62',rule:'#cdb98d',
  band:'#15232a',band2:'#0b1215',gold:'#f4bb4a',gold2:'#9a6418',red:'#a3322a',stamp:'#2f6b5c'};
 const fT="'Mitr','Kanit','Noto Sans Thai',system-ui,sans-serif",fP="'DotGothic16','Mitr',monospace";
-const CLS_IDS=['war','mag','arc','pri','rog','far','dra'],CLS_N=['นักรบ','จอมเวท','นักธนู','นักบวช','โจร','ชาวไร่','อัศวินมังกร'];
+// append only: the index goes into share codes (3 bits, max 8 classes)
+const CLS_IDS=['war','mag','arc','pri','rog','far','dra','dsl'],CLS_N=['นักรบ','จอมเวท','นักธนู','นักบวช','โจร','ชาวไร่','อัศวินมังกร','นักล่ามังกร'];
 const RANK_K=['F','E','D','C','B','A','S','SS'];
 const MAPC={fight:'#c0503a',treasure:'#e0aa2c',trap:'#8a4ab0',good:'#4fae5a',evil:'#6a1a2a',pet:'#e58bb2',comp:'#3f94d0',boss:'#ff8a2a',warp:'#5fc8d2',flee:'#8a9aa0',calm:'#6f7f84',bad:'#8a6a4a',farm:'#2a6a5a',death:'#14100c'};
 
@@ -29,7 +30,8 @@ function clip(s,n){const g=graphemes(s);return g.length>n?g.slice(0,n).join(''):
 function cleanNote(s){return clip(str(s).replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g,' ').replace(/\s+/g,' ').trim(),120);}
 
 // ---------- share code (identical copy in functions/s/[[path]].js) ----------
-// bytes: [ver, rank*8+cls, floor|won<<7, pct|human<<7, ...name, 0, ...title, fnv8]  ver 1 = Thai/ASCII packed 1 byte per char, ver 2 = UTF-8
+// bytes: [ver, drg<<6|rank<<3|cls, floor|won<<7, pct|human<<7, ...name, 0, ...title, fnv8]  drg 0 none / 1 spared the dragon / 2 killed it (v2.1, only with won;
+// old links have 0 there so they decode the same; clients older than v2.1 reject codes with drg set)  ver 1 = Thai/ASCII packed 1 byte per char, ver 2 = UTF-8
 function fnv8(b){let h=2166136261>>>0;for(let i=0;i<b.length;i++){h^=b[i];h=Math.imul(h,16777619);}return(h^(h>>>8)^(h>>>16)^(h>>>24))&255;}
 function packThai(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(c>0&&c<128)o.push(c);else if(c>0xE00&&c<0xE80)o.push(0x80+c-0xE00);else return null;}return o;}
 function unpackThai(b){let s='';for(const x of b)s+=String.fromCodePoint(x<128?x:0xE00+x-0x80);return s;}
@@ -42,16 +44,17 @@ function encode(d){
  const name=cleanTxt(d.name,16)||'?',title=cleanTxt(d.title,18);
  let n=packThai(name),t=packThai(title),ver=1;
  if(!n||!t){const te=new TextEncoder();n=[...te.encode(name)];t=[...te.encode(title)];ver=2;}
- const b=[ver,rank*8+cls,floor|(won?128:0),pct|(d.form==='human'?128:0),...n,0,...t];b.push(fnv8(b));return b64u(b);}
+ const dg=won?(d.drg==='f'?1:d.drg==='s'?2:0):0;
+ const b=[ver,dg*64+rank*8+cls,floor|(won?128:0),pct|(d.form==='human'?128:0),...n,0,...t];b.push(fnv8(b));return b64u(b);}
 function decode(code){
  try{code=String(code||'');if(!/^[A-Za-z0-9_-]{8,120}$/.test(code))return null;
   const b=unb64u(code);if(b.length<7)return null;const body=b.subarray(0,b.length-1);if(fnv8(body)!==b[b.length-1])return null;
-  const ver=b[0];if(ver!==1&&ver!==2)return null;const rank=b[1]>>3,cls=b[1]&7,floor=b[2]&127,won=!!(b[2]&128),pct=b[3]&127,human=!!(b[3]&128);
-  if(rank>7||cls>6||floor<1||floor>100||pct>100||(won&&floor!==100))return null;
+  const ver=b[0];if(ver!==1&&ver!==2)return null;const rank=(b[1]>>3)&7,cls=b[1]&7,dg=b[1]>>6,floor=b[2]&127,won=!!(b[2]&128),pct=b[3]&127,human=!!(b[3]&128);
+  if(dg>2||(dg&&!won)||floor<1||floor>100||pct>100||(won&&floor!==100))return null;
   const rest=body.subarray(4),z=rest.indexOf(0);if(z<1)return null;
   const dec=x=>ver===1?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
   const name=cleanTxt(dec(rest.subarray(0,z)),16),title=cleanTxt(dec(rest.subarray(z+1)),18);if(!name)return null;
-  return{rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],floor,won,pct,form:human?'human':'slime',name,title};
+  return{rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],floor,won,pct,form:human?'human':'slime',name,title,drg:['','f','s'][dg]};
  }catch(e){return null;}}
 function shareUrl(d){return ORIGIN+'/s/'+encode(d);}
 
@@ -61,6 +64,9 @@ function norm(d){d=Object.assign({},d||{});d.name=str(d.name)||'นักผจ�
  d.karma=+d.karma||0;d.score=+d.score||0;d.date=d.date||Date.now();d.pets=Array.isArray(d.pets)?d.pets:[];d.petN=Array.isArray(d.petN)?d.petN:[];d.comps=Array.isArray(d.comps)?d.comps:[];
  d.map=Array.isArray(d.map)&&d.map.length===100?d.map:Array(100).fill('');d.hk=d.hk&&typeof d.hk==='object'?d.hk:{};d.note=cleanNote(d.note);d.gen=d.gen||1;
  if(!(d.rankIdx>=0))d.rankIdx=Math.max(0,RANK_K.indexOf(d.rankK));
+ d.drg=['n','f','s','x'].includes(d.drg)?d.drg:'';d.drgC=['k','s','g'].includes(d.drgC)?d.drgC:'';
+ d.drgW=d.won&&(d.drg==='f'||d.drg==='s'); // won the secret dragon floor
+ d.secret=d.drgW||d.drg==='x';
  d.pat=d.pat&&typeof d.pat==='object'&&str(d.pat.code)&&Array.isArray(d.pat.v)&&d.pat.v.length===4?{code:str(d.pat.code),n:str(d.pat.n),v:d.pat.v.map(x=>clampN(+x||0,-100,100))}:null;return d;}
 // ลวดลายชะตา row: code + name on the left, four mini lean bars on the right (poles: บ/ร ห/ช ด/พ ☀/☾)
 const PAT_P=[['บุก','ระวังตัว'],['หาของ','ช่วยเหลือ'],['คนเดียว','มีเพื่อน'],['กรรมดี','กรรมชั่ว']];
@@ -146,7 +152,7 @@ function drawPortrait(ctx,d,X,Y,FW,FH){
  if(!drawn)line(ctx,d.won?'♛':'✦',X+FW/2,Y+FH/2,{size:120,align:'center',col:P.gold});
  ctx.restore();
  // floor tag
- const tag=d.won?'ยอดหอ':'ชั้น '+d.floor;setF(ctx,500,24);const tw=ctx.measureText(tag).width+24;rect(ctx,X+10,Y+10,tw,36,'rgba(11,18,21,.8)');line(ctx,tag,X+22,Y+37,{size:24,weight:500,col:P.gold,maxW:200});
+ const tag=d.secret?'ชั้นลับ':d.won?'ยอดหอ':'ชั้น '+d.floor;setF(ctx,500,24);const tw=ctx.measureText(tag).width+24;rect(ctx,X+10,Y+10,tw,36,'rgba(11,18,21,.8)');line(ctx,tag,X+22,Y+37,{size:24,weight:500,col:P.gold,maxW:200});
 }
 function drawStamp(ctx,text,cx,cy,col){ctx.save();ctx.translate(cx,cy);ctx.rotate(-.16);setF(ctx,600,30);const w=ctx.measureText(text).width+40,h=60;
  ctx.globalAlpha=.82;ctx.strokeStyle=col;ctx.lineWidth=5;ctx.strokeRect(-w/2,-h/2,w,h);ctx.lineWidth=2;ctx.strokeRect(-w/2+7,-h/2+7,w-14,h-14);
@@ -181,7 +187,7 @@ async function render(d){
  drawBadge(ctx,W-64-84,206,84,d.rankK,d.rankCol);
  line(ctx,[d.clsN,'แรงค์ '+d.rankK,d.odds?'1 ใน '+nf(d.odds):''].filter(Boolean).join(' · '),RX,250,{size:30,weight:500,col:P.stamp,maxW:RW-110,min:20});
  line(ctx,d.name,RX,340,{size:84,weight:600,col:P.ink,maxW:RW,min:40});
- line(ctx,d.won?'ชั้น 1 → ชั้น 100 · ถึงยอดหอ':'ชั้น 1 → ชั้น '+d.floor+' · ไต่มา '+d.floor+' ชั้น',RX,398,{size:32,fam:fP,col:P.ink2,maxW:RW,min:22});
+ line(ctx,d.secret?'ชั้น 1 → ชั้น 100 → ชั้นลับ':d.won?'ชั้น 1 → ชั้น 100 · ถึงยอดหอ':'ชั้น 1 → ชั้น '+d.floor+' · ไต่มา '+d.floor+' ชั้น',RX,398,{size:32,fam:fP,col:P.ink2,maxW:RW,min:22});
  line(ctx,d.village?'ถิ่นกำเนิด '+d.village:'',RX,448,{size:28,col:P.ink2,maxW:RW,min:20});
  const deeds=[d.lv?'Lv '+d.lv:'',d.bosses?'ล้มบอส '+d.bosses+' ตัว':'',d.kills?'สังหาร '+nf(d.kills):''].filter(Boolean).join(' · ');
  line(ctx,deeds,RX,496,{size:26,col:P.ink3,maxW:RW,min:18});
@@ -190,7 +196,7 @@ async function render(d){
  const GY=544,GH=d.note&&d.pat?88:92,CW=456,CX=[64,560];
  const party=[...d.petN,...d.comps].filter(Boolean);
  const cells=[
-  [d.won?'ผลลัพธ์':'สาเหตุการตาย',d.won?'พิชิตยอดหอคอย':(d.cause.replace(/\s*\(ชั้น \d+\)\s*$/,'')||'ชะตาขาด'),d.won?P.gold2:P.red],
+  [d.won?'ผลลัพธ์':'สาเหตุการตาย',d.drgW?(d.drg==='f'?'สหายมังกร · ชั้นลับ':'นักล่ามังกร · ชั้นลับ'):d.won?'พิชิตยอดหอคอย':(d.cause.replace(/\s*\(ชั้น \d+\)\s*$/,'')||'ชะตาขาด'),d.won?P.gold2:P.red],
   ['ฉายา',d.title?'「'+d.title+'」':'—',P.ink],
   ['กรรม',(d.karma>0?'+':'')+d.karma+' · '+verdict(d.karma),d.karma>=6?P.stamp:d.karma<=-6?P.red:P.ink],
   ['สัตว์เลี้ยง / เพื่อนร่วมทาง',party.length?party.slice(0,3).join(', ')+(party.length>3?' +'+(party.length-3):''):'เดินทางคนเดียว',P.ink],
@@ -245,6 +251,9 @@ function hooks(d){const k=d.hk||{},out=[],seed=hashStr(d.name+'|'+d.floor+'|'+d.
   else add('odds','cmp',p<=12?5:2,`อีก ${100-p}% ของรุ่นเดียวกันไปได้ไกลกว่านี้`,98);}
  if(k.coh>0){if(k.beat===k.coh)add('coh','cmp',5,`ไปได้ไกลกว่าเพื่อนรุ่นเดียวกันทั้ง ${k.coh} คน`,97);else if(k.beat===0)add('coh','cmp',3,`เพื่อนรุ่นเดียวกัน ${k.coh} คนไปไกลกว่าทุกคน`,97);}
  if(k.nearP>=.15&&k.nearF&&k.nearF<d.floor)add('near','near',5,`ชั้น ${k.nearF} โอกาสตายพุ่งถึง ${Math.round(k.nearP*100)}% แต่ก็รอดมาได้`,k.nearF);
+ if(d.drg){const c={k:'ดำ',s:'เงิน',g:'ทอง'}[d.drgC]||'';
+  add('drg','drg',d.drg==='n'?4.5:9,d.drg==='f'?`ขึ้นไปถึงชั้นลับเหนือยอดหอ ตีมังกร${c}จนยอมแพ้แล้วไว้ชีวิตมัน`:d.drg==='s'?`ขึ้นไปถึงชั้นลับเหนือยอดหอ แล้วฆ่ามังกร${c}ตาย`:d.drg==='x'?`ขึ้นไปถึงชั้นลับเหนือยอดหอ แต่ไปตายต่อหน้ามังกร${c}`:'เจอบันไดลับเหนือยอดหอ แต่ไม่ขึ้นไป',100);}
+ if(d.lift)add('lift','lift',8.5,'ตระกูลล้มมังกรครบ 3 ตัว คำสาปนักล่ามังกรเลยหายไป',100.5);
  if(d.title)add('title','title',k.gold?6:3,`ได้ฉายา「${d.title}」`,96);
  if(d.pat)add('pat','pat',4.2,`ลวดลายชะตาคือ ${d.pat.code} 「${d.pat.n}」`,96.5);
  if(Math.abs(d.karma)>=15)add('karma','karma',4,d.karma>0?`ทำบุญไว้จนกรรมดีถึง +${d.karma}`:`สะสมกรรมชั่วไว้ถึง ${d.karma}`,95);
@@ -415,7 +424,7 @@ function readFriend(){try{const L=location;let code=null,m=L.pathname.match(/\/s
 function showFriend(){if(!friend||friendEl||fShown)return;const main=document.querySelector('main.main')||document.querySelector('.wrap');if(!main)return;css();
  const f=friend;friendEl=el('div',{class:'tof-friend',role:'note'});
  const t=el('div',{class:'ft'});t.append('มีคนส่งชะตามาให้คุณ: ');const b=el('b',null,f.name);t.append(b,` ${f.clsN}แรงค์ ${f.rankK}${f.title?` 「${f.title}」`:''} `);
- t.append(f.won?'พิชิตยอดหอคอยได้ คุณจะทำได้แบบเดียวกันไหม?':`ไปถึงชั้น ${f.floor} คุณจะไปได้ไกลกว่านี้ไหม?`);
+ t.append(f.drg==='f'?'พิชิตยอดหอคอย แล้วยังไว้ชีวิตมังกรบนชั้นลับด้วย คุณจะทำได้แบบนี้ไหม?':f.drg==='s'?'พิชิตยอดหอคอย แล้วยังล้มมังกรบนชั้นลับได้ด้วย คุณจะทำได้แบบนี้ไหม?':f.won?'พิชิตยอดหอคอยได้ คุณจะทำได้แบบเดียวกันไหม?':`ไปถึงชั้น ${f.floor} คุณจะไปได้ไกลกว่านี้ไหม?`);
  const x=el('button',{type:'button','aria-label':'ปิดข้อความนี้'},'ปิด');x.onclick=hideFriend;
  friendEl.append(el('span',{class:'fi','aria-hidden':'true'},'📜'),t,x);main.parentNode.insertBefore(friendEl,main);fShown=true;}
 function hideFriend(){if(friendEl){friendEl.remove();}friend=null;}

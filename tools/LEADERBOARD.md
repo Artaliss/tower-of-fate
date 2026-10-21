@@ -48,24 +48,33 @@ To reset the board, delete `top` and `recent`.
 `GET /api/scores` → `{top:[entry], recent:[entry]}`, `Cache-Control: public, max-age=30`.
 
 `POST /api/scores` (`Content-Type: application/json`, same-origin) with
-`{name, village, rankK, clsId, clsN, form, floor, won, title, score, karma, gen, ach, date, v, h}`:
+`{name, village, rankK, clsId, clsN, form, floor, won, title, score, karma, gen, ach, date, v, h}`
+plus the optional v2.1 fields `drg` and `clan`:
 
 | field | rule |
 |---|---|
 | name / village / title / clsN | strings, control chars and HTML stripped, max 24 / 24 / 40 / 16 chars |
 | rankK | F E D C B A S SS |
-| clsId | war mag arc pri rog far dra |
+| clsId | war mag arc pri rog far dra dsl (`dsl` = hidden class นักล่ามังกร, v2.1; append new ids at the end) |
 | form | `slime`, `human` or empty |
 | floor | integer 1 to 100; `won:true` requires floor 100 |
 | score | integer 0 to 10,000,000 |
 | karma | integer −9999 to 9999 |
 | gen / ach | integers 1 to 9999 / 0 to 500 |
 | date | ms timestamp within the last 30 days |
+| drg | secret dragon floor result: `''` none, `n` found but declined, `f` spared the dragon (won), `s` killed it (won), `x` died to it. Anything else is stored as `''` |
+| clan | family dragon mark after the run: `''`, `f` สหายมังกร, `s` นักล่ามังกร (cursed), `d` ดยุกปราบมังกร (curse lifted). Anything else is stored as `''` |
 | h | FNV-1a of `"tof-v1|" + canon(fields)` (see `leaderboard.js`) |
 
 Responses: `200 {ok, id, rank}` (rank is null if it missed the top 100), `200 {ok, dup:true}`
 for a repeat, `400 {error:'invalid', field}`, `403` other origin, `413` body over 4 KB,
 `415` wrong content type, `429` after 10 posts per IP per 10 minutes, `503` no KV.
+
+`drg` and `clan` are deliberately left out of `canon()`, so clients cached from before v2.1
+(which don't send them) still pass the integrity check. The flip side is that they aren't
+covered by `h`. `floor` stays capped at 100 even after the secret floor, and `won` stays a
+boolean; the board shows a 🐉 สหายมังกร / ⚔ นักล่ามังกร badge for `drg` `f` / `s` and an
+"อาชีพลับ" tag on `dsl` rows. Sorting is unchanged.
 
 The `h` field only stops casual edits. Anyone who reads `leaderboard.js` can forge a valid
 entry, so treat the board as for fun. If cheating becomes a problem, delete the bad entries

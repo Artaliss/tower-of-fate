@@ -4,7 +4,8 @@
 (function(){
 'use strict';
 const KEY='tof-ach-v1';
-const CLS={war:'นักรบ',mag:'จอมเวท',arc:'นักธนู',pri:'นักบวช',rog:'โจร',far:'ชาวไร่',dra:'อัศวินมังกร'};
+const CLS={war:'นักรบ',mag:'จอมเวท',arc:'นักธนู',pri:'นักบวช',rog:'โจร',far:'ชาวไร่',dra:'อัศวินมังกร',dsl:'นักล่ามังกร'};
+const BASE7=['war','mag','arc','pri','rog','far','dra']; // win_all นับเฉพาะ 7 อาชีพปกติ ไม่รวมอาชีพลับ
 const TIER={bronze:{n:'ทองแดง',c:'#c98a5a'},silver:{n:'เงิน',c:'#c9d3d6'},gold:{n:'ทอง',c:'#f4bb4a'},legend:{n:'ตำนาน',c:'#ff7a5a'}};
 
 // ---------- helpers (ทนทุกค่าที่หายไป) ----------
@@ -33,7 +34,7 @@ const DEFS=[
  {id:'win_rog',n:'ขโมยมงกุฎ',d:'ชนะเกมด้วยโจร',icon:'🗝️',tier:'silver',cls:'rog'},
  {id:'win_far',n:'จอบพลิกชะตา',d:'ชนะเกมด้วยชาวไร่',icon:'🌾',tier:'gold',cls:'far'},
  {id:'win_dra',n:'ปีกเหนือหอคอย',d:'ชนะเกมด้วยอัศวินมังกร',icon:'🐉',tier:'silver',cls:'dra'},
- {id:'win_all',n:'ครบทุกอาชีพ',d:'ชนะเกมครบทั้ง 7 อาชีพ',icon:'🌟',tier:'legend',t:(s,R,M)=>Object.keys(CLS).every(k=>M.clsWins[k])},
+ {id:'win_all',n:'ครบทุกอาชีพ',d:'ชนะเกมครบทั้ง 7 อาชีพ',icon:'🌟',tier:'legend',t:(s,R,M)=>BASE7.every(k=>M.clsWins[k])},
  {id:'slime',n:'เยลลี่ผู้พิชิต',d:'ชนะเกมในร่างสไลม์',icon:'🟢',tier:'gold',t:s=>s.won&&str(s.form)==='slime'},
  {id:'ss',n:'เกิดมาพร้อมดาว',d:'เกิดมาได้แรงค์ SS',icon:'✨',tier:'legend',t:s=>str(s.rankK)==='SS'},
  {id:'fwin',n:'แรงค์ F ก็ถึงยอด',d:'ชนะเกมทั้งที่เกิดมาแรงค์ F',icon:'🥔',tier:'legend',t:s=>s.won&&str(s.rankK)==='F'},
@@ -52,7 +53,13 @@ const DEFS=[
  {id:'fate',n:'ให้ฟ้าลิขิต',d:'ปล่อยให้เวลาหมดแล้วระบบเลือกแทน 10 ครั้งในรอบเดียว',icon:'⏳',tier:'bronze',t:s=>num(s.timeouts)>=10},
  {id:'scars',n:'แผลเป็นคือเหรียญตรา',d:'มีแผลเป็นตั้งแต่ 5 แห่ง และยังรอดถึงชั้น 50',icon:'🩹',tier:'gold',t:s=>cnt(s.scars)>=5&&num(s.floor)>=50},
  {id:'runs10',n:'ขาประจำหอคอย',d:'เล่นจบครบ 10 รอบ',icon:'🔁',tier:'bronze',t:(s,R,M)=>M.runs>=10},
- {id:'runs50',n:'วิญญาณผูกกับหอ',d:'เล่นจบครบ 50 รอบ',icon:'♾️',tier:'silver',t:(s,R,M)=>M.runs>=50}
+ {id:'runs50',n:'วิญญาณผูกกับหอ',d:'เล่นจบครบ 50 รอบ',icon:'♾️',tier:'silver',t:(s,R,M)=>M.runs>=50},
+ // v2.1 ชั้นลับมังกร (hid = ซ่อนชื่อจนกว่าจะปลดล็อก)
+ {id:'drg_find',n:'บันไดที่ไม่มีในแผนที่',d:'เจอบันไดที่พาขึ้นไปเหนือยอดหอ',icon:'🌌',tier:'gold',hid:1,t:s=>['n','f','s','x'].includes(str(s.drg))},
+ {id:'drg_spare',n:'สหายมังกร',d:'ตีมังกรจนยอมแพ้ แล้วปล่อยมันไป',icon:'🐉',tier:'legend',hid:1,t:s=>str(s.drg)==='f'},
+ {id:'drg_slay',n:'นักล่ามังกร',d:'ฆ่ามังกรบนชั้นลับ',icon:'🐲',tier:'legend',hid:1,t:s=>str(s.drg)==='s'},
+ {id:'drg_lift',n:'ดยุกปราบมังกร',d:'ตระกูลล้มมังกรครบ 3 ตัว คำสาปเลยหายไป',icon:'🏰',tier:'legend',hid:1,t:s=>s.lift===true},
+ {id:'win_dsl',n:'เลือดมังกรบนคมดาบ',d:'ชนะเกมด้วยนักล่ามังกร',icon:'🔥',tier:'gold',hid:1,cls:'dsl'}
 ];
 const BY={};DEFS.forEach(a=>{BY[a.id]=a;});
 
@@ -135,12 +142,12 @@ function onRunEnd(summary){const out=[];try{const s=(summary&&typeof summary==='
   if(ok&&unlock(a.id))out.push(a.id);});
  }catch(e){}R=freshRun();return out;}
 
-function list(){return DEFS.map(a=>({id:a.id,n:a.n,d:a.d,icon:a.icon,tier:a.tier,got:!!M.got[a.id],at:M.got[a.id]||null}));}
+function list(){return DEFS.map(a=>({id:a.id,n:a.n,d:a.d,icon:a.icon,tier:a.tier,hid:!!a.hid,got:!!M.got[a.id],at:M.got[a.id]||null}));}
 function count(){return DEFS.reduce((n,a)=>n+(M.got[a.id]?1:0),0);}
 function panelHTML(){injectCSS();const L=list(),g=L.filter(a=>a.got).length;
  const fd=t=>{try{return new Date(t).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'});}catch(e){return '';}};
  return `<p class="ach-sum">ปลดล็อกแล้ว <b>${g}/${L.length}</b> · เล่นจบไปแล้ว ${M.runs} รอบ</p><div class="ach-grid">`+
-  L.map(a=>{const T=TIER[a.tier];return `<div class="ach-c${a.got?'':' lock'}" title="${esc(a.d)}"><span class="ic" aria-hidden="true">${a.got?a.icon:'🔒'}</span><span style="min-width:0"><b>${esc(a.n)}</b><span class="dd">${esc(a.d)}</span><br><span class="tr" style="color:${T.c}">${T.n}${a.got&&a.at?' · '+fd(a.at):''}</span></span></div>`;}).join('')+'</div>';}
+  L.map(a=>{const T=TIER[a.tier];if(a.hid&&!a.got)a=Object.assign({},a,{n:'???',d:'ความสำเร็จลับ'});return `<div class="ach-c${a.got?'':' lock'}" title="${esc(a.d)}"><span class="ic" aria-hidden="true">${a.got?a.icon:'🔒'}</span><span style="min-width:0"><b>${esc(a.n)}</b><span class="dd">${esc(a.d)}</span><br><span class="tr" style="color:${T.c}">${T.n}${a.got&&a.at?' · '+fd(a.at):''}</span></span></div>`;}).join('')+'</div>';}
 
 window.ACH={onEvent,onRunEnd,list,panelHTML,count,TIERS:TIER};
 })();

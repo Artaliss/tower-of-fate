@@ -8,7 +8,9 @@ const RL_MAX = 10, RL_WIN = 600;          // 10 posts / 10 min / IP
 const DUP_TTL = 86400;
 const MAX_BODY = 4096;
 const RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'];
-const CLS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra'];
+const CLS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra', 'dsl'];
+const DRG = ['', 'n', 'f', 's', 'x'];   // secret dragon floor result (v2.1) — not part of canon()
+const CLAN = ['', 'f', 's', 'd'];       // family dragon mark (v2.1) — not part of canon()
 const FORMS = ['slime', 'human', ''];
 const SALT = 'tof-v1';
 
@@ -38,14 +40,18 @@ export function validate(b, now = Date.now()) {
   if (!RANKS.includes(e.rankK)) return { err: 'rankK' };
   if (!CLS.includes(e.clsId)) return { err: 'clsId' };
   if (!FORMS.includes(e.form)) return { err: 'form' };
-  if (!isInt(e.floor, 1, 100)) return { err: 'floor' };
+  e.drg = DRG.includes(b.drg) ? b.drg : '';
+  if (!isInt(e.floor, 1, 101)) return { err: 'floor' };
   if (typeof e.won !== 'boolean') return { err: 'won' };
-  if (e.won && e.floor !== 100) return { err: 'won-floor' };
+  if (e.won && e.floor < 100) return { err: 'won-floor' };
+  // floor 101 = cleared the secret dragon floor (v2.1)
+  if (e.floor === 101 && !(e.won && (e.drg === 'f' || e.drg === 's'))) return { err: 'floor-101' };
   if (!isInt(e.score, 0, 10000000)) return { err: 'score' };
   if (!isInt(e.karma, -9999, 9999)) return { err: 'karma' };
   if (!isInt(e.gen, 1, 9999)) return { err: 'gen' };
   if (!isInt(e.ach, 0, 500)) return { err: 'ach' };
   if (!isInt(e.date, now - 30 * 86400e3, now + 86400e3)) return { err: 'date' };
+  e.clan = CLAN.includes(b.clan) ? b.clan : '';
   if (typeof b.h !== 'string' || b.h !== fnv(SALT + '|' + canon(e))) return { err: 'integrity' };
   e.id = fnv(canon(e)) + e.date.toString(36).slice(-3);
   e.at = now;

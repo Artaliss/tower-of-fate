@@ -6,7 +6,8 @@
 const API='/api/scores',VER='tof-1';
 const K_Q='tof-lb-queue-v1',K_MINE='tof-lb-mine-v1',K_IDS='tof-lb-ids-v1';
 const RANKC={F:'#9aa0a6',E:'#a7c48f',D:'#6fc0a8',C:'#74acdf',B:'#c39be8',A:'#f0a64e',S:'#f6d84e',SS:'#ff7a5a'};
-const CLSN={war:'นักรบ',mag:'จอมเวท',arc:'นักธนู',pri:'นักบวช',rog:'โจร',far:'ชาวไร่',dra:'อัศวินมังกร'};
+const CLSN={war:'นักรบ',mag:'จอมเวท',arc:'นักธนู',pri:'นักบวช',rog:'โจร',far:'ชาวไร่',dra:'อัศวินมังกร',dsl:'นักล่ามังกร'};
+const DRG=['','n','f','s','x'],CLAN=['','f','s','d']; // ชั้นลับมังกร (v2.1) ไม่อยู่ใน canon() เพื่อให้ client เก่ายังส่งผ่าน
 const RANKS=Object.keys(RANKC),FORMS=['slime','human'];
 
 // ---- shared with functions/api/scores.js (keep identical) ----
@@ -28,10 +29,12 @@ function toEntry(s){s=(s&&typeof s==='object')?s:{};
  const achN=(()=>{try{return window.ACH&&ACH.count?ACH.count():(window.ACH?ACH.list().filter(a=>a.got).length:0);}catch(e){return 0;}})();
  const e={name:clean(String(s.name||''),24)||'นักผจญภัยนิรนาม',village:clean(String(s.village||''),24),
   rankK:RANKS.includes(s.rankK)?s.rankK:'F',clsId:CLSN[s.clsId]?s.clsId:'war',clsN:clean(String(s.clsN||CLSN[s.clsId]||''),16),
-  form:FORMS.includes(s.form)?s.form:'',floor:int(s.floor,1,100),won:!!s.won,title:clean(String(s.title||''),40),
+  form:FORMS.includes(s.form)?s.form:'',floor:int(s.floor,1,101),won:!!s.won,title:clean(String(s.title||''),40),
   score:int(s.score,0,1e7),karma:int(s.karma,-9999,9999),gen:int(s.gen||1,1,9999),ach:int(achN,0,500),
-  date:Math.round(num(s.date)>1e12?num(s.date):Date.now()),v:VER};
- if(e.won&&e.floor!==100)e.won=false;
+  date:Math.round(num(s.date)>1e12?num(s.date):Date.now()),v:VER,
+  drg:DRG.includes(s.drg)?s.drg:'',clan:CLAN.includes(s.clan)?s.clan:''};
+ if(e.floor===101&&!(e.won&&(e.drg==='f'||e.drg==='s')))e.floor=100; // 101 = ผ่านชั้นลับมังกร (v2.1)
+ if(e.won&&e.floor<100)e.won=false;
  if(e.date>Date.now())e.date=Date.now();
  e.h=fnv('tof-v1|'+canon(e));
  e.id=fnv(canon(e))+e.date.toString(36).slice(-3);
@@ -88,6 +91,11 @@ function css(){if(document.getElementById('lb-css'))return;const st=document.cre
 .lb-fl{text-align:right;font-family:'DotGothic16','Mitr',monospace;line-height:1.2}
 .lb-fl b{font-size:16px;color:var(--ink,#f1e7d0)}
 .lb-fl span{display:block;font-size:11px;color:var(--dim,#6f857e)}
+.lb-hid{color:#ff9a6a;font-weight:500}
+.lb-hid em{font-style:normal;font-size:10px;font-family:'DotGothic16','Mitr',monospace;background:#5a1d14;color:#ffd2b8;border:1px solid #ff7a5a;padding:0 3px;border-radius:2px;margin-right:4px;vertical-align:1px}
+.lb-drg{font-size:10px;font-weight:400;font-family:'DotGothic16','Mitr',monospace;padding:0 4px;border-radius:2px;margin-left:4px;vertical-align:1px;white-space:nowrap}
+.lb-drg.f{background:#1f4a3a;color:#bff3d8;border:1px solid #5fd3a0}
+.lb-drg.s{background:#4a1a1a;color:#ffc9b8;border:1px solid #ff7a5a}
 .lb-tag{font-size:10px;font-family:'DotGothic16','Mitr',monospace;background:var(--gold,#f4bb4a);color:#1a1206;padding:0 4px;border-radius:2px;margin-left:4px;vertical-align:1px}
 .lb-note{font-size:11.5px;color:var(--dim,#6f857e);margin:8px 0 0;text-align:center}
 @media (max-width:420px){.lb-row{grid-template-columns:22px 30px 1fr auto;gap:6px;padding:5px 6px}.lb-hd h2{font-size:15px}.lb-tabs button{padding:6px 8px;font-size:12.5px}}
@@ -109,11 +117,13 @@ function myIds(){const a=rd(K_IDS,[]);return new Set(Array.isArray(a)?a:[]);}
 function isMine(e,ids,mine){if(ids.has(e.id))return true;return mine.some(m=>m.name===e.name&&m.floor===e.floor&&m.score===e.score&&m.date===e.date);}
 function fdate(t){try{return new Date(t).toLocaleDateString('th-TH',{day:'numeric',month:'short'});}catch(e){return '';}}
 function row(e,i,me){const rk=RANKC[e.rankK]?e.rankK:'?';
- const cls=CLSN[e.clsId]||esc(e.clsN)||'';
+ const cls0=CLSN[e.clsId]||esc(e.clsN)||'';
+ const cls=e.clsId==='dsl'?`<span class="lb-hid"><em>อาชีพลับ</em>${cls0}</span>`:cls0;
+ const drg=e.drg==='f'?'<span class="lb-drg f" title="ไว้ชีวิตมังกรบนชั้นลับ">🐉 สหายมังกร</span>':e.drg==='s'?'<span class="lb-drg s" title="ล้มมังกรบนชั้นลับ">⚔ นักล่ามังกร</span>':'';
  const sub=[cls+(e.form==='slime'?' (สไลม์)':''),e.village?'จาก'+esc(e.village):'','รุ่นที่ '+int(e.gen,1,9999),e.ach?'🏅'+int(e.ach,0,500):''].filter(Boolean).join(' · ');
  return `<li class="lb-row${me?' me':''}${e.won?' win':''}"><span class="no">${i==null?'':i+1}</span><span class="lb-rk" style="background:${RANKC[rk]||'#888'}">${esc(rk)}</span>
-<span class="lb-who"><b>${esc(e.name)}${e.title?` <i>“${esc(e.title)}”</i>`:''}${me?'<span class="lb-tag">คุณ</span>':''}</b><span>${sub}</span></span>
-<span class="lb-fl">${e.won?'<b>👑</b>':`<b>${int(e.floor,0,100)}</b>`}<span>${e.won?'พิชิตยอด':'ชั้น'} · ${num(e.score).toLocaleString('en-US')}</span></span></li>`;}
+<span class="lb-who"><b>${esc(e.name)}${drg}${e.title?` <i>“${esc(e.title)}”</i>`:''}${me?'<span class="lb-tag">คุณ</span>':''}</b><span>${sub}</span></span>
+<span class="lb-fl">${e.floor===101?'<b>🐉 101</b>':e.won?'<b>👑</b>':`<b>${int(e.floor,0,100)}</b>`}<span>${e.floor===101?'ชั้นลับ':e.won?'พิชิตยอด':'ชั้น'} · ${num(e.score).toLocaleString('en-US')}</span></span></li>`;}
 
 function msg(t,s){return `<div class="lb-msg"><b>${t}</b>${s||''}</div>`;}
 async function load(){if(cache&&Date.now()-cacheAt<30e3)return cache;
