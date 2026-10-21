@@ -1,7 +1,8 @@
 // Cloudflare Pages Function: /api/scores
 // KV binding: TOF_KV  (keys: 'top' = top 100, 'recent' = last 50, 'rl:<ip>' rate limit, 'dup:<id>' dedupe)
 // GET  -> {top:[...], recent:[...]}  (Cache-Control: max-age=30)
-// POST -> body = entry JSON (see LEADERBOARD.md) -> {ok:true, id, rank} | {error}
+// POST -> body = entry JSON (see LEADERBOARD.md) -> {ok:true, id, rank, v, day, ss} | {error}
+//         optional 'ss' = share counters (v2.3), summed into live.d[day].ss; response ss:1 means they were counted
 
 import { readLive, prune, writeLive, okDay } from './live.js';
 const TOP_N = 100, RECENT_N = 50;
@@ -57,12 +58,23 @@ export function validate(b, now = Date.now()) {
   e.clan = CLAN.includes(b.clan) ? b.clan : '';
   // v2.2 run ticket / presence id / daily theme (not stored, not part of canon)
   const x = { tk: typeof b.tk === 'string' && /^[a-f0-9]{20}$/.test(b.tk) ? b.tk : '', sid: typeof b.sid === 'string' && /^[a-z0-9]{6,24}$/.test(b.sid) ? b.sid : '',
-    day: okDay(b.day) ? b.day : '', dh: b.dh === 1 ? 1 : 0 };
+    day: okDay(b.day) ? b.day : '', dh: b.dh === 1 ? 1 : 0, ss: shareStats(b.ss) };
   if (typeof b.h !== 'string' || b.h !== fnv(SALT + '|' + canon(e))) return { err: 'integrity' };
   e.id = fnv(canon(e)) + e.date.toString(36).slice(-3);
   e.at = now;
   return { e, x };
 }
+
+// share analytics (v2.3): counters from share.js piggyback on a score post and are summed into live.d[day].ss (no extra KV write)
+export const SS_KEYS = ['ao', 'mo', 'bo', 'img', 'line', 'x', 'threads', 'copy', 'native', 'save', 'note'];
+const SS_CAP = 50;
+export function shareStats(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = {}; let any = 0;
+  for (const k of SS_KEYS) { const n = v[k]; if (isInt(n, 1, SS_CAP)) { o[k] = n; any = 1; } }
+  return any ? o : null;
+}
+const thDay = now => new Date(now + 7 * 3600e3).toISOString().slice(0, 10);
 
 export const cmp = (a, b) => (b.won - a.won) || (b.floor - a.floor) || (b.score - a.score) || (a.date - b.date);
 
@@ -144,17 +156,27 @@ export async function onRequestPost({ request, env }) {
   await kv.put('recent', JSON.stringify(rec));
 
   // presence ends with the run; the run counts toward its day's stats
-  let day = null;
+  // share counters (x.ss) ride along only when 'live' is written anyway, so they never cost a write of their own
+  let day = null, ss = 0;
   if (x.sid || x.day) {
     try {
       const v = prune(await readLive(kv));
       if (x.sid) delete v.u[x.sid];
-      if (x.day && Math.abs(Date.parse(x.day) - now) < 3 * 86400e3) {
+      const fresh = x.day && Math.abs(Date.parse(x.day) - now) < 3 * 86400e3;
+      if (fresh) {
         const d = v.d[x.day] || (v.d[x.day] = { n: 0, h: 0, w: 0, f: 0 });
         d.n++; d.h += x.dh; d.w += e.won ? 1 : 0; d.f += e.floor; day = d;
       }
+      if (x.ss) {
+        const k = fresh ? x.day : thDay(now);
+        const d = v.d[k] || (v.d[k] = { n: 0, h: 0, w: 0, f: 0 });
+        const t = d.ss && typeof d.ss === 'object' ? d.ss : (d.ss = {});
+        for (const j in x.ss) t[j] = (Number.isInteger(t[j]) ? t[j] : 0) + x.ss[j];
+      }
+      prune(v);
       await writeLive(kv, v);
+      ss = x.ss ? 1 : 0;
     } catch { }
   }
-  return json({ ok: true, id: e.id, rank, v: e.ok, day });
+  return json({ ok: true, id: e.id, rank, v: e.ok, day, ss });
 }

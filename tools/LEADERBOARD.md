@@ -84,3 +84,75 @@ from `top` in the dashboard.
 
 `node tools/serve.js` has no `/api`, so the dialog shows the offline message and runs stay
 queued in `localStorage` (`tof-lb-queue-v1`) until a load where the POST succeeds.
+
+## Share analytics (v2.3, field `ss`)
+
+`share.js` counts card opens and share actions in `localStorage['tof-share-stat-v1']`
+(`{v:1, ao, mo, bo, sh:{img,line,x,threads,copy,native,save}, note}`). `leaderboard.js`
+`submit()` attaches what is not yet reserved by other queued entries as a flat object
+`ss:{ao,mo,bo,img,line,x,threads,copy,native,save,note}` (zero keys left out, each capped
+at 50, the rest goes with the next run). `ss` is not part of `canon()`.
+
+`scores.js` keeps only those keys with integers 1 to 50 and adds them into
+`live.d[day].ss` inside the `live` write that the post already does, so it costs no
+extra KV write. `day` is the entry's `day` when within 3 days, otherwise today's Thai
+date. Entries without `sid`/`day` don't write `live`, so their `ss` is not counted and the
+response says `ss:0`. The client subtracts the sent counters from localStorage only when a
+2xx response has `ss:1`; a dup, 4xx, network error or an older server keeps them for the
+next run.
+
+Read it (last 3 days are kept):
+
+```sh
+curl -s "https://tower-of-fate.pages.dev/api/live?day=2026-10-22"
+# {"n":3,"day":{"n":41,"h":12,"w":1,"f":2010,"ss":{"ao":30,"mo":6,"img":4,"line":9,"copy":3,"note":2}}}
+```
+
+or open the `live` key in the KV dashboard. Rates per day: auto-open share rate =
+`(img+line+x+threads+copy+native+save) / ao`, note usage = `note / shares`. Counters arrive
+with the player's next finished run, so a day's numbers lag a little.
+
+## Community wall "ชีวิตที่แบ่งปัน" (v2.3, `functions/api/posts.js`)
+
+A tab in the leaderboard dialog. A post is an auto-built summary of one of the player's
+own finished runs (from `tof-lb-mine-v1`) plus an optional quote. No accounts or usernames.
+
+One KV key `posts` holds everything, so every accepted action is exactly 1 write:
+
+```
+{v:1,
+ p:[{id, t, s:{n,r,c,o,f,w,d,ti,ca,g}, q, rm, rp, x?, k}],  // newest first, max 200
+ qp:{<ipHash>:[ts]}, qa:{<ipHash>:[ts]},                   // post / react+report times in the last hour
+ rk:['<ipHash>:<id>'], pk:[...]}                           // last 1500 react / report keys
+```
+
+`s` = name, rank, class id, form, floor (101 only with won + drg f/s), won 0/1, drg, title,
+cause, generation. `rm` = ระลึกถึง count, `rp` = reports, `x:1` hidden, `k` = dedupe hash.
+
+| request | result | KV writes |
+|---|---|---|
+| `GET /api/posts` | `{posts:[{id,t,s,q,rm}]}` newest 50 visible, `Cache-Control: public, max-age=20` (KV read cacheTtl 30) | 0 |
+| `POST {a:'post', s, q}` | `200 {ok, post}` · `400 {error:'len'}` (quote 1 to 3 chars or over 300) · `400 {error:'filtered', why:'link'\|'personal'\|'abuse'}` · `409 {error:'dup'}` · `429 {error:'rate-limited', retryAfter}` (3 posts / IP / hour) · `429 {error:'busy'}` (40 posts / hour for everyone) | 1 (0 when rejected) |
+| `POST {a:'react', id}` | `200 {ok, rm}`; same IP again → `{ok, dup:true}` | 1 (0 on repeat) |
+| `POST {a:'report', id}` | `200 {ok}`; hidden after 3 reports from different IPs | 1 (0 on repeat) |
+
+React + report share a cap of 40 per IP per hour. All POSTs need a same-origin `Origin`
+(403 otherwise), JSON content type, body under 2 KB.
+
+Filtering (server, `screen()` in posts.js, also applied to name/title/cause, which are
+replaced or blanked instead of rejected): URLs, `www.`, `xxx.com`/`ดอท com`, short-link
+hosts; emails, LINE id / `@handle` / "แอดไลน์"; 9+ digits after removing separators (Thai
+digits too); a short Thai list matched with spaces/punctuation removed (avoiding stems hidden
+inside game words such as หีบ, สัตว์เลี้ยง, สัดส่วน) and an English list with leetspeak.
+Edit `TH_BAD` / `EN_SQUASH` / `EN_WORD` to tune.
+
+Client remembers its own reactions, reports and posted run ids in
+`localStorage['tof-posts-v1'] = {rm:[postId], rp:[postId], ps:[runId]}`. Without the function
+(GitHub Pages, `tools/serve.js`) or without KV, the tab shows "ยังไม่เปิดใช้".
+
+Moderation: to delete a post, edit the `posts` key in the KV dashboard (remove the item from
+`p`, or set `"x":1`). Concurrent writes within ~1 s can overwrite each other (KV is last
+write wins), so a reaction can occasionally be lost; acceptable for this traffic.
+
+Write budget: each post / first reaction / first report = 1 write against the free 1,000/day
+shared with the leaderboard. If reactions start eating the budget, lower `ACT_PER_HOUR`.

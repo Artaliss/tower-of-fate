@@ -1,4 +1,4 @@
-// Cloudflare Pages Function: /s/<code>  (share link of one finished life, no database)
+// Cloudflare Pages Function: /s/<code>  (share link of one finished life, or of a hero just born (ver 3/4, v2.3), no database)
 // The run is packed into <code> by share.js encode(). This serves the normal index.html with:
 //  - <base href="/"> so relative script/style URLs still resolve under /s/...  (only here: GitHub Pages lives under /tower-of-fate/)
 //  - og:title / og:description / og:url / twitter:title / twitter:description / <title> written for that run
@@ -21,7 +21,14 @@ function cleanTxt(s,max){s=str(s).replace(/<[^>]*>/g,'').replace(/[\u0000-\u001f
 function decode(code){
  try{code=String(code||'');if(!/^[A-Za-z0-9_-]{8,120}$/.test(code))return null;
   const b=unb64u(code);if(b.length<7)return null;const body=b.subarray(0,b.length-1);if(fnv8(body)!==b[b.length-1])return null;
-  const ver=b[0];if(ver!==1&&ver!==2)return null;const rank=(b[1]>>3)&7,cls=b[1]&7,dg=b[1]>>6,floor=b[2]&127,won=!!(b[2]&128),pct=b[3]&127,human=!!(b[3]&128);
+  const ver=b[0];
+  if(ver===3||ver===4){if(b.length<11||b[1]>>6||b[2]>>1||b[3]<1)return null;
+   const rank=(b[1]>>3)&7,cls=b[1]&7,human=!!(b[2]&1),gen=b[3],odds=b[4]*16777216+b[5]*65536+b[6]*256+b[7];
+   const rest=body.subarray(8),z=rest.indexOf(0);if(z<1)return null;
+   const dec=x=>ver===3?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
+   const name=cleanTxt(dec(rest.subarray(0,z)),16),village=cleanTxt(dec(rest.subarray(z+1)),20);if(!name)return null;
+   return{birth:true,rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],form:human?'human':'slime',gen,odds,name,village};}
+  if(ver!==1&&ver!==2)return null;const rank=(b[1]>>3)&7,cls=b[1]&7,dg=b[1]>>6,floor=b[2]&127,won=!!(b[2]&128),pct=b[3]&127,human=!!(b[3]&128);
   if(dg>2||(dg&&!won)||floor<1||floor>100||pct>100||(won&&floor!==100))return null;
   const rest=body.subarray(4),z=rest.indexOf(0);if(z<1)return null;
   const dec=x=>ver===1?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
@@ -37,6 +44,12 @@ export function codeOf(pathname) {
 
 // text for the link preview; every value is already stripped of < > " ' ` \ & by cleanTxt()
 export function metaFor(r, code) {
+  if (r.birth) {
+    // birth link (ver 3/4): a hero who was just born, no floor yet
+    const title = `${r.name} ฮีโร่แรงค์ ${r.rankK} ${r.clsN} เพิ่งเกิด จะไปได้ถึงชั้นไหน?`;
+    const desc = [r.village ? `เกิดที่${r.village}` : '', r.odds > 1 ? `โอกาสเกิดมาแบบนี้ 1 ใน ${Number(r.odds).toLocaleString('en-US')}` : '', 'ลองเกิดดูสักชาติ แล้วมาดูกันว่าใครไปได้ไกลกว่า'].filter(Boolean).join(' · ');
+    return { title, desc, url: `${ORIGIN}/s/${code}` };
+  }
   const who = `${r.name} ${r.clsN}แรงค์ ${r.rankK}`;
   const drg = r.drg === 'f' ? ' แล้วไว้ชีวิตมังกรบนชั้นลับ' : r.drg === 's' ? ' แล้วล้มมังกรบนชั้นลับได้' : '';
   const title = r.won ? (drg ? `${who} พิชิตยอดหอคอยโชคชะตา${drg}` : `${who} พิชิตยอดหอคอยโชคชะตาได้`) : `${who} ไปถึงชั้น ${r.floor} ของหอคอยโชคชะตา`;

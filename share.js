@@ -5,7 +5,9 @@
 // - share link https://tower-of-fate.pages.dev/s/<code>: the run is packed into the path (no database);
 //   functions/s/[[path]].js rewrites the og: tags for that link (decode() there must stay identical to the one here)
 // - "someone sent you a fate" banner when the game is opened from such a link (/s/<code> or ?s=<code>)
-// API: window.SHARE = { open(d,{auto}), close(), render(d) -> Promise<canvas>, text(d,mode), url(d), encode(d), decode(code), onPhase(ph), friend }
+// - birth card (v2.3): openBirth(d) = same sheet with the birth card, link /s/<code> with ver byte 3/4
+// - share stats in localStorage tof-share-stat-v1, read with stats()
+// API: window.SHARE = { open(d,{auto}), openBirth(d[,{onNote}]), stats(), close(), render(d) -> Promise<canvas>, text(d,mode), url(d), encode(d), decode(code), onPhase(ph), friend }
 (function(){
 'use strict';
 const HOST='tower-of-fate.pages.dev',ORIGIN='https://'+HOST;
@@ -49,14 +51,31 @@ function encode(d){
 function decode(code){
  try{code=String(code||'');if(!/^[A-Za-z0-9_-]{8,120}$/.test(code))return null;
   const b=unb64u(code);if(b.length<7)return null;const body=b.subarray(0,b.length-1);if(fnv8(body)!==b[b.length-1])return null;
-  const ver=b[0];if(ver!==1&&ver!==2)return null;const rank=(b[1]>>3)&7,cls=b[1]&7,dg=b[1]>>6,floor=b[2]&127,won=!!(b[2]&128),pct=b[3]&127,human=!!(b[3]&128);
+  const ver=b[0];
+  if(ver===3||ver===4){if(b.length<11||b[1]>>6||b[2]>>1||b[3]<1)return null;
+   const rank=(b[1]>>3)&7,cls=b[1]&7,human=!!(b[2]&1),gen=b[3],odds=b[4]*16777216+b[5]*65536+b[6]*256+b[7];
+   const rest=body.subarray(8),z=rest.indexOf(0);if(z<1)return null;
+   const dec=x=>ver===3?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
+   const name=cleanTxt(dec(rest.subarray(0,z)),16),village=cleanTxt(dec(rest.subarray(z+1)),20);if(!name)return null;
+   return{birth:true,rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],form:human?'human':'slime',gen,odds,name,village};}
+  if(ver!==1&&ver!==2)return null;const rank=(b[1]>>3)&7,cls=b[1]&7,dg=b[1]>>6,floor=b[2]&127,won=!!(b[2]&128),pct=b[3]&127,human=!!(b[3]&128);
   if(dg>2||(dg&&!won)||floor<1||floor>100||pct>100||(won&&floor!==100))return null;
   const rest=body.subarray(4),z=rest.indexOf(0);if(z<1)return null;
   const dec=x=>ver===1?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
   const name=cleanTxt(dec(rest.subarray(0,z)),16),title=cleanTxt(dec(rest.subarray(z+1)),18);if(!name)return null;
   return{rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],floor,won,pct,form:human?'human':'slime',name,title,drg:['','f','s'][dg]};
  }catch(e){return null;}}
-function shareUrl(d){return ORIGIN+'/s/'+encode(d);}
+// birth link (v2.3): [ver 3 packed / 4 UTF-8, rank<<3|cls, human, gen 1-255, odds u32 big-endian, ...name, 0, ...village, fnv8]
+// old clients only accept ver 1/2, so they just ignore these codes. Village (then name) is dropped if the code gets past 120 chars.
+function encodeBirth(d){
+ const rank=clampN(d.rankIdx|0,0,7),cls=Math.max(0,CLS_IDS.indexOf(d.clsId)),gen=clampN(Math.round(+d.gen||1),1,255),odds=clampN(Math.round(+d.odds||0),0,4294967295);
+ let name=cleanTxt(d.name,16)||'?',vil=cleanTxt(d.village,20);
+ for(;;){let n=packThai(name),v=packThai(vil),ver=3;
+  if(!n||!v){const te=new TextEncoder();n=[...te.encode(name)];v=[...te.encode(vil)];ver=4;}
+  const b=[ver,rank*8+cls,d.form==='human'?1:0,gen,(odds>>>24)&255,(odds>>>16)&255,(odds>>>8)&255,odds&255,...n,0,...v];b.push(fnv8(b));const c=b64u(b);
+  if(c.length<=120||(!vil&&graphemes(name).length<=1))return c;
+  if(vil)vil='';else name=clip(name,graphemes(name).length-1).trim()||'?';}}
+function shareUrl(d){return ORIGIN+'/s/'+(d&&d.birth?encodeBirth(d):encode(d));}
 
 // ---------- data ----------
 function norm(d){d=Object.assign({},d||{});d.name=str(d.name)||'นักผจญภัยนิรนาม';d.village=str(d.village);d.rankK=str(d.rankK)||'?';d.rankCol=d.rankCol||P.gold;
@@ -68,6 +87,12 @@ function norm(d){d=Object.assign({},d||{});d.name=str(d.name)||'นักผจ�
  d.drgW=d.won&&(d.drg==='f'||d.drg==='s'); // won the secret dragon floor
  d.secret=d.drgW||d.drg==='x';
  d.pat=d.pat&&typeof d.pat==='object'&&str(d.pat.code)&&Array.isArray(d.pat.v)&&d.pat.v.length===4?{code:str(d.pat.code),n:str(d.pat.n),v:d.pat.v.map(x=>clampN(+x||0,-100,100))}:null;return d;}
+// birth card data: d = {name, village, rankK, rankIdx, rankCol, clsId, clsN, odds, clsOdds, look, form, lookName, omenN, omenK, dayN, gen, house, date}
+function normB(d){d=Object.assign({},d||{});d.birth=true;d.name=str(d.name)||'นักผจญภัยนิรนาม';d.village=str(d.village);
+ d.rankIdx=d.rankIdx>=0&&d.rankIdx<=7?d.rankIdx|0:Math.max(0,RANK_K.indexOf(str(d.rankK)));d.rankK=str(d.rankK)||RANK_K[d.rankIdx];d.rankCol=d.rankCol||P.gold;
+ const ci=CLS_IDS.indexOf(d.clsId);d.clsN=str(d.clsN)||(ci>=0?CLS_N[ci]:'');d.odds=Math.max(0,Math.round(+d.odds||0));d.clsOdds=Math.max(0,Math.round(+d.clsOdds||0));
+ d.omenN=str(d.omenN);d.omenK=str(d.omenK);d.dayN=str(d.dayN);d.lookName=str(d.lookName);d.gen=Math.max(1,Math.round(+d.gen||1));d.house=str(d.house);
+ d.note=cleanNote(d.note);d.date=d.date||Date.now();d.floor=1;d.won=false;d.pets=[];d.drg='';d.secret=false;return d;}
 // ลวดลายชะตา row: code + name on the left, four mini lean bars on the right (poles: บ/ร ห/ช ด/พ ☀/☾)
 const PAT_P=[['บุก','ระวังตัว'],['หาของ','ช่วยเหลือ'],['คนเดียว','มีเพื่อน'],['กรรมดี','กรรมชั่ว']];
 function drawPat(ctx,d,y){const p=d.pat;
@@ -129,7 +154,7 @@ function drawHeader(ctx,d){
  const tx=64,ty=34;ctx.fillStyle=P.gold;[[0,0,8,8],[16,0,8,8],[32,0,8,8],[0,8,40,6],[4,14,32,44],[0,58,40,6]].forEach(([x,y,w,h])=>ctx.fillRect(tx+x,ty+y,w,h));
  ctx.fillStyle=P.band;ctx.fillRect(tx+16,ty+24,8,10);ctx.fillRect(tx+15,ty+44,10,14);
  line(ctx,'หอคอยโชคชะตา',124,84,{size:52,weight:600,col:P.gold,maxW:520});
- line(ctx,'No. '+recNo(d),W-64,62,{size:28,fam:fP,col:'#e9dcb8',align:'right',maxW:380});
+ line(ctx,'No. '+(d.birth?'B-'+d.rankK+(CLS_IDS.indexOf(d.clsId)+1)+'-'+new Date(d.date).getFullYear():recNo(d)),W-64,62,{size:28,fam:fP,col:'#e9dcb8',align:'right',maxW:380});
  line(ctx,new Date(d.date).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'}),W-64,98,{size:22,col:'#a3b5ad',align:'right',maxW:380});
 }
 function sprBounds(spr){let t=spr.h,b=0,l=spr.w,r=0;spr.rows.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]!=='.'&&spr.pal[row[x]]){t=Math.min(t,y);b=Math.max(b,y);l=Math.min(l,x);r=Math.max(r,x);}});
@@ -141,7 +166,7 @@ function drawPortrait(ctx,d,X,Y,FW,FH){
  const bi=clampN(Math.floor((d.floor-1)/20),0,4),sc=3;
  try{const bg=A&&A.bgImg&&A.bgImg(bi);if(bg){const sw=FW/sc,sh=FH/sc;ctx.drawImage(bg,(192-sw)/2,128-sh,sw,sh,X,Y,FW,FH);}else rect(ctx,X,Y,FW,FH,P.band);}catch(e){rect(ctx,X,Y,FW,FH,P.band);}
  const floorY=Y+FH-(128-100)*sc; // bg floor line sits at y=100 of 128
- if(!d.won){ctx.fillStyle='rgba(20,16,12,.28)';ctx.fillRect(X,Y,FW,FH);}
+ if(!d.won&&!d.birth){ctx.fillStyle='rgba(20,16,12,.28)';ctx.fillRect(X,Y,FW,FH);}
  else{const g=ctx.createRadialGradient(X+FW/2,floorY-80,10,X+FW/2,floorY-80,200);g.addColorStop(0,'rgba(255,220,120,.45)');g.addColorStop(1,'rgba(255,220,120,0)');ctx.fillStyle=g;ctx.fillRect(X,Y,FW,FH);}
  let drawn=false;
  try{if(A&&A.heroSpr&&A.sprCanvas){const spr=A.heroSpr(d.clsId||'war',d.look),c=A.sprCanvas(spr,false,false,'card'),b=sprBounds(spr),s=10,bw=b.r-b.l+1;
@@ -152,7 +177,7 @@ function drawPortrait(ctx,d,X,Y,FW,FH){
  if(!drawn)line(ctx,d.won?'♛':'✦',X+FW/2,Y+FH/2,{size:120,align:'center',col:P.gold});
  ctx.restore();
  // floor tag
- const tag=d.secret?'ชั้นลับ':d.won?'ยอดหอ':'ชั้น '+d.floor;setF(ctx,500,24);const tw=ctx.measureText(tag).width+24;rect(ctx,X+10,Y+10,tw,36,'rgba(11,18,21,.8)');line(ctx,tag,X+22,Y+37,{size:24,weight:500,col:P.gold,maxW:200});
+ const tag=d.birth?'ชั้น 1':d.secret?'ชั้นลับ':d.won?'ยอดหอ':'ชั้น '+d.floor;setF(ctx,500,24);const tw=ctx.measureText(tag).width+24;rect(ctx,X+10,Y+10,tw,36,'rgba(11,18,21,.8)');line(ctx,tag,X+22,Y+37,{size:24,weight:500,col:P.gold,maxW:200});
 }
 function drawStamp(ctx,text,cx,cy,col){ctx.save();ctx.translate(cx,cy);ctx.rotate(-.16);setF(ctx,600,30);const w=ctx.measureText(text).width+40,h=60;
  ctx.globalAlpha=.82;ctx.strokeStyle=col;ctx.lineWidth=5;ctx.strokeRect(-w/2,-h/2,w,h);ctx.lineWidth=2;ctx.strokeRect(-w/2+7,-h/2+7,w-14,h-14);
@@ -175,7 +200,8 @@ function drawMap(ctx,d,X,Y,cw,ch,gap){
 }
 
 // ---------- render ----------
-async function render(d){
+function render(d){return d&&d.birth?renderBirth(d):renderRun(d);}
+async function renderRun(d){
  d=norm(d);await waitFonts();
  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
  drawPaper(ctx,d);drawHeader(ctx,d);
@@ -235,6 +261,48 @@ async function render(d){
  line(ctx,HOST,W-64,footY+70,{size:30,fam:fP,col:P.red,align:'right',maxW:400,min:20});
  return cv;
 }
+// birth card: same paper/header/portrait, three big tiles, omen + today's theme, a big question and an empty 100-floor strip
+async function renderBirth(d){
+ d=normB(d);await waitFonts();
+ const cv=document.createElement('canvas');cv.width=W;cv.height=H;const ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
+ drawPaper(ctx,d);drawHeader(ctx,d);
+ line(ctx,'บันทึกแรกเกิด · BIRTH RECORD',64,184,{size:26,weight:500,col:P.stamp,maxW:700});
+ const PX=64,PY=212,PS=340;drawPortrait(ctx,d,PX,PY,PS,PS);
+ drawStamp(ctx,'แรกเกิด',PX+PS/2+18,PY+PS-34,P.gold);
+ const RX=444,RW=W-64-RX;
+ line(ctx,[d.clsN,'แรงค์ '+d.rankK].filter(Boolean).join(' · '),RX,250,{size:30,weight:500,col:P.stamp,maxW:RW,min:20});
+ line(ctx,d.name,RX,340,{size:84,weight:600,col:P.ink,maxW:RW,min:40});
+ let iy=406;if(d.village){line(ctx,'ถิ่นกำเนิด '+d.village,RX,iy,{size:30,col:P.ink2,maxW:RW,min:20});iy+=52;}
+ line(ctx,'รุ่นที่ '+d.gen+' · สาย'+(d.house||d.name),RX,iy,{size:28,col:P.ink2,maxW:RW,min:20});
+ line(ctx,d.lookName?'รูปลักษณ์ '+d.lookName:'',RX,iy+48,{size:24,col:P.ink3,maxW:RW,min:18});
+ // three big tiles
+ const TY=596,TH=260,TG=24,TW=(W-128-2*TG)/3;
+ const tile=(i,lab)=>{const x=64+i*(TW+TG);rect(ctx,x,TY,TW,TH,P.card);ctx.strokeStyle=P.rule;ctx.lineWidth=3;ctx.strokeRect(x+1.5,TY+1.5,TW-3,TH-3);rect(ctx,x,TY,TW,6,P.gold2);
+  line(ctx,lab,x+TW/2,TY+48,{size:24,col:P.ink3,maxW:TW-24,min:16,align:'center'});return x;};
+ let x=tile(0,'แรงค์');drawBadge(ctx,Math.round(x+TW/2-72),TY+72,144,d.rankK,d.rankCol);
+ x=tile(1,'อาชีพ');line(ctx,d.clsN||'?',x+TW/2,d.clsOdds>1?TY+162:TY+176,{size:64,weight:600,col:P.ink,maxW:TW-28,min:28,align:'center'});
+ if(d.clsOdds>1)line(ctx,'อาชีพนี้ 1 ใน '+nf(d.clsOdds),x+TW/2,TY+222,{size:24,col:P.ink2,maxW:TW-28,min:16,align:'center'});
+ x=tile(2,'โอกาสเกิดมาแบบนี้');line(ctx,'1 ใน',x+TW/2,TY+112,{size:34,weight:500,col:P.ink2,maxW:TW-28,align:'center'});
+ line(ctx,d.odds?nf(d.odds):'?',x+TW/2,TY+198,{size:76,weight:600,col:P.red,maxW:TW-28,min:28,align:'center'});
+ // omen / today's theme
+ let y=TY+TH+30;
+ const rows=[d.omenN?['ดวงประจำชาติ',d.omenN+(d.omenK?' · '+d.omenK:'')]:null,d.dayN?['หัวข้อของวันนี้',d.dayN]:null].filter(Boolean);
+ rows.forEach((r,i)=>{const cw=rows.length>1?456:W-128,xx=64+i*496;rect(ctx,xx,y,cw,2,P.rule);line(ctx,r[0],xx,y+30,{size:22,col:P.ink3,maxW:cw});line(ctx,r[1],xx,y+72,{size:32,weight:600,col:P.ink,maxW:cw,min:20});});
+ if(rows.length)y+=96;
+ if(d.note){y+=44;const h=para(ctx,'“'+d.note+'”',64,y,{size:34,min:24,weight:500,col:P.red,maxW:W-128,lines:2,lh:1.25});y+=h-14;}
+ // the big question + an empty tower strip (floor 1 lit)
+ const footY=1232,room=footY-y,strip=room>=230;
+ const qy=y+Math.round(strip?(room-120)/2+34:room/2+24);
+ line(ctx,'ฮีโร่คนนี้จะไปได้ถึงชั้นไหน?',W/2,qy,{size:66,weight:600,col:P.ink,maxW:W-128,min:34,align:'center'});
+ if(strip){const sy=qy+44,sw=W-128,g=2,cw=(sw-99*g)/100;
+  for(let f=1;f<=100;f++){const sx=64+(f-1)*(cw+g);rect(ctx,sx,sy,cw,26,f===1?P.gold:f%10===0?'rgba(201,138,26,.35)':'rgba(43,33,24,.1)');}
+  line(ctx,'ชั้น 1',64,sy+60,{size:22,fam:fP,col:P.ink2,maxW:200});line(ctx,'ชั้น 100',W-64,sy+60,{size:22,fam:fP,col:P.ink2,align:'right',maxW:200});}
+ // footer
+ rect(ctx,64,footY,W-128,3,P.ink);
+ line(ctx,'ลองเกิดดูสักชาติ แล้วมาเทียบกัน',64,footY+72,{size:40,weight:600,col:P.ink,maxW:600,min:26});
+ line(ctx,HOST,W-64,footY+70,{size:30,fam:fP,col:P.red,align:'right',maxW:360,min:20});
+ return cv;
+}
 
 // ---------- share text ----------
 const CLOSE=['คุณจะไปได้ถึงชั้นไหน?','ถ้าเป็นคุณ จะไปได้ไกลกว่านี้ไหม?','ลองเกิดดูสักชาติไหม เผื่อได้แรงค์ดีกว่านี้','ชาติหน้าของคุณจะไปถึงชั้นไหน?'];
@@ -261,7 +329,16 @@ function hooks(d){const k=d.hk||{},out=[],seed=hashStr(d.name+'|'+d.floor+'|'+d.
  out.sort((a,b)=>b.s-a.s);const g={},pick=[];for(const h of out){if(g[h.g])continue;g[h.g]=1;pick.push(h);if(pick.length>=3)break;}
  return{pick,seed};}
 // mode 'x' = X/Twitter text (weighted 240, the link goes in &url=), anything else = text + link within 480 chars
-function text(d,mode){d=norm(d);const {pick,seed}=hooks(d),isX=mode==='x',url=shareUrl(d),budget=isX?240:480,len=isX?xLen:(s=>Array.from(s).length);
+const CLOSE_B=['ฮีโร่คนนี้จะไปได้ถึงชั้นไหน? ทายกันหน่อย','ทายสิว่าจะรอดไปถึงชั้นไหน','ถ้าเป็นคุณ จะเกิดมาดีกว่านี้ไหม?'];
+function textBirth(d,mode){d=normB(d);const isX=mode==='x',url=shareUrl(d),budget=isX?240:480,len=isX?xLen:(s=>Array.from(s).length);
+ const L=[];if(d.note)L.push(d.note);
+ L.push(`🐣 ${d.name} เพิ่งเกิดเป็น${d.clsN||'นักผจญภัย'}แรงค์ ${d.rankK}${d.village?' ที่'+d.village:''}${d.odds?` (1 ใน ${nf(d.odds)})`:''}`);
+ if(d.omenN)L.push('ดวงประจำชาติ: '+d.omenN);
+ L.push(CLOSE_B[hashStr(d.name+'|'+d.clsId+'|'+d.rankK)%CLOSE_B.length]+' #หอคอยโชคชะตา');
+ if(!isX)L.push(url);
+ let s=L.join('\n');if(len(s)>budget&&d.note){const over=len(s)-budget;L[0]=clip(d.note,Math.max(10,graphemes(d.note).length-over-1))+'…';s=L.join('\n');}
+ return s;}
+function text(d,mode){if(d&&d.birth)return textBirth(d,mode);d=norm(d);const {pick,seed}=hooks(d),isX=mode==='x',url=shareUrl(d),budget=isX?240:480,len=isX?xLen:(s=>Array.from(s).length);
  const birth=`🗼 ${d.name} เกิดเป็น${d.clsN||'นักผจญภัย'}แรงค์ ${d.rankK}${d.village?' ที่'+d.village:''}${d.odds?` (1 ใน ${nf(d.odds)})`:''}`;
  const death=d.won?'👑 ไต่ขึ้นถึงชั้น 100 และพิชิตยอดหอคอยได้':`💀 ล้มที่ชั้น ${d.floor}: ${d.cause.replace(/\s*\(ชั้น \d+\)\s*$/,'')||'ชะตาขาด'}`;
  const close=CLOSE[seed%CLOSE.length]+' #หอคอยโชคชะตา';
@@ -271,6 +348,18 @@ function text(d,mode){d=norm(d);const {pick,seed}=hooks(d),isX=mode==='x',url=sh
  const L=[];if(d.note)L.push(d.note);L.push(birth,...got.map(h=>h.t),death,close);if(!isX)L.push(url);
  let s=L.join('\n');if(len(s)>budget&&d.note){/* very long note: trim it */const over=len(s)-budget;L[0]=clip(d.note,Math.max(10,graphemes(d.note).length-over-1))+'…';s=L.join('\n');}
  return s;}
+
+// ---------- share stats (local only; leaderboard.js sends them with the next score) ----------
+// tof-share-stat-v1 = {v:1, ao:sheet auto-opened, mo:opened by hand, bo:birth sheet opened, sh:{img,line,x,threads,copy,native,save}, note:shares that carried the player's line}
+// sh counts button presses (img = "share as image" pressed, native = the OS share sheet finished, save = save button or the save fallback, copy = either copy button)
+const SK='tof-share-stat-v1',SHK=['img','line','x','threads','copy','native','save'];
+const cntV=v=>{v=Math.floor(+v);return isFinite(v)&&v>0?Math.min(v,1e9):0;};
+function stats(){let o=null;try{o=JSON.parse(localStorage.getItem(SK)||'null');}catch(e){}o=o&&typeof o==='object'?o:{};const sh=o.sh&&typeof o.sh==='object'?o.sh:{};
+ const r={v:1,ao:cntV(o.ao),mo:cntV(o.mo),bo:cntV(o.bo),sh:{},note:cntV(o.note)};SHK.forEach(k=>{r.sh[k]=cntV(sh[k]);});return r;}
+function statPut(o){try{localStorage.setItem(SK,JSON.stringify(o));}catch(e){}}
+function statBump(k){try{const o=stats();o[k]++;statPut(o);}catch(e){}}
+// kind = one of SHK; withNote = the shared text/card includes the note line
+function track(kind,withNote){try{const o=stats();o.sh[kind]++;if(withNote&&state&&state.d&&state.d.note)o.note++;statPut(o);}catch(e){}}
 
 // ---------- sheet ----------
 const CSS=`
@@ -321,7 +410,10 @@ const MOBILE=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');
 let dlg=null,state=null,lastFocus=null,cssDone=false;
 function el(tag,attrs,txt){const e=document.createElement(tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(txt!=null)e.textContent=txt;return e;}
 function css(){if(cssDone)return;cssDone=true;const st=el('style');st.textContent=CSS;document.head.appendChild(st);}
-function placeholders(d){const P=[],k=d.hk||{};
+function placeholders(d){if(d.birth){const P=[];
+  if(d.rankIdx>=6)P.push('ชาตินี้ดวงมาแล้ว','แรงค์นี้ต้องไปได้ไกลแน่');if(d.rankIdx<=1)P.push('เกิดมาก็ต้องสู้ชีวิตเลย');
+  P.push('ขอแค่รอดเกินชั้น 10 ก็พอ','หน้าตาดีกว่าฝีมืออีก');return [...new Set(P)].map(s=>'เช่น '+s);}
+ const P=[],k=d.hk||{};
  if(d.won)P.push('ในที่สุดก็ได้ยืนบนยอดหอ');
  if(!d.won&&d.floor<=12)P.push('ยังไม่ทันได้เริ่มเลย');
  if(!d.won&&d.med&&d.floor>d.med+8)P.push('ไปได้ไกลกว่าที่คิดไว้เยอะ');
@@ -337,9 +429,9 @@ function build(){
  if(dlg)return dlg;css();
  dlg=el('dialog',{class:'shs','aria-labelledby':'shs-ttl'});
  const box=el('div',{class:'shs-box'});
- const hd=el('div',{class:'shs-hd'});hd.append(el('h2',{id:'shs-ttl'},'แชร์ชีวิตนี้'));const x=el('button',{class:'shs-x',type:'button'},'ปิด');hd.append(x);
+ const hd=el('div',{class:'shs-hd'});const ttl=el('h2',{id:'shs-ttl'},'แชร์ชีวิตนี้');hd.append(ttl);const x=el('button',{class:'shs-x',type:'button'},'ปิด');hd.append(x);
  const lead=el('p',{class:'shs-lead'});
- const lab=el('label',{class:'shs-lab',for:'shs-note'});lab.append(el('span',null,'ความรู้สึกหนึ่งบรรทัดหลังจบชีวิตนี้ (ไม่ต้องเขียนก็ได้)'));const cnt=el('span',{'aria-live':'off'},'0/120');lab.append(cnt);
+ const lab=el('label',{class:'shs-lab',for:'shs-note'});const labT=el('span');lab.append(labT);const cnt=el('span',{'aria-live':'off'},'0/120');lab.append(cnt);
  const ta=el('textarea',{id:'shs-note',maxlength:'120',rows:'2',autocomplete:'off'});
  const hint=el('p',{class:'shs-hint'},'ถ้าเขียนไว้ จะขึ้นเป็นบรรทัดแรกของโพสต์และอยู่บนการ์ดด้วย');
  const inapp=el('p',{class:'shs-inapp'},'แอปที่เปิดเกมอยู่ตอนนี้ (เช่น LINE หรือ Facebook) แชร์รูปตรงๆ ไม่ได้ ให้กดคัดลอกข้อความกับลิงก์ไปวางแทน ส่วนรูปการ์ด กดค้างที่รูปด้านล่างแล้วเลือกบันทึก หรือแตะ ⋯ แล้วเลือกเปิดในเบราว์เซอร์');inapp.hidden=!INAPP;
@@ -357,7 +449,7 @@ function build(){
  const wrap=el('div');
  const foot=el('p',{class:'shs-note'},'ลิงก์ที่ส่งใน LINE, X และ Threads จะมีภาพตัวอย่างขึ้นเอง ถ้าอยากให้เพื่อนเห็นการ์ดใบนี้ด้วย ให้บันทึกรูปแล้วแนบไปกับโพสต์');
  box.append(hd,lead,lab,ta,hint,inapp,pri,grid,mini,msg,det,hold,wrap,foot);dlg.append(box);document.body.append(dlg);
- dlg._={box,lead,ta,cnt,pri,bLine,bX,bTh,bCopy,bSave,bLink,msg,pre,wrap};
+ dlg._={ttl,labT,box,lead,ta,cnt,pri,bLine,bX,bTh,bCopy,bSave,bLink,msg,pre,wrap};
  x.onclick=close;
  dlg.addEventListener('cancel',e=>{e.preventDefault();close();});
  dlg.addEventListener('click',e=>{if(e.target!==dlg)return;const r=box.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)close();});
@@ -365,22 +457,22 @@ function build(){
   if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus();}else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus();}}});
  ta.addEventListener('input',()=>{if(!state)return;state.d.note=cleanNote(ta.value);cnt.textContent=Array.from(ta.value).length+'/120';refreshText();clearTimeout(state.rt);state.rt=setTimeout(()=>redraw(),450);
   try{if(state.onNote)state.onNote(state.d.note);}catch(e){}});
- pri.onclick=()=>INAPP?copy(true):shareImage();
- bCopy.onclick=()=>copy(true);bLink.onclick=()=>copy(false);bSave.onclick=save;
- bLine.onclick=()=>{const s=state;if(!s)return;const t=text(s.d,'line');go(MOBILE?'https://line.me/R/msg/text/?'+encodeURIComponent(t):'https://social-plugins.line.me/lineit/share?url='+encodeURIComponent(s.url)+'&text='+encodeURIComponent(t));};
- bX.onclick=()=>{const s=state;if(!s)return;go('https://x.com/intent/tweet?text='+encodeURIComponent(text(s.d,'x'))+'&url='+encodeURIComponent(s.url));};
- bTh.onclick=()=>{const s=state;if(!s)return;go('https://www.threads.net/intent/post?text='+encodeURIComponent(text(s.d,'threads')));};
+ pri.onclick=()=>{if(INAPP){track('copy',true);copy(true);}else{track('img',true);shareImage();}};
+ bCopy.onclick=()=>{track('copy',true);copy(true);};bLink.onclick=()=>{track('copy',false);copy(false);};bSave.onclick=()=>{track('save',false);save();};
+ bLine.onclick=()=>{const s=state;if(!s)return;track('line',true);const t=text(s.d,'line');go(MOBILE?'https://line.me/R/msg/text/?'+encodeURIComponent(t):'https://social-plugins.line.me/lineit/share?url='+encodeURIComponent(s.url)+'&text='+encodeURIComponent(t));};
+ bX.onclick=()=>{const s=state;if(!s)return;track('x',true);go('https://x.com/intent/tweet?text='+encodeURIComponent(text(s.d,'x'))+'&url='+encodeURIComponent(s.url));};
+ bTh.onclick=()=>{const s=state;if(!s)return;track('threads',true);go('https://www.threads.net/intent/post?text='+encodeURIComponent(text(s.d,'threads')));};
  return dlg;}
 function go(u){const w=window.open(u,'_blank','noopener');if(!w)location.href=u;}
 function say(t,bad){if(!dlg)return;const m=dlg._.msg;m.style.color=bad?'#ef6b5e':'#86d67f';m.textContent=t;clearTimeout(say._t);say._t=setTimeout(()=>{m.textContent='';},2800);}
-function fname(d){return 'tower-of-fate-'+(str(d.name).trim().replace(/[\\/:*?"<>|\s]+/g,'-').slice(0,40)||'hero')+'-'+d.floor+'.png';}
+function fname(d){return 'tower-of-fate-'+(str(d.name).trim().replace(/[\\/:*?"<>|\s]+/g,'-').slice(0,40)||'hero')+'-'+(d.birth?'birth':d.floor)+'.png';}
 function refreshText(){const s=state;if(!s)return;dlg._.pre.textContent=text(s.d,'full');}
 function redraw(){const s=state;if(!s)return;s.blob=null;const D=dlg._,v=++s.ver;
  if(!D.wrap.querySelector('img'))D.wrap.replaceChildren(el('div',{class:'shs-load'},'กำลังวาดการ์ด…'));
  s.cvP=render(s.d);
  s.cvP.then(cv=>{if(s!==state||v!==s.ver)return;let img=D.wrap.querySelector('img');
   if(!img){img=el('img',{class:'shs-img',width:'1080',height:'1350'});D.wrap.replaceChildren(img);}
-  img.alt='การ์ดของ '+s.d.name+': '+(s.d.won?'พิชิตยอดหอคอย':'ไปถึงชั้น '+s.d.floor+' จาก 100');img.src=cv.toDataURL('image/png');
+  img.alt=s.d.birth?'การ์ดแรกเกิดของ '+s.d.name+': '+s.d.clsN+'แรงค์ '+s.d.rankK:'การ์ดของ '+s.d.name+': '+(s.d.won?'พิชิตยอดหอคอย':'ไปถึงชั้น '+s.d.floor+' จาก 100');img.src=cv.toDataURL('image/png');
   cv.toBlob(b=>{if(s===state&&v===s.ver)s.blob=b;},'image/png');}).catch(()=>{if(s===state)D.wrap.replaceChildren(el('div',{class:'shs-load'},'วาดการ์ดไม่สำเร็จ'));});
  return s.cvP;}
 function getBlob(){const s=state;if(!s)return Promise.resolve(null);if(s.blob)return Promise.resolve(s.blob);
@@ -389,8 +481,8 @@ function dl(b,name){const u=URL.createObjectURL(b);const a=el('a',{href:u,downlo
 async function save(){const s=state;const b=await getBlob();if(!b||s!==state)return;dl(b,fname(s.d));say('บันทึกรูปแล้ว');}
 async function shareImage(){const s=state;if(!s)return;const t=text(s.d,'full');
  try{const b=s.blob||await getBlob();let file=null;try{file=b&&new File([b],fname(s.d),{type:'image/png'});}catch(e){}
-  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],text:t});return;}
-  if(b){dl(b,fname(s.d));say('เครื่องนี้แชร์รูปตรงๆ ไม่ได้ เลยบันทึกรูปให้แทน');}
+  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],text:t});track('native',false);return;}
+  if(b){track('save',false);dl(b,fname(s.d));say('เครื่องนี้แชร์รูปตรงๆ ไม่ได้ เลยบันทึกรูปให้แทน');}
  }catch(e){if(e&&e.name!=='AbortError')say('แชร์ไม่สำเร็จ ลองบันทึกรูปแทน',true);}}
 async function copy(all){const s=state;if(!s)return;const t=all?text(s.d,'full'):s.url;let ok=false;
  try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(t);ok=true;}}catch(e){}
@@ -398,12 +490,16 @@ async function copy(all){const s=state;if(!s)return;const t=all?text(s.d,'full')
  say(ok?(all?'คัดลอกข้อความกับลิงก์แล้ว':'คัดลอกลิงก์แล้ว'):'คัดลอกไม่ได้',!ok);}
 function close(){if(!dlg)return;if(dlg.open){try{dlg.close();}catch(e){dlg.removeAttribute('open');}}if(state){clearInterval(state.ph);clearTimeout(state.rt);}state=null;
  const f=lastFocus;lastFocus=null;if(f&&f.focus&&document.contains(f))try{f.focus({preventScroll:true});}catch(e){}}
-function open(d,opt){
- opt=opt||{};build();d=norm(d);const D=dlg._;
+function open(d,opt){opt=opt||{};statBump(opt.auto?'ao':'mo');return openSheet(norm(d),opt);}
+function openBirth(d,opt){opt=opt||{};statBump('bo');return openSheet(normB(d),Object.assign({},opt,{auto:false}));}
+function openSheet(d,opt){
+ build();const D=dlg._;
  if(!dlg.open)lastFocus=document.activeElement;
  if(state){clearInterval(state.ph);clearTimeout(state.rt);}
  state={d,blob:null,ver:0,url:shareUrl(d),onNote:typeof opt.onNote==='function'?opt.onNote:null};const s=state;
- D.lead.textContent=opt.auto?(d.won?'ชีวิตนี้ขึ้นถึงยอดหอแล้ว เขียนอะไรถึงมันสักบรรทัด แล้วอวดเพื่อนไหม?':'ชีวิตนี้จบลงแล้ว ลองเขียนความรู้สึกสักบรรทัด แล้วส่งให้เพื่อนดูไหม?'):'อยากเขียนความรู้สึกก็เขียนสั้นๆ ไว้ได้ แล้วเลือกว่าจะแชร์ทางไหน';
+ D.ttl.textContent=d.birth?'แชร์ฮีโร่ที่เพิ่งเกิด':'แชร์ชีวิตนี้';
+ D.labT.textContent=d.birth?'อยากฝากอะไรถึงฮีโร่คนนี้ไหม (ไม่ต้องเขียนก็ได้)':'ความรู้สึกหนึ่งบรรทัดหลังจบชีวิตนี้ (ไม่ต้องเขียนก็ได้)';
+ D.lead.textContent=d.birth?'ฮีโร่คนนี้เพิ่งเกิด ส่งให้เพื่อนทายกันไหมว่าจะไปได้ถึงชั้นไหน?':opt.auto?(d.won?'ชีวิตนี้ขึ้นถึงยอดหอแล้ว เขียนอะไรถึงมันสักบรรทัด แล้วอวดเพื่อนไหม?':'ชีวิตนี้จบลงแล้ว ลองเขียนความรู้สึกสักบรรทัด แล้วส่งให้เพื่อนดูไหม?'):'อยากเขียนความรู้สึกก็เขียนสั้นๆ ไว้ได้ แล้วเลือกว่าจะแชร์ทางไหน';
  D.ta.value=d.note;D.cnt.textContent=Array.from(d.note).length+'/120';
  const ph=placeholders(d);let pi=hashStr(d.name)%ph.length;D.ta.placeholder=ph[pi];s.ph=setInterval(()=>{if(document.activeElement===D.ta&&D.ta.value)return;pi=(pi+1)%ph.length;D.ta.placeholder=ph[pi];},3200);
  const canFiles=!INAPP&&!!(navigator.canShare&&(()=>{try{return navigator.canShare({files:[new File([''],'a.png',{type:'image/png'})]});}catch(e){return false;}})());
@@ -423,14 +519,16 @@ function readFriend(){try{const L=location;let code=null,m=L.pathname.match(/\/s
  }catch(e){}}
 function showFriend(){if(!friend||friendEl||fShown)return;const main=document.querySelector('main.main')||document.querySelector('.wrap');if(!main)return;css();
  const f=friend;friendEl=el('div',{class:'tof-friend',role:'note'});
- const t=el('div',{class:'ft'});t.append('มีคนส่งชะตามาให้คุณ: ');const b=el('b',null,f.name);t.append(b,` ${f.clsN}แรงค์ ${f.rankK}${f.title?` 「${f.title}」`:''} `);
- t.append(f.drg==='f'?'พิชิตยอดหอคอย แล้วยังไว้ชีวิตมังกรบนชั้นลับด้วย คุณจะทำได้แบบนี้ไหม?':f.drg==='s'?'พิชิตยอดหอคอย แล้วยังล้มมังกรบนชั้นลับได้ด้วย คุณจะทำได้แบบนี้ไหม?':f.won?'พิชิตยอดหอคอยได้ คุณจะทำได้แบบเดียวกันไหม?':`ไปถึงชั้น ${f.floor} คุณจะไปได้ไกลกว่านี้ไหม?`);
+ const t=el('div',{class:'ft'});
+ if(f.birth){t.append('มีคนส่งฮีโร่ที่เพิ่งเกิดมาให้ดู: ',el('b',null,f.name),` ${f.clsN}แรงค์ ${f.rankK}${f.odds>1?` (1 ใน ${nf(f.odds)})`:''} ทายสิว่าจะไปได้ถึงชั้นไหน หรือจะลองเกิดมาแข่งกันก็ได้`);}
+ else{t.append('มีคนส่งชะตามาให้คุณ: ');const b=el('b',null,f.name);t.append(b,` ${f.clsN}แรงค์ ${f.rankK}${f.title?` 「${f.title}」`:''} `);
+ t.append(f.drg==='f'?'พิชิตยอดหอคอย แล้วยังไว้ชีวิตมังกรบนชั้นลับด้วย คุณจะทำได้แบบนี้ไหม?':f.drg==='s'?'พิชิตยอดหอคอย แล้วยังล้มมังกรบนชั้นลับได้ด้วย คุณจะทำได้แบบนี้ไหม?':f.won?'พิชิตยอดหอคอยได้ คุณจะทำได้แบบเดียวกันไหม?':`ไปถึงชั้น ${f.floor} คุณจะไปได้ไกลกว่านี้ไหม?`);}
  const x=el('button',{type:'button','aria-label':'ปิดข้อความนี้'},'ปิด');x.onclick=hideFriend;
- friendEl.append(el('span',{class:'fi','aria-hidden':'true'},'📜'),t,x);main.parentNode.insertBefore(friendEl,main);fShown=true;}
+ friendEl.append(el('span',{class:'fi','aria-hidden':'true'},f.birth?'🐣':'📜'),t,x);main.parentNode.insertBefore(friendEl,main);fShown=true;}
 function hideFriend(){if(friendEl){friendEl.remove();}friend=null;}
 function onPhase(ph){if(friend&&!fShown)showFriend();if(friendEl&&lastPh==='birth'&&ph!=='birth')hideFriend();lastPh=ph;}
 readFriend();
 if(friend)setTimeout(showFriend,0); // auto.js normally shows it first through onPhase()
 
-window.SHARE={open,close,render,text,url:shareUrl,encode,decode,onPhase,get friend(){return friend;},get isOpen(){return!!(dlg&&dlg.open);}};
+window.SHARE={open,openBirth,stats,close,render,text,url:shareUrl,encode,decode,onPhase,get friend(){return friend;},get isOpen(){return!!(dlg&&dlg.open);}};
 })();

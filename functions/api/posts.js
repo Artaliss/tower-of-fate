@@ -1,0 +1,171 @@
+// Cloudflare Pages Function: /api/posts  — community wall "ชีวิตที่แบ่งปัน" (v2.3)
+// KV binding: TOF_KV, ONE key 'posts' holds everything so each accepted action costs exactly 1 write:
+//   {v:1,
+//    p:[{id, t, s:{n,r,c,o,f,w,d,ti,ca,g}, q, rm, rp, x?, k}],   newest first, max 200 (x=1 hidden by reports)
+//    qp:{<ipHash>:[ts..]},   post times per IP in the last hour (quota)
+//    qa:{<ipHash>:[ts..]},   react/report times per IP in the last hour (quota)
+//    rk:['<ipHash>:<id>'..], pk:[...] }   recent react / report keys (cheap repeat filter, ring buffers)
+// GET                         -> {posts:[{id,t,s,q,rm}]}  newest 50 visible (Cache-Control: max-age=20)
+// POST {a:'post', s:{...}, q} -> {ok, post} | {error:'filtered', why:'link'|'personal'|'abuse'} | {error:'len'} | 429 {error:'rate-limited'|'busy'} | 409 {error:'dup'}
+// POST {a:'react', id}        -> {ok, rm, dup?}     (repeat from the same IP: no write)
+// POST {a:'report', id}       -> {ok, dup?}         (hidden once rp >= REPORT_HIDE distinct IPs)
+
+const KEY = 'posts', MAX_POSTS = 200, GET_N = 50, MAX_BODY = 2048;
+const Q_MIN = 4, Q_MAX = 300;
+const POST_PER_HOUR = 3, ACT_PER_HOUR = 40, GLOBAL_POST_PER_HOUR = 40;
+const REPORT_HIDE = 3, RING = 1500;
+const RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'];
+const CLS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra', 'dsl'];
+const FORMS = ['slime', 'human', ''];
+const DRG = ['', 'n', 'f', 's', 'x'];
+const HOUR = 3600e3;
+
+// ---- same helpers as scores.js ----
+function fnv(s) { let h = 2166136261 >>> 0; s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+function clean(v, max) {
+  let s = typeof v === 'string' ? v : '';
+  s = s.replace(/<[^>]*>/g, '')
+    .replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g, '')
+    .replace(/[<>"'`\\]/g, '').replace(/\s+/g, ' ').trim();
+  return Array.from(s).slice(0, max).join('').trim();
+}
+// -----------------------------------
+
+const SEC = { 'Content-Type': 'application/json; charset=utf-8', 'X-Content-Type-Options': 'nosniff', 'Vary': 'Origin' };
+const json = (obj, status = 200, extra = {}) =>
+  new Response(JSON.stringify(obj), { status, headers: { ...SEC, 'Cache-Control': 'no-store', ...extra } });
+const isInt = (v, lo, hi) => typeof v === 'number' && Number.isInteger(v) && v >= lo && v <= hi;
+const okId = s => typeof s === 'string' && /^[a-z0-9]{6,16}$/.test(s);
+
+function sameOrigin(request) {
+  const self = new URL(request.url).origin;
+  const o = request.headers.get('Origin');
+  if (o) return o === self;
+  const r = request.headers.get('Referer');
+  if (r) { try { return new URL(r).origin === self; } catch { return false; } }
+  return request.method === 'GET';
+}
+
+// ---- content filter ----
+const TH_DIGIT = /[๐-๙]/g;
+const TLD = 'com|net|org|info|biz|io|co|me|ly|gg|tv|xyz|app|dev|link|site|online|shop|club|top|vip|cc|th|to|in|us|uk|ru|cn|tk|ml|ga|cf|bet|win|live|fun|pro|asia';
+const RE_URL = new RegExp(`(https?:|www\\.|:\\/\\/|\\b[a-z0-9-]{2,}(\\.|\\s*(ดอท|dot)\\s*)(${TLD})\\b|\\b(bit\\.ly|t\\.me|wa\\.me|lin\\.ee|line\\.me)\\b)`, 'i');
+const RE_MAIL = /[a-z0-9._%+-]+\s*(@|\(at\)|\[at\])\s*[a-z0-9-]+\s*(\.|dot)\s*[a-z]{2,}/i;
+const RE_CONTACT = /(line\s*id|ไลน์\s*ไอดี|ไอดีไลน์|แอดไลน์|แอด\s*line|add\s*line|ทักไลน์|ig\s*:|เฟส\s*:|fb\s*:|@[a-z0-9_.]{4,})/i;
+// Thai has no word breaks: only stems that do not hide inside common words (no bare หี/สัตว์/สัด: หีบ, สัตว์เลี้ยง, สัดส่วน)
+const TH_BAD = ['เหี้ย', 'เหี้ยะ', 'ควย', 'เย็ด', 'สัส', 'แตด', 'กระหรี่', 'ดอกทอง', 'เงี่ยน', 'ส้นตีน', 'หน้าหี', 'อีหี', 'หีแม่', 'พ่อมึง', 'แม่มึง', 'ไอ้สัตว์', 'อีสัตว์', 'ไอ้สัส', 'ชาติหมา', 'ระยำ', 'อีดอก', 'โคตรพ่อ', 'โคตรแม่', 'อีเวร', 'ไอ้เวร'];
+const EN_SQUASH = ['fuck', 'cunt', 'nigger', 'nigga', 'faggot', 'shithead', 'bitch'];
+const EN_WORD = /\b(shit|asshole|whore|whores|fuk|dick|dicks|cock|slut|bastard|pussy|retard|retarded|wtf|stfu|fag|fags|porn|rape|kys)\b/i;
+
+export function screen(text) {
+  const t = String(text || '');
+  const d = t.replace(TH_DIGIT, c => String(c.charCodeAt(0) - 0x0E50));
+  if (RE_URL.test(d)) return 'link';
+  if (RE_MAIL.test(d) || RE_CONTACT.test(d)) return 'personal';
+  // 9+ digits in a row once spaces / dashes / dots between digits are removed = phone or account number
+  if (/\d{9,}/.test(d.replace(/(\d)[\s\-.()]+(?=\d)/g, '$1'))) return 'personal';
+  const low = d.toLowerCase();
+  const thSq = low.replace(/[\s\-_.,!?*~'"()[\]{}|/\\:;ๆ฿]+/g, '');
+  if (TH_BAD.some(w => thSq.includes(w))) return 'abuse';
+  const leet = low.replace(/[0@4$5137!|]/g, c => ({ '0': 'o', '@': 'a', '4': 'a', '$': 's', '5': 's', '1': 'i', '3': 'e', '7': 't', '!': 'i', '|': 'i' }[c]));
+  const enSq = leet.replace(/[^a-z]+/g, '');
+  if (EN_SQUASH.some(w => enSq.includes(w))) return 'abuse';
+  if (EN_WORD.test(leet)) return 'abuse';
+  return '';
+}
+
+// ---- run summary (built by the client from one of its own finished runs) ----
+export function summary(b) {
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return null;
+  let n = clean(b.n, 24);
+  if (!n || screen(n)) n = 'นักผจญภัยนิรนาม';
+  const r = RANKS.includes(b.r) ? b.r : null, c = CLS.includes(b.c) ? b.c : null;
+  if (!r || !c || !isInt(b.f, 1, 101)) return null;
+  const w = b.w === 1 || b.w === true ? 1 : 0, d = DRG.includes(b.d) ? b.d : '';
+  let f = b.f; if (w && f < 100) return null; if (f === 101 && !(w && (d === 'f' || d === 's'))) f = 100;
+  const ti = clean(b.ti, 40), ca = clean(b.ca, 60);
+  const s = { n, r, c, o: FORMS.includes(b.o) ? b.o : '', f, w, d, ti: screen(ti) ? '' : ti, ca: screen(ca) ? '' : ca, g: isInt(b.g, 1, 9999) ? b.g : 1 };
+  return s;
+}
+
+async function read(kv, opt) {
+  let v = null; try { v = JSON.parse(await kv.get(KEY, opt) || 'null'); } catch { }
+  if (!v || typeof v !== 'object') v = {};
+  if (!Array.isArray(v.p)) v.p = [];
+  for (const k of ['qp', 'qa']) if (!v[k] || typeof v[k] !== 'object') v[k] = {};
+  for (const k of ['rk', 'pk']) if (!Array.isArray(v[k])) v[k] = [];
+  v.v = 1;
+  return v;
+}
+function pruneQ(q, now) {
+  for (const k in q) { const a = Array.isArray(q[k]) ? q[k].filter(t => now - t < HOUR) : []; if (a.length) q[k] = a; else delete q[k]; }
+}
+const pub = p => ({ id: p.id, t: p.t, s: p.s, q: p.q, rm: p.rm | 0 });
+
+export async function onRequestGet({ request, env }) {
+  const kv = env && env.TOF_KV;
+  if (!kv) return json({ error: 'kv-not-configured' }, 503);
+  const o = request.headers.get('Origin');
+  if (o && o !== new URL(request.url).origin) return json({ error: 'forbidden' }, 403);
+  const v = await read(kv, { cacheTtl: 30 });
+  return json({ posts: v.p.filter(p => p && !p.x).slice(0, GET_N).map(pub) }, 200, { 'Cache-Control': 'public, max-age=20' });
+}
+
+export async function onRequestPost({ request, env }) {
+  const kv = env && env.TOF_KV;
+  if (!kv) return json({ error: 'kv-not-configured' }, 503);
+  if (!sameOrigin(request)) return json({ error: 'forbidden' }, 403);
+  if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ error: 'content-type' }, 415);
+  const text = await request.text();
+  if (text.length > MAX_BODY) return json({ error: 'too-large' }, 413);
+  let b; try { b = JSON.parse(text); } catch { return json({ error: 'bad-json' }, 400); }
+  if (!b || typeof b !== 'object') return json({ error: 'bad-json' }, 400);
+
+  const ip = fnv('tof-ip|' + (request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown'));
+  const now = Date.now();
+
+  if (b.a === 'post') {
+    const s = summary(b.s);
+    if (!s) return json({ error: 'invalid', field: 's' }, 400);
+    const q = clean(b.q, Q_MAX + 1);
+    const ql = Array.from(q).length;
+    if (ql > Q_MAX || (ql > 0 && ql < Q_MIN)) return json({ error: 'len', min: Q_MIN, max: Q_MAX }, 400);
+    const why = q ? screen(q) : '';
+    if (why) return json({ error: 'filtered', why }, 400);
+    const v = await read(kv);
+    pruneQ(v.qp, now); pruneQ(v.qa, now);
+    const mine = v.qp[ip] || [];
+    if (mine.length >= POST_PER_HOUR) {
+      const wait = Math.max(1, Math.ceil((Math.min(...mine) + HOUR - now) / 1000));
+      return json({ error: 'rate-limited', retryAfter: wait }, 429, { 'Retry-After': String(wait) });
+    }
+    let all = 0; for (const k in v.qp) all += v.qp[k].length;
+    if (all >= GLOBAL_POST_PER_HOUR) return json({ error: 'busy' }, 429, { 'Retry-After': '600' });
+    const k = fnv(JSON.stringify(s) + '|' + q);
+    if (v.p.some(p => p && p.k === k)) return json({ error: 'dup' }, 409);
+    const post = { id: crypto.randomUUID().replace(/-/g, '').slice(0, 10), t: now, s, q, rm: 0, rp: 0, k };
+    v.p.unshift(post); v.p.length = Math.min(v.p.length, MAX_POSTS);
+    v.qp[ip] = [...mine, now];
+    await kv.put(KEY, JSON.stringify(v));
+    return json({ ok: true, post: pub(post) });
+  }
+
+  if (b.a === 'react' || b.a === 'report') {
+    if (!okId(b.id)) return json({ error: 'invalid', field: 'id' }, 400);
+    const v = await read(kv);
+    const p = v.p.find(x => x && x.id === b.id);
+    if (!p || p.x) return json({ error: 'not-found' }, 404);
+    const ring = b.a === 'react' ? 'rk' : 'pk', key = ip + ':' + b.id;
+    if (v[ring].includes(key)) return json({ ok: true, dup: true, rm: p.rm | 0 }); // repeat: no write
+    pruneQ(v.qp, now); pruneQ(v.qa, now);
+    const acts = v.qa[ip] || [];
+    if (acts.length >= ACT_PER_HOUR) return json({ error: 'rate-limited', retryAfter: 600 }, 429, { 'Retry-After': '600' });
+    v.qa[ip] = [...acts, now];
+    v[ring].push(key); if (v[ring].length > RING) v[ring].splice(0, v[ring].length - RING);
+    if (b.a === 'react') p.rm = (p.rm | 0) + 1;
+    else { p.rp = (p.rp | 0) + 1; if (p.rp >= REPORT_HIDE) p.x = 1; }
+    await kv.put(KEY, JSON.stringify(v));
+    return json({ ok: true, rm: p.rm | 0 });
+  }
+  return json({ error: 'a' }, 400);
+}

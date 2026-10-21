@@ -157,7 +157,10 @@ function sayK(R,out,t,c){say(R,out,t,c);out.msgs[out.msgs.length-1].keep=1;}
 function mkMon(t,f,k){const gr=1+BAL.gr*Math.pow(f/100,BAL.gp),hp=(BAL.mh0+BAL.mh1*f+BAL.mh2*f*f)*t.hp*k*gr;
  return{id:t.id,n:t.n,hp,mhp:hp,atk:gr*(BAL.ma0+BAL.ma1*f+BAL.ma2*f*f)*t.atk*(k>1?1.05:(k<1?.8:1)),def:(BAL.md0+BAL.md1*f+BAL.md2*f*f)*t.def,pet:t.pet||null,boss:false,x:t.x};}
 const monsOf=b=>MONS.filter(m=>m.b.includes(b));
-function genMonster(f,R){const en=mkMon(pick(monsOf(biome(f))),f,1);return R?modMon(R,en,MD(R,'mon',1)):en;}
+function genMonster(f,R){const en=mkMon(pick(monsOf(biome(f))),f,1);return R?monFit(R,modMon(R,en,MD(R,'mon',1))):en;}
+// underdog (v2.3): ordinary monsters ease off for a hero far weaker than them (power ratio below MFIT.r), never below MFIT.lo
+const MFIT={r:1.8,lo:.55,e:1};
+function monFit(R,en){const r=heroPower(R)/Math.max(1,power(en.atk,en.def,en.mhp)),k=clamp(Math.pow(r/MFIT.r,MFIT.e),MFIT.lo,1);if(k<1){en.hp*=k;en.mhp=en.hp;en.atk*=k;}return en;}
 function modMon(R,en,k){if(k!==1){en.hp*=k;en.mhp=en.hp;en.atk*=k;}return drgMod(R,en);}
 // dragon-type foes and the family mark from the secret floor (h.clan.m: f friend, s slayer curse, d curse lifted)
 const isDrg=en=>!!en&&(en.id==='sala'||en.id==='dragon'||!!en.drg);
@@ -195,6 +198,11 @@ function fight(R,en,o){o=o||{};const h=R.h,id=cid(R),A=eAtk(R),D=eDef(R),cc=crit
  }
  return{win:hp>0&&(!o.need||ehp<=st),hp:Math.max(0,hp),mp,ev,ehp:Math.max(0,ehp)};
 }
+// boss rubber band (v2.3): no farming loop any more, so a boss far above the hero eases off until the hero has about BFIT.t to win at full HP
+const BFIT={t:.3,lo:.55,st:.9};
+function bossFit(R,en,t,o){const h=R.h,hp0=h.hp,mp0=h.mp;h.hp=h.mhp;h.mp=h.mmp;let k=1;
+ while(k>BFIT.lo&&estimateWin(R,en,40,o)<t){k*=BFIT.st;en.hp*=BFIT.st;en.mhp=en.hp;en.atk*=BFIT.st;}
+ h.hp=hp0;h.mp=mp0;if(k<1)en.fit=Math.round(k*100)/100;return en;}
 function estimateWin(R,en,n,o){let w=0;for(let i=0;i<n;i++)if(fight(R,en,Object.assign({dry:true},o)).win)w++;return w/n;}
 function gainExp(R,x,out){const h=R.h;if(cid(R)==='far')x*=1.25;x*=MD(R,'xp',1);h.exp+=x;const C=CLASSES[h.cls],m=RANKS[h.rank].m;
  while(h.exp>=need(h.lv)){h.exp-=need(h.lv);h.lv++;h.mhp+=C.g.hp*m;h.atk+=C.g.atk*m;h.def+=C.g.def*m;h.luk+=C.g.luk;h.mmp+=C.g.mp*m;h.hp=Math.min(h.mhp,h.hp+h.mhp*.3);h.mp=h.mmp;
@@ -246,14 +254,14 @@ function doFight(R,en,out,o){o=o||{};const h=R.h,f=R.floor;
   h.gold+=gd;say(R,out,`ปราบ${en.n}! +${Math.round(ex)} EXP · +${gd} ทอง`,'good');gainExp(R,ex,out);if(en.boss){out.coins=gd;bossPerks(R,gd,out);}if(clanM(R)==='s'&&isDrg(en)&&(en.boss||en.drg))drgFell(R,out);}
  else{out.cause=o.cause||`ถูก${en.n}สังหารที่ชั้น ${f}`;say(R,out,`พ่ายแพ้ต่อ${en.n}…`,'bad');}
  return res.win;}
-function genEvent(R){const f=R.floor;if(f%10===0)return{kind:'boss',en:modMon(R,mkBoss(f),MD(R,'boss',1))};
+function genEvent(R){const f=R.floor;if(f%10===0)return{kind:'boss',en:bossFit(R,modMon(R,mkBoss(f),MD(R,'boss',1)),BFIT.t)};
  let r=rnd();if(r<.3)return{kind:'mon',en:genMonster(f,R)};r-=.3;
  const hk=R.st==='help'?1.3:1,pr=.05*MD(R,'pet',1)*hk;if(r<pr&&R.pets.length<2)return{kind:'pet',pet:pick(PETK)};r-=pr;
  if(r<.06*hk&&R.comps.length<2)return{kind:'comp',comp:genComp(f,R)};
  const b=biome(f);let pool=[];EVENTS.forEach((e,i)=>{if((e.b===b||e.b===-1)&&!R.seen.includes(i))pool.push(i);});
  if(!pool.length)EVENTS.forEach((e,i)=>{if(e.b===b||e.b===-1)pool.push(i);});
  const ti=pick(pool);R.seen.push(ti);if(R.seen.length>6)R.seen.shift();return{kind:'ev',ti};}
-function chDis(R,ch){if(ch.c&&R.h.gold<Math.round(ch.c*scl(R.floor)))return'ทองไม่พอ';if(ch.req==='pot'&&R.potions<1)return'ไม่มียา';return'';}
+function chDis(R,ch){const c=ch.c?Math.round(ch.c*scl(R.floor)):0;if(c&&R.h.gold<c)return`ทองไม่พอ ขาด ${Math.ceil(c-R.h.gold)}`;if(ch.req==='pot'&&R.potions<1)return'ไม่มียา';return'';}
 function estCached(R,ev,n){const k=Math.round(R.h.hp)+'|'+Math.round(R.h.atk)+'|'+R.comps.length+'|'+R.pets.join();if(ev.ek!==k){ev.ek=k;ev.est=estimateWin(R,ev.en,n);}return ev.est;}
 function choicesOf(R,ev){const h=R.h,f=R.floor,s=scl(f);
  if(ev.kind==='ev')return EVENTS[ev.ti].c.map(ch=>{const P=[];if(ch.c)P.push({t:`−${Math.round(ch.c*s)} ทอง`,c:'w'});
@@ -275,7 +283,7 @@ function choicesOf(R,ev){const h=R.h,f=R.floor,s=scl(f);
  if(ev.kind==='boss'){const w=Math.round(estCached(R,ev,150)*100),wc=warpCost(R);
   return[{t:'สู้กับบอส!',P:[{t:`โอกาสชนะ ~${w}%`,c:w>=65?'g':w>=35?'w':'b'},{t:`+ทองก้อนโต`,c:'g'},{t:'แพ้ = ตาย',c:'b'}]},
    {t:'ใช้ม้วนวาร์ป',dis:f===100||(R.warps<1&&h.gold<wc),P:f===100?[{t:'(ชั้นสุดท้ายวาร์ปข้ามไม่ได้)',c:'b'}]:R.warps>0?[{t:`ใช้ม้วนที่มี (${R.warps})`,c:'w'},{t:'ข้ามบอส ไม่ได้รางวัล',c:''}]:[{t:`ซื้อฉุกเฉิน −${wc} ทอง`,c:'w'},{t:'ข้ามบอส ไม่ได้รางวัล',c:''}]},
-   {t:'ถอยลงไปตั้งหลัก',P:[{t:`กลับชั้น ${f-1} ไปฟาร์มเวล`,c:'w'}]}];}
+   {t:'หาทางลัดอ้อมบอส',dis:f===100,P:f===100?[{t:'(ชั้นสุดท้ายไม่มีทางอ้อม)',c:'b'}]:[{t:'ข้ามบอส ไม่ได้รางวัล',c:''},{t:'HP −25%',c:'b'},{t:'ชะตาสั้นลงนิดหน่อย',c:'b'}]}];}
  return[];}
 const SAVED=['เกือบตายไปแล้ว แต่ชะตายังไม่ถึงฆาต','ล้มลงไปรอบหนึ่ง ลืมตาขึ้นมาอีกทีก็ยังหายใจอยู่','ภาพตรงหน้ามืดไปครู่หนึ่ง พอรู้สึกตัวก็ลุกขึ้นเดินต่อได้','ร่างกายพังไปครึ่งหนึ่ง แต่หอคอยยังไม่ยอมรับวิญญาณคุณ'];
 // death only when the fight was a chosen lethal one (boss); otherwise survive scarred (scars raise the floor hazard)
@@ -310,13 +318,13 @@ function resolve(R,ev,i){const h=R.h,f=R.floor;const out={msgs:[],combat:null,af
   if(i===0){say(R,out,`ท้าชิงบอส ${en.n}!`,'info');R.map[f-1]='boss';
    if(doFight(R,en,out,{cause:`พ่ายแพ้ต่อบอส ${en.n} (ชั้น ${f})`})){R.bosses++;R.retreats=0;if(f===100){R.won=true;R.sec=rnd()<SEC_P?{st:'ask',c:pick(['k','s','g'])}:{st:'none'};out.after='end';say(R,out,'พิชิตยอดหอคอยโชคชะตา!','lv');}else out.after='shop';}}
   else if(i===1){if(R.warps>0)R.warps--;else h.gold-=warpCost(R);R.map[f-1]='warp';R.retreats=0;say(R,out,`ฉีกม้วนวาร์ป ข้าม${en.n}ไปอย่างเงียบๆ`,'info');out.after='shop';}
-  else{R.retreats++;R.floor=Math.max(1,f-1);R.farmN=0;say(R,out,`ถอยลงไปชั้น ${R.floor} เพื่อตั้งหลักและฟาร์มเวล`,'info');out.after='retreat';}}
+  else{R.sneaks=(R.sneaks||0)+1;R.retreats=0;h.hp=Math.max(1,h.hp-h.mhp*.25);shiftFate(R,-2);R.map[f-1]='flee';say(R,out,`ลัดเลาะช่องแคบหลังห้องบอส ผ่าน${en.n}ไปได้ แต่ตัวเต็มไปด้วยรอยถลอก`,'info');out.after='shop';}}
  if(R.alive&&h.hp<=0)mortal(R,out,out.cause||`สิ้นใจที่ชั้น ${f}`);
  if(R.won)R.alive=false;
  return out;}
 function die(R,c){R.alive=false;R.cause=c;R.ck=R.ck||'boss';R.h.hp=0;R.map[R.floor-1]='death';}
 function farm(R){const out={msgs:[],combat:null,after:'result',coins:0,cause:''},f=R.floor;const t=pick(monsOf(biome(f)));
- const amb=rnd()<riskAdj(R,.1);const en=modMon(R,mkMon(t,f,amb?1.05:.6),MD(R,"mon",1));if(amb)say(R,out,`ฝูง${t.n}รุมล้อม!`,'bad');else say(R,out,`ฟาร์มอยู่ชั้น ${f}: ล่า${t.n}`,'info');
+ const amb=rnd()<riskAdj(R,.1);const en=monFit(R,modMon(R,mkMon(t,f,amb?1.05:.6),MD(R,"mon",1)));if(amb)say(R,out,`ฝูง${t.n}รุมล้อม!`,'bad');else say(R,out,`ฟาร์มอยู่ชั้น ${f}: ล่า${t.n}`,'info');
  const m=Math.max(.25,1-.2*R.farmN);doFight(R,en,out,{rw:.6*m,cause:`ฟาร์มเพลินจนถูก${t.n}รุมสังหาร (ชั้น ${f})`});
  R.farmN++;R.farmed[f-1]++;if(!R.map[f-1])R.map[f-1]='farm';
  if(R.h.hp<=0)mortal(R,out,out.cause);return out;}
@@ -364,10 +372,10 @@ function aiPick(R,ev){const h=R.h,hf=h.hp/h.mhp;
  if(ev.kind==='pet')return 0;
  if(ev.kind==='comp'){if(R.comps.length>=2)return 2;if(h.gold>=compCost(R,ev.comp)+20)return 0;return hf>.6?1:2;}
  if(ev.kind==='boss'){const w=estimateWin(R,ev.en,60);if(w>=.6)return 0;const cw=(R.warps>0||h.gold>=warpCost(R))&&R.floor<100;
-  if(w<.35&&cw&&R.retreats>=2)return 1;if(R.retreats<4)return 2;if(cw)return 1;return 0;}
+  if(cw&&w<.45)return 1;if(w<.3&&R.floor<100)return 2;return 0;}
  return 0;}
 // auto mode boss policy: more cautious than engine.js, since losing a boss is the one real death besides fate
-function aiBoss(R,ev){const w=estimateWin(R,ev.en,60),cw=(R.warps>0||R.h.gold>=warpCost(R))&&R.floor<100;if(w>=.9)return 0;if(R.retreats<4)return 2;if(cw)return 1;return 0;}
+function aiBoss(R,ev){const w=estimateWin(R,ev.en,60),cw=(R.warps>0||R.h.gold>=warpCost(R))&&R.floor<100;if(w>=.6)return 0;if(cw&&w<.45)return 1;if(w<.3&&R.floor<100)return 2;return 0;}
 function aiPotion(R){if(R.h.hp/R.h.mhp<.45)drink(R);}
 function aiShop(R){const h=R.h;if(h.hp<h.mhp*.8)buy(R,'heal');while(R.potions<3&&buy(R,'pot'));if(R.warps<1&&h.gold>warpCost(R)*2)buy(R,'warp');
  for(let g=0;g<20;g++){const L=shopList(R).filter(x=>['atk','def','mhp'].includes(x.id)&&!x.dis&&h.gold-x.cost>15).sort((a,b)=>a.cost-b.cost);if(!L.length)break;buy(R,L[0].id);}}
@@ -885,6 +893,27 @@ Object.assign(SPECIAL,{
    else if(i===1){h.luk+=5;coin(R,out,g);R.map[f-1]='treasure';say(R,out,`ดาวดวงเล็กๆ อุ่นอยู่ในมือ บางดวงแข็งตัวกลายเป็นทอง รวมได้ ${g} เหรียญ`,'lv');}
    else{xp(R,out,25,4.5);h.mmp+=10;h.mp+=10;say(R,out,'คุณนั่งนับดาวจนลืมนับเวลา พอลุกขึ้นก็จำได้ว่าดาวแต่ละดวงอยู่ตรงหน้าต่างของชั้นไหน','lv');}}}});
 const TIER={merc:'l',mimic:'c',egg:'c',relic:'r',seer:'r',rpet:'r',gamble:'c',wounded:'c',door:'c',fountain:'r',starfall:'l',dragon:'l'};
+// class promotion (v2.3): once per life, floor 25-85, hero doing well; per-class text in CONTENT.PROMO
+const PROMO=window.CONTENT.PROMO||{};
+const promoOk=R=>!!PROMO[cid(R)]&&!R.used['sp:promo']&&R.floor>=25&&R.floor<=85&&R.h.lv>=Math.round(R.floor*.33)+2&&R.h.hp>=R.h.mhp*.45;
+Object.assign(SPECIAL,{promo:{w:2,ok:promoOk,mk(R,K){const f=R.floor,id=cid(R),P=PROMO[id],U=2+f*.1;
+  const en=P.c.map(c=>c.fx.fight?beast(R,c.fx.fight,c.en||'{m}'):null),g=P.c.map(c=>c.fx.g?gG(R,c.fx.g):0),cost=P.c.map(c=>c.fx.c?gS(R,c.fx.c):0),w=en.map(e=>e?estW(R,e):0);
+  K.data={id,U,en,g,cost};K.tag=`ชั้น ${f} · เลื่อนขั้น`;K.title=P.t;K.text=P.x;K.vis=npc(P.npc||'knight');
+  K.ch=P.c.map((c,i)=>{const x=c.fx,B=[],Q=[];const pre=t=>x.fight&&!B.length?'ชนะได้ '+t:t;
+   if(cost[i])Q.push({t:`−${cost[i]} ทอง`,c:'w'});if(en[i])Q.push(wPart(w[i]));
+   if(x.a)B.push({t:pre(`ATK +${(x.a*U).toFixed(1)}`),c:'g'});if(x.d)B.push({t:pre(`DEF +${(x.d*U).toFixed(1)}`),c:'g'});if(x.hp)B.push({t:pre(`HP สูงสุด +${Math.round(x.hp*100)}%`),c:'g'});
+   if(x.m)B.push({t:pre(`MP สูงสุด +${x.m}`),c:'g'});if(x.l)B.push({t:pre(`LUK +${x.l}`),c:'g'});if(x.pot)B.push({t:pre(`+${x.pot} ยา`),c:'g'});if(x.x)B.push({t:pre('+EXP'),c:'g'});if(g[i])B.push({t:pre(`+${g[i]} ทอง`),c:'g'});
+   if(x.dmg)B.push({t:`HP −${Math.round(x.dmg*100)}%`,c:'b'});if(x.fight)B.push({t:'แพ้ = บาดเจ็บหนัก',c:'b'});
+   if(x.k)B.push(x.k<=-3?{t:'✧ กรรมชั่วหนัก',c:'kk'}:kk(x.k));
+   return CH(c.t,[...Q,...B],cost[i]>0&&R.h.gold<cost[i]);});
+  const fi=en.findIndex(Boolean);let ai=0,bk=-99;P.c.forEach((c,i)=>{const k=(c.fx.k||0)+(c.fx.fight?-1:0);if(k>bk){bk=k;ai=i;}});
+  K.ai=fi>=0&&w[fi]>=70?fi:R.h.gold<gS(R,25)&&g.some(Boolean)?g.indexOf(Math.max(...g)):ai;},
+ res(R,K,i,out){const f=R.floor,h=R.h,D=K.data,P=PROMO[D.id],c=P&&P.c[i];if(!c)return;const x=c.fx,U=D.U||2+f*.1;R.map[f-1]=c.mk||'calm';
+  if(x.fight){const en=D.en[i];R.map[f-1]='fight';if(!doFight(R,en,out,{rw:1.5,cause:`ล้มลงในงานแรกของตำแหน่ง${P.t} (ชั้น ${f})`})){say(R,out,c.rl,'bad');return;}}
+  if(D.cost[i])h.gold-=D.cost[i];if(x.a)h.atk+=x.a*U;if(x.d)h.def+=x.d*U;if(x.hp)h.mhp*=1+x.hp;if(x.m){h.mmp+=x.m;h.mp+=x.m;}if(x.l)h.luk+=x.l;if(x.pot)R.potions+=x.pot;
+  if(x.x)xp(R,out,10*x.x,1.6*x.x);if(D.g[i])coin(R,out,D.g[i]);if(x.dmg)h.hp-=h.mhp*x.dmg;if(x.k)R.karma+=x.k;
+  R.promo={id:D.id,i};say(R,out,x.fight?c.rw:c.r,x.k<0?'bad':x.fight?'lv':'good');}}});
+TIER.promo='r';
 Object.assign(TIER,{smith:'c',bard:'c',thief:'c',monk:'c',cat:'c',hunter:'c',scholar:'c',noble:'c',imp:'c',tomb:'c',bridge:'c',crystal:'c',book:'c',campfire:'c',snack:'c',cavein:'c',drill:'c',lantern:'c',bones:'c',fairyq:'c',stars:'c',peddler:'c',snailrace:'c',brew:'c',ruin:'c',harvest:'c',pit:'c',
  cultist:'r',healer:'r',oathk:'r',heist:'r',whale:'r',phoenix:'l',kingless:'l',astral:'l'});
 // tier shares per draw stay at the original mix (~70% common / 23% rare / 7% legendary) however many keys each tier holds
@@ -1168,10 +1197,10 @@ function hatch(R,out){R.egg=null;if(R.pets.length<2){const p=pick(PETK);R.pets.p
 function genSpecial(R){const ok=Object.keys(SPECIAL).filter(k=>!SPECIAL[k].ok||SPECIAL[k].ok(R));
  let pool=ok.filter(k=>!R.used['sp:'+k]||(k==='mimic'&&MD(R,'mimic',1)>1&&R.used['sp:mimic']<3));if(!pool.length)pool=ok.filter(k=>k!==R.lastSp);
  const fresh=k=>R.xseen&&!R.xseen['sp:'+k]?1.6:1;
- const sw=ST_SP[R.st]||{};const k=pool[wIdx(pool.map(x=>tierW(R,TIER[x])*(x==='mimic'?MD(R,'mimic',1):1)*(x==='dragon'&&clanM(R)==='s'?12:1)*dayW(R,x)*fresh(x)*(sw[x]||1)))];R.lastSp=k;return k;}
+ const sw=ST_SP[R.st]||{};const k=pool[wIdx(pool.map(x=>tierW(R,TIER[x])*(x==='mimic'?MD(R,'mimic',1):1)*(x==='dragon'&&clanM(R)==='s'?12:1)*(x==='promo'?10:1)*dayW(R,x)*fresh(x)*(sw[x]||1)))];R.lastSp=k;return k;}
 // build a decision card (key moment)
 function mkKey(R,type,ev){const f=R.floor,K={type,ev,tag:'',title:'',text:'',vis:null,ch:[],ai:0,rar:'c',tid:type};
- if(type==='boss'){K.tag=`ชั้น ${f} · ชั้นบอส`;K.title=ev.en.n;K.text=ev.en.x;K.vis={t:'en',en:ev.en};K.ch=choicesOf(R,ev);K.ai=aiBoss(R,ev);K.vs=true;}
+ if(type==='boss'){K.tag=`ชั้น ${f} · ชั้นบอส`;K.title=ev.en.n;K.text=ev.en.x+(ev.en.fit?' มันมองคุณแล้วหัวเราะ เหมือนไม่คิดจะเอาจริง':'');K.vis={t:'en',en:ev.en};K.ch=choicesOf(R,ev);K.ai=aiBoss(R,ev);K.vs=true;}
  else if(type==='ev'){const T=EVENTS[ev.ti];K.tid='ev:'+ev.ti;K.tag=`ชั้น ${f} · เหตุการณ์เสี่ยง`;K.title=T.t;K.text=T.x;K.vis={t:'prop',pr:T.pr};K.ch=choicesOf(R,ev);K.ai=aiPick(R,ev);}
  else if(type==='pet'){const P=PETS[ev.pet];K.tid='pet:'+ev.pet;K.tag=`ชั้น ${f} · สัตว์เลี้ยงหลงทาง`;K.title=P.n;K.text=P.x;K.vis={t:'pet',p:ev.pet};K.ch=choicesOf(R,ev);K.ai=aiPick(R,ev);}
  else if(type==='comp'){const c=ev.comp;K.tag=`ชั้น ${f} · นักผจญภัยพเนจร`;K.title=`${c.n} · ${clsName(c.cls)}`;
@@ -1244,7 +1273,7 @@ const PW={bold:{g:.5,b:.35,k:.25,gold:.3,cost:.3,fight:1.1,safe:-.7},careful:{g:
  greedy:{g:.4,b:.5,k:.05,gold:1.3,cost:1,fight:.2,safe:-.2},kind:{g:.4,b:.5,k:1.4,gold:.1,cost:.2,fight:-.1,safe:.1}};
 function persPick(R,K){const ps=R.h.pers||'careful';
  if(K.type==='shop')return K.ai;
- if(K.type==='boss'){const w=K.ev.est||0;if(ps==='bold'&&w>=.8)return 0;if(ps==='careful'&&w<.95&&R.retreats<4)return 2;return K.ai;}
+ if(K.type==='boss'){const w=K.ev.est||0;if(ps==='bold'&&w>=.8)return 0;if(ps==='careful'&&w<.8&&!K.ch[2].dis)return K.ch[1].dis?2:1;return K.ai;}
  const W=PW[ps]||PW.careful;let best=K.ai,bs=-1e9;
  K.ch.forEach((c,i)=>{if(c.dis)return;let s=(i===K.ai?1:0)+rnd()*.25;const txt=c.t+' '+c.P.map(p=>p.t).join(' ');
   c.P.forEach(p=>{if(p.c==='g')s+=W.g;else if(p.c==='b')s-=W.b;if(p.c==='kk')s+=(p.t.includes('✦')?1:-1)*W.k*(/หนัก/.test(p.t)?2:1);
@@ -1299,8 +1328,11 @@ function autoLife(h){const R=newRun(h||rollHero());let g=0;R.tk=0;
  return R;}
 // ---- secret floor above 100 (v2.1): a dragon on its hoard, spared once wounded (way 0) or slain (way 1) ----
 const SEC_P=.4,SEC_SP=.35,DRG={k:{n:'มังกรดำ',h:1.5,a:1.25,d:1},s:{n:'มังกรเงิน',h:1.5,a:1,d:1.35},g:{n:'มังกรทอง',h:1.9,a:1.05,d:1.05}},SEC_K={h:.7,a:.75};
-function secEn(R){const c=R.sec.c,D=DRG[c]||DRG.k,b=mkMon({hp:1,atk:1,def:1},100,1),hp=b.hp*BAL.bHp*D.h*SEC_K.h;
- return drgMod(R,{id:'hoard_'+(DRG[c]?c:'k'),n:D.n,hp,mhp:hp,atk:b.atk*BAL.bAtk*D.a*SEC_K.a,def:b.def*BAL.bDef*D.d,boss:true,drg:1});}
+function secEn(R){const c=R.sec.c,D=DRG[c]||DRG.k,b=mkMon({hp:1,atk:1,def:1},100,1),k=R.sec.k||1,hp=b.hp*BAL.bHp*D.h*SEC_K.h*k;
+ return drgMod(R,{id:'hoard_'+(DRG[c]?c:'k'),n:D.n,hp,mhp:hp,atk:b.atk*BAL.bAtk*D.a*SEC_K.a*k,def:b.def*BAL.bDef*D.d,boss:true,drg:1});}
+// the dragon sizes the hero up once: if even sparing it is hopeless it holds back (R.sec.k, saved with the run)
+function secPrep(R){if(R.sec.k)return;const en=secEn(R);bossFit(R,en,SEC_FIT,secOpts(en,0));R.sec.k=en.fit||1;}
+const SEC_FIT=.3;
 // sparing ends the fight once the dragon is down to 35% HP; either way the dragon must be beaten within 40 rounds
 const secOpts=(en,way)=>({need:1,lim:40,stop:way?0:en.mhp*SEC_SP});
 function secFight(R,way){const en=secEn(R),h=R.h,out=mkOut();R.sec.m0=clanM(R);R.sec.way=way;
@@ -1310,7 +1342,7 @@ function secFight(R,way){const en=secEn(R),h=R.h,out=mkOut();R.sec.m0=clanM(R);R
  else{R.cause=`ถูก${en.n}ฆ่าบนชั้นลับเหนือยอดหอคอย`;h.hp=0;}
  return out;}
 /*SIM-END*/
-if(typeof document==='undefined'){window.AUTO_SIM={DAYS,dayHit,secEn,secFight,secOpts,estimateWin,fight,SEC_K,DRG,rollHero,HZ,LX,pRoll,project,hzM,autoLife,newRun,planFloor,applyKey,mkKey,BAL,RUN_OMENS,STANCES};return;}
+if(typeof document==='undefined'){window.AUTO_SIM={MFIT,secPrep,BFIT,DAYS,dayHit,secEn,secFight,secOpts,estimateWin,fight,SEC_K,DRG,rollHero,HZ,LX,pRoll,project,hzM,autoLife,newRun,planFloor,applyKey,mkKey,BAL,RUN_OMENS,STANCES};return;}
 
 // ================= UI =================
 const {heroSpr,MSPR,BSPR,PSPR,PROPS,COIN,ICONS,sprCanvas,blit,bgImg,drawOverlay,drawProp,compSpr,compKey}=window.ART;
@@ -1732,19 +1764,40 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  <div class="acts"><button class="btn" id="btnReroll" data-k="1" ${S.rerolled?'disabled':''}>สุ่มแรงค์/อาชีพใหม่ ${S.rerolled?'(ใช้ไปแล้ว)':'(เหลือ 1 ครั้ง)'}<span class="kb">[1]</span></button>
  <button class="btn" id="btnLook" data-k="3" type="button">🎲 สุ่มหน้าตาใหม่<span class="kb">[3]</span></button>
  <button class="btn pri" id="btnEnter" data-k="2" data-enter>เข้าหอ ▲<span class="kb">[Enter]</span></button></div>
- <p class="lookn">สุ่มหน้าตาได้ไม่จำกัด แรงค์ อาชีพ และนิสัยยังเหมือนเดิม</p>`;
+ <p class="lookn">สุ่มหน้าตาได้ไม่จำกัด แรงค์ อาชีพ และนิสัยยังเหมือนเดิม</p>${birthExtras(h)}`;
  if(!S.rvDone){S.rvDone=true;
   if(RM)sting('birth');else{if(h.rank>=5)VIS.star=performance.now()+1400;clearTimeout(S.rvT);S.rvT=setTimeout(()=>{if(S.phase==='birth')sting('birth');},1400);}}
  const fb=$('formBox');fb.innerHTML=[['slime','สไลม์'],['human','คน']].map(([f,n])=>`<button class="btn${look(h).form===f?' on':''}" type="button" data-form="${f}" aria-pressed="${look(h).form===f}">ร่าง: ${n}</button>`).join('');
  fb.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{const f=b.dataset.form;rollHero.form=f;S.hero.look=Object.assign({},look(S.hero),{form:f});S.themeId=heroTheme(S.hero);render();});
  // full re-roll (once): rank/class/omen/name; a custom name typed by the player is carried over
- $('btnReroll').onclick=()=>{if(S.rerolled)return;S.rerolled=true;const old=S.hero;S.hero=rollBirth(S.bo);if(old.cname)setName(S.hero,old.name);S.rvDone=false;VIS.star=0;render();};
+ $('btnReroll').onclick=()=>{if(S.rerolled)return;S.rerolled=true;const old=S.hero;unlivedAdd(old);S.hero=rollBirth(S.bo);if(old.cname)setName(S.hero,old.name);S.rvDone=false;VIS.star=0;render();};
  // appearance only, unlimited: new look seed in the same form; rank/class/personality/omen stay
  $('btnLook').onclick=()=>{const h2=S.hero;h2.look=window.ART.rollLook(look(h2).form);S.themeId=heroTheme(h2);render();};
  const inp=$('inName');inp.addEventListener('input',()=>{setName(S.hero,inp.value);const nm=card.querySelector('.cert .nm');if(nm)nm.textContent=S.hero.name;renderHUD();renderParty();saveRun();});
  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
  inp.addEventListener('change',()=>{if(cleanName(inp.value)!==inp.value)inp.value=S.hero.cname?S.hero.name:'';});
- $('btnEnter').onclick=startRun;liveBox();}
+ $('btnEnter').onclick=startRun;liveBox();
+ const bu=$('btnUnl');if(bu)bu.onclick=()=>{S.unlOpen=!S.unlOpen;const pn=$('unlPanel');if(pn)pn.hidden=!S.unlOpen;bu.setAttribute('aria-expanded',S.unlOpen?'true':'false');};
+ const bs=$('btnShareBirth');if(bs)bs.onclick=()=>{try{window.SHARE.openBirth(birthShareData(S.hero));}catch(e){}};}
+// ---- unlived lives (v2.3): heroes thrown away with the one-time re-roll; total count n only grows, list capped at 60 ----
+const UNL_K='tof-unlived-v1',UNL_MAX=60;
+// null = storage unreadable or the stored value is not ours: never overwrite it then
+function unlivedLoad(){let raw=null;try{raw=localStorage.getItem(UNL_K);}catch(e){return null;}if(raw==null)return{v:1,n:0,list:[]};
+ try{const d=JSON.parse(raw);if(isObj(d)&&isArr(d.list)){const list=d.list.filter(isObj);return{v:1,n:Math.max(+d.n||0,list.length),list};}}catch(e){}return null;}
+function unlivedAdd(h){try{const d=unlivedLoad();if(!d||!h)return;const C=CLASSES[h.cls]||{},Rk=RANKS[h.rank]||{};
+ d.list.unshift({name:h.name,rank:Rk.k||'',ri:h.rank|0,cls:C.id||'',cn:C.n||'',odds:combOdds(h),village:h.village||'',t:Date.now()});d.n++;if(d.list.length>UNL_MAX)d.list.length=UNL_MAX;
+ localStorage.setItem(UNL_K,JSON.stringify(d));}catch(e){}}
+function birthExtras(h){const d=unlivedLoad(),sh=!!(window.SHARE&&window.SHARE.openBirth);let u='';
+ if(d&&d.n>0){const st=Math.min(15,d.n),rows=[];let left=st;for(let r=5;r>0&&left>0;r--){const k=Math.min(r,left);rows.push(k);left-=k;}
+  const pile=`<span class="pile" aria-hidden="true">${rows.map(k=>`<span>${'<i></i>'.repeat(k)}</span>`).join('')}</span>`;
+  const dt=t=>{try{return new Date(t).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'});}catch(e){return'';}};
+  const li=d.list.map(x=>{const Rk=RANKS[x.ri]||RANKS.find(r=>r.k===x.rank)||{col:'#666'};return`<li><span class="rk" style="background:${Rk.col}">${esc(x.rank||'?')}</span><span>${esc(x.name||'ไม่มีชื่อ')} · ${esc(x.cn||'')}<br><span class="x">1 ใน ${fmt(x.odds||1)}${x.village?` · ${esc(x.village)}`:''}</span></span><span class="x">${esc(dt(x.t))}</span></li>`;}).join('');
+  u=`<div class="unl"><button type="button" class="unlb" id="btnUnl" aria-expanded="${S.unlOpen?'true':'false'}" aria-controls="unlPanel">${pile}<span>ชะตาที่ไม่ได้ไปต่อ <b class="px">${fmt(d.n)}</b></span></button>
+  <div class="unlp" id="unlPanel"${S.unlOpen?'':' hidden'}><p class="dim">ฮีโร่ที่คุณสุ่มทิ้งตอนเกิด ไม่มีใครรู้ว่าถ้าได้เข้าหอ พวกเขาจะไปได้ถึงชั้นไหน</p><ol>${li}</ol>${d.n>d.list.length?`<p class="dim">เก่ากว่านี้อีก ${fmt(d.n-d.list.length)} คน จำได้แค่ว่าเคยมีอยู่</p>`:''}</div></div>`;}
+ return(sh?`<div class="acts bshare"><button type="button" class="btn bsh" id="btnShareBirth">📤 แชร์ฮีโร่ตัวนี้</button></div>`:'')+u;}
+function birthShareData(h){const C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf(h),DT=dayOf(h),lk=look(h);
+ return{name:h.name,village:h.village,rankK:Rk.k,rankIdx:h.rank,rankCol:Rk.col,clsId:C.id,clsN:C.n,odds:combOdds(h),clsOdds:h.odds,look:lk,form:lk.form,lookName:lookInfo(h).n,
+  omenN:O.n,omenK:O.k,dayN:DT?DT.n:'',gen:h.gen||1,house:h.house||h.name,date:Date.now()};}
 // player-typed hero name: no control chars or HTML-ish characters, single spaces, at most NAME_MAX characters; empty = the rolled name
 const NAME_MAX=16;
 const cleanName=v=>Array.from(String(v||'').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e<>&"'`\\]/g,'').replace(/\s+/g,' ').trim()).slice(0,NAME_MAX).join('').trim();
@@ -1826,8 +1879,8 @@ function tick(){if(!S||S.phase!=='flow'||S.paused)return;const R=S.R,f=R.floor,g
   if(out.combat){S.cb={en:out.combat.en,ev:out.combat.ev,i:0,hp:out.combat.startHp,mhp:out.combat.mhp,ehp:out.combat.en.mhp,lines:[],win:out.combat.win};VIS.show={t:'en',en:out.combat.en};S.phase='combat';render();playCombat();return;}
   VIS.show=P.D.vis||(P.D.id==='vault'?{t:'prop',pr:'chest'}:P.D.id==='meteor'?{t:'prop',pr:'star'}:null);if(out.shake)VIS.shake=performance.now()+700;afterKey();return;}
  if(P.type==='autokey'&&P.how){quickKey(P);return;}
- if(P.type==='autokey'){out=applyKey(R,P.K,P.K.ai,true);fr={tag:P.K.tag,title:P.K.type==='shop'?'ศาลพักใจ ⛩':P.K.title,text:P.K.type==='boss'?`ถอยเหมือนครั้งก่อน: "${P.K.ch[P.K.ai].t}"`:'',vis:P.K.vis};slow=1.3;
-  if(P.K.type==='shop'){const inc=Math.max(3,(R.gIn||0)/Math.max(1,R.floor-1));fr.shop={inc,L:shopList(R).filter(x=>x.id!=='heal').map(x=>({n:x.n,cost:x.cost,ok:R.h.gold>=x.cost}))};}}
+ if(P.type==='autokey'){out=applyKey(R,P.K,P.K.ai,true);fr={tag:P.K.tag,title:P.K.type==='shop'?'ศาลพักใจ ⛩':P.K.title,text:P.K.type==='boss'?`เลือกเหมือนครั้งก่อน: "${P.K.ch[P.K.ai].t}"`:'',vis:P.K.vis};slow=1.3;
+  if(P.K.type==='shop'){const inc=Math.max(3,(R.gIn||0)/Math.max(1,R.floor-1));fr.shop={inc,L:shopList(R).filter(x=>x.id!=='heal').map(x=>({n:x.n,cost:x.cost,ok:R.h.gold>=x.cost,miss:Math.ceil(x.cost-R.h.gold)}))};}}
  else if(P.type==='quiet'){out=quietTick(R,P.n);fr={tag:`ชั้น ${out.f0}–${out.f0+out.quietN-1} · ช่วงสงบ`,title:'ทางเดินเงียบสงบ',text:'',vis:out.vis||null,qb:out.qb};slow=1.6;}
  else if(P.type==='farm'){out=farmTick(R);fr={tag:`ชั้น ${f} · ตั้งหลัก`,title:'ฟาร์มเก็บเวล',text:'',vis:out.combat?{t:'en',en:out.combat.en}:null};}
  else{out=autoTick(R,P.ev);fr=evFrame(f,P.ev);}
@@ -1842,7 +1895,7 @@ function tick(){if(!S||S.phase!=='flow'||S.paused)return;const R=S.R,f=R.floor,g
 function qbHTML(qb){if(!qb||qb.length<2)return'';const mg=Math.max(1,...qb.map(x=>Math.abs(x.g))),mh=Math.max(1,...qb.map(x=>Math.abs(x.hp)));
  const row=(k,m,lab)=>`<div class="qbr"><span class="ql">${lab}</span><div class="qbars">${qb.map(x=>{const v=x[k],hh=Math.max(2,Math.round(Math.abs(v)/m*18));const bar=`<i style="height:${hh}px"></i>`;return`<span title="ชั้น ${x.f}: ${v>=0?'+':''}${v}"><b class="up">${v>0?bar:''}</b><b class="dn">${v<0?bar:''}</b></span>`;}).join('')}</div></div>`;
  return`<div class="qb" aria-label="สรุปช่วงที่ข้ามไป">${row('g',mg,'ทอง')}${row('hp',mh,'HP')}<div class="qbf"><span>${qb[0].f}</span><span>${qb[qb.length-1].f}</span></div></div>`;}
-function shopHTML(sh){if(!sh)return'';return`<div class="shopl">${sh.L.map(x=>x.ok?`<span class="ok">${esc(x.n)} <b class="px">${fmt(x.cost)}</b></span>`:`<span class="lk" data-tip="income">🔒 ${esc(x.n)} <b class="px">${fmt(x.cost)}</b> ≈${Math.max(1,Math.round(x.cost/sh.inc))} ชั้นของรายได้</span>`).join('')}</div>`;}
+function shopHTML(sh){if(!sh)return'';return`<div class="shopl">${sh.L.map(x=>x.ok?`<span class="ok">${esc(x.n)} <b class="px">${fmt(x.cost)}</b></span>`:`<span class="lk" data-tip="income">🔒 ${esc(x.n)} <b class="px">${fmt(x.cost)}</b>${x.miss>0?` ขาด ${fmt(x.miss)}`:''} ≈${Math.max(1,Math.round(x.cost/sh.inc))} ชั้นของรายได้</span>`).join('')}</div>`;}
 function renderFlow(){const fr=S.frame||{msgs:[]};
  card.innerHTML=`<div class="tag${fr.drama?' drama':''}">${esc(fr.tag||'')}</div><h3>${esc(fr.title||'')}</h3>${fr.text?`<p>${esc(fr.text)}</p>`:''}${qbHTML(fr.qb)}${shopHTML(fr.shop)}
  <ul class="msgs">${fr.msgs.map(m=>`<li class="${m.c}">${esc(m.t)}</li>`).join('')||'<li class="dim">ชั้นนี้เงียบสงบ</li>'}</ul>
@@ -1856,12 +1909,16 @@ function openKey(K){const R=S.R;S.K=K;S.phase='decide';S.decMs=decMs(K);S.left=S
  clearInterval(cdI);S.cdLast=performance.now();cdI=setInterval(()=>{if(S.phase!=='decide'){clearInterval(cdI);return;}const now=performance.now(),dt=now-S.cdLast;S.cdLast=now;if(S.paused||tipPause>0)return;S.left-=dt;updCd();if(S.left<=0){clearInterval(cdI);choose(S.K.pick,true);}},100);}
 function updCd(){const b=$('cdBar'),t=$('cdTxt');if(!b)return;const p=clamp(S.left/S.decMs,0,1);b.style.width=(p*100)+'%';b.classList.toggle('low',S.left<=3000);
  t.textContent=S.paused?'หยุดเวลาไว้':`เหลือเวลา ${Math.ceil(S.left/1000)} วินาที`;}
+// why a choice is locked: a "(…)" red chip if there is one, and how much gold is missing when the cost shows as "−N ทอง"
+function disWhy(R,c){let w='',j=-1,cost=0;(c.P||[]).forEach((p,i)=>{if(j<0&&p.c==='b'&&/^\(.+\)$/.test(p.t)){j=i;w=p.t.slice(1,-1);}
+  const m=/−([\d,]+) ทอง/.exec(p.t);if(m&&!cost)cost=+m[1].replace(/,/g,'');});
+ if(cost&&R.h.gold<cost&&(!w||/ทองไม่พอ/.test(w)))w=`ทองไม่พอ ขาด ${fmt(Math.ceil(cost-R.h.gold))}`;return{w:w||'ตอนนี้ยังเลือกข้อนี้ไม่ได้',j};}
 function renderDecide(){const K=S.K,R=S.R;
  const vs=K.vs?`<div class="vs"><div class="side">พลังของคุณ<br><b>${fmt(heroPower(R))}</b></div><div class="px" style="color:var(--ember)">VS</div><div class="side">พลังศัตรู<br><b>${fmt(power(K.ev.en.atk,K.ev.en.def,K.ev.en.mhp))}</b></div></div>`:'';
  const rt=K.rar==='l'?'<span class="rar l">★ ระดับตำนาน</span>':K.rar==='r'?'<span class="rar r">◆ หายาก</span>':'';
  card.innerHTML=`<div class="tag keytag">⚑ จุดเปลี่ยนชะตา · ${esc(K.tag)} ${rt}</div><h3>${esc(K.title)}</h3><p>${esc(K.text)}</p>${vs}
  <div class="cd" role="timer" aria-label="เวลาตัดสินใจ"><i id="cdBar"></i></div><div class="cdl" id="cdTxt"></div>
- <div class="chs">${K.ch.map((c,i)=>`<button class="ch${i===K.pick?' ai':''}" data-k="${i+1}" ${c.dis?'disabled':''}><span class="k">${i+1}</span><span><span class="t">${esc(c.t)}</span><span class="s">${partsHTML(c.P)}</span>${i===K.pick?`<span class="aitag">ถ้าหมดเวลา ${esc(R.h.name)} (${esc(PERS[R.h.pers].n)}) จะเลือกข้อนี้</span>`:''}</span></button>`).join('')}</div>`;
+ <div class="chs">${K.ch.map((c,i)=>`<button class="ch${i===K.pick?' ai':''}" data-k="${i+1}" ${c.dis?'disabled':''}><span class="k">${i+1}</span><span><span class="t">${esc(c.t)}</span><span class="s">${partsHTML(c.dis?c.P.filter((p,j)=>j!==disWhy(R,c).j):c.P)}</span>${c.dis?`<span class="lock">🔒 ${esc(disWhy(R,c).w)}</span>`:''}${i===K.pick?`<span class="aitag">ถ้าหมดเวลา ${esc(R.h.name)} (${esc(PERS[R.h.pers].n)}) จะเลือกข้อนี้</span>`:''}</span></button>`).join('')}</div>`;
  card.querySelectorAll('button.ch').forEach((b,i)=>b.addEventListener('click',()=>choose(i,false)));card.classList.toggle('legend',K.rar==='l');updCd();}
 function choose(i,timeout){if(S.phase!=='decide')return;const K=S.K,R=S.R,f=R.floor;if(!K.ch[i]||K.ch[i].dis)return;clearInterval(cdI);
  const g0=R.h.gold;const out=applyKey(R,K,i);if(!out)return;if(timeout)R.timeouts++;
@@ -1892,7 +1949,7 @@ const SEC_CLAN={f:'กลิ่นนี้ข้าจำได้ ตระก
 function secLines(R){const D=DRG[R.sec.c],T=SEC_TALK[R.sec.c],m=R.sec.m0||clanM(R);
  return[{n:1,t:`บนสุดของบันไดเป็นโถงกว้างที่มีกองทองสูงเท่าภูเขาย่อมๆ ${D.n}ตัวใหญ่นอนขดอยู่บนนั้น พอคุณก้าวเข้าไป มันก็ค่อยๆ ลืมตาขึ้น`},{t:T[0]},...(SEC_CLAN[m]?[{t:SEC_CLAN[m]}]:[]),{t:T[1]},{t:T[2]},
   {n:1,t:'ไอร้อนจากกองสมบัติทำให้แผลทั้งตัวของคุณปิดสนิท มังกรนอนรอจนคุณหายใจทัน'}];}
-function secEnter(){const R=S.R;R.sec.st='talk';R.sec.i=0;R.sec.m0=clanM(R);R.h.hp=R.h.mhp;R.h.mp=R.h.mmp;
+function secEnter(){const R=S.R;R.sec.st='talk';R.sec.i=0;R.sec.m0=clanM(R);R.h.hp=R.h.mhp;R.h.mp=R.h.mmp;secPrep(R);
  const en=secEn(R);R.sec.e=[0,1].map(w=>estimateWin(R,en,80,secOpts(en,w)));VIS.edead=false;AUDIO.sfx('boss');render();}
 function secLeave(){const R=S.R;R.sec.st='done';if(!R.sec.res)R.sec.res='n';if(R.sec.res==='x'){if(!sting('death'))AUDIO.sfx('death');}else sting('win');S.phase='end';S.saved=false;render();}
 function secGo(way){const R=S.R;if(R.sec.st!=='choose')return;const out=secFight(R,way),c=out.combat;R.sec.st='res';R.sec.msgs=out.msgs.map(m=>({t:m.t,c:m.c}));
@@ -1960,6 +2017,22 @@ function fateLine(R){const gm=R.mN?Math.exp(R.mLog/R.mN):1,sh=R.fateShift;
  if(R.won)return`${a}${b} และรอดมาได้ทุกครั้ง`;
  if(R.death==='boss')return`${a}${b} · ชะตายังไม่ทันเอาตัวไป คุณเลือกสู้บอสเองแล้วแพ้`;
  return a+b;}
+// ---- cohort panel: everyone who entered together (you included), shortest life first, one line of story each ----
+const COH_W={ambush:'โดนมอนสเตอร์ซุ่มโจมตี',biome:'เจออุบัติเหตุจากตัวหอ',trap:'ติดกับดักกลไก',bleed:'เสียเลือดจนหมดแรง',scar:'แผลเก่ากำเริบ',karma:'โดนเงากรรมตามทัน',curse:'แพ้คำสาป',
+ shadow:'โดนเงาที่ตามมาแต่เกิดกลืนไป',alone:'ล้มลงคนเดียว',slip:'ลื่นตกบันได',boss:'แพ้บอส',bossfate:'ชะตาขาดต่อหน้าบอส',fate:'ชะตาขาด'};
+const COH_S={e:['ไปได้แค่ชั้น {f} ก็{w}','ยังไม่ทันได้รู้จักหอคอยดี ก็{w}ที่ชั้น {f}','อยู่ในหอได้แค่ {f} ชั้น เรื่องจบลงเพราะ{w}'],
+ m:['เดินมาถึงชั้น {f} แล้ว{w}','ประคองตัวมาได้ {f} ชั้น ก่อนจะ{w}','ผ่านมา {f} ชั้น เรื่องจบลงเพราะ{w}'],
+ l:['เกือบถึงยอดแล้ว แต่{w}ที่ชั้น {f}','ไปได้ไกลถึงชั้น {f} ไกลกว่าคนส่วนใหญ่ ก่อนจะ{w}','อีก {r} ชั้นก็ถึงยอด แต่{w}เสียก่อน'],
+ w:['ขึ้นไปยืนบนยอดหอได้จริงๆ','ไต่ครบ 100 ชั้น แล้วล้มผู้กลืนดาราได้']};
+function cohStory(c){const hs=shash(c.n+'|'+c.f),ri=RANKS.findIndex(r=>r.k===c.rk),w=COH_W[c.ck]||'ชะตาขาด';
+ const band=c.won?'w':c.f<=15?'e':c.f<=60?'m':'l',L=COH_S[band].filter(x=>!(x.includes('{r}')&&c.f>97));let t=L[hs%L.length].replace('{f}',c.f).replace('{w}',w).replace('{r}',100-c.f);
+ if(ri>=RANKS.length-2&&!c.won&&c.f<40)t=`เกิดมาเป็น${c.cn}แรงค์ ${c.rk} แท้ๆ แต่${t}`;else if(ri===0&&(c.won||c.f>=70))t=`${c.cn}แรงค์ ${c.rk} ที่ไม่มีใครฝากความหวังไว้ ${t}`;return t;}
+function cohHTML(R,coh,fl){if(!coh.length)return'';const h=R.h,me={n:h.name,rk:RANKS[h.rank].k,cn:CLASSES[h.cls].n,f:fl,won:R.won,ck:R.won?'':R.ck||'',me:1};
+ const all=[...coh,me].sort((x,y)=>(x.won?100:x.f)-(y.won?100:y.f)||(x.won?1:0)-(y.won?1:0)),fell=all.filter(c=>!c.won).map(c=>c.f),wn=all.filter(c=>c.won);
+ const ls=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' และ '+a[a.length-1];
+ const end=!wn.length?`ทั้ง ${all.length} คนล้มที่ชั้น ${ls(fell)} ไม่มีใครเลือกชะตาได้`:!fell.length?`ทั้ง ${all.length} คนขึ้นถึงยอดหอ รุ่นแบบนี้หาได้ยากมาก`
+  :`${ls(wn.map(c=>c.me?'คุณ':c.n))} ขึ้นถึงยอด คนที่เหลือล้มที่ชั้น ${ls(fell)} ไม่มีใครเลือกชะตาได้`;
+ return`<h2 data-tip="cohort">เพื่อนรุ่นเดียวกัน</h2><p class="dim" style="font-size:12px;margin:0 0 6px">ทุกคนที่เข้าหอมาพร้อมคุณ เรียงจากคนที่จากไปก่อน</p><ol class="coh">${all.map(c=>`<li${c.me?' class="me"':''}><span class="px">${esc(c.rk)}</span><span>${esc(c.n)} · ${esc(c.cn)}${c.me?' <span class="metag">คุณ</span>':''}<br><span class="x">${esc(cohStory(c))}</span></span><span class="px">${c.won?'👑 ':''}${c.won?100:c.f}F</span></li>`).join('')}</ol><p class="cohend">${esc(end)}</p>`;}
 // ---- karma ledger (revealed only at the end) ----
 const FRUIT=['มีคนตั้งศาลเล็กๆ ไว้ให้ที่ชั้น {f}','คนที่คุณช่วยไว้ตั้งชื่อลูกตามคุณ','นักผจญภัยรุ่นหลังเล่าเรื่องนี้ต่อกันในโรงเตี๊ยม','มีดอกไม้สดวางอยู่หน้าหลุมทุกเช้า','ชื่อคุณถูกสลักไว้บนขั้นบันไดชั้น {f}'];
 const ERUPT=['มีคนมาขุดหลุมศพเพื่อทวงของคืน','เรื่องนี้ถูกเล่าต่อจนชื่อคุณเสียไปทั้งหมู่บ้าน','ญาติของเขาตามมาสาปแช่งถึงหน้าหลุม','ป้ายหลุมศพถูกพ่นสีทับในคืนเดียว','วิญญาณที่ชั้น {f} ยังไม่ยอมไปไหน'];
@@ -1970,11 +2043,18 @@ function ledgerRoll(R){const K=R.karma;let rows=R.ledger.filter(x=>x.d).map((x,i
   if(x.hit){const pt=Math.min(6,2+Math.abs(x.d));x.pt=good?pt:-pt;pts+=x.pt;if(good)fr++;else er++;x.fx=pick(good?FRUIT:ERUPT).replace('{f}',x.f);}
   x.lab=good?(x.hit?'ส่งผล':'ยังไม่ส่งผล'):(x.hit?'ปะทุ':'ยังไม่ปะทุ');});
  const fl=R.won?100:R.floor,base=fl+R.bosses*3+(R.won?30:0)+Math.round(R.h.lv/2)+(R.sec&&R.sec.win?(R.sec.way?15:10):0);
- return{rows,more,fr,er,pts,base,score:Math.max(0,base+pts)};}
+ return{rows,more,fr,er,pts,base,score:Math.max(0,base+pts),parts:scoreParts(R,pts)};}
+// where the life score comes from (same terms as ledgerRoll's base, plus the karma rows)
+function scoreParts(R,pts){const P=[{k:'fl',n:'ชั้น',v:R.won?100:R.floor},{k:'bo',n:'บอส',v:R.bosses*3},{k:'won',n:'พิชิตยอด',v:R.won?30:0},{k:'lv',n:'เลเวล',v:Math.round(R.h.lv/2)},
+ {k:'sec',n:'ชั้นลับ',v:R.sec&&R.sec.win?(R.sec.way?15:10):0},{k:'kar',n:'กรรม',v:pts|0}];return P.filter(p=>p.v||p.k==='fl');}
+function scoreBar(R,L){const P=L.parts||scoreParts(R,L.pts),pos=P.filter(p=>p.v>0),neg=P.find(p=>p.v<0),tot=pos.reduce((a,p)=>a+p.v,0)||1,sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v);
+ const cut=neg?Math.min(100,-neg.v/tot*100):0;
+ return`<div class="scb" role="img" aria-label="${esc(P.map(p=>p.n+' '+sg(p.v)).join(' ')+' = '+L.score)}">${pos.map(p=>`<i class="s-${p.k}" style="flex:${p.v}"></i>`).join('')}${cut?`<i class="scut" style="width:${cut.toFixed(1)}%"></i>`:''}</div>
+ <div class="scl">${P.map(p=>`<span class="s-${p.k}${p.v<0?' neg':''}"><i></i>${p.n} <b>${p.k==='kar'?sg(p.v):p.v}</b></span>`).join('')}<span class="eq">= <b>${L.score}</b></span></div>`;}
 function ledgerHTML(R){const L=S.lg,st=RM?0:.25,T=S.title;
  const fin=L.pts>=6?`${T.t} · มีบุญหนุนนำ`:L.pts<=-6?`${T.t} · กรรมตามทัน`:T.t;
  const sum=`<div class="lgsum" style="animation-delay:${(L.rows.length*st+.25).toFixed(2)}s">${L.rows.length?`ส่งผล <b>${L.fr}</b> · ปะทุ <b>${L.er}</b> · คะแนนจากกรรม <b class="${L.pts>=0?'g':'b'}">${L.pts>=0?'+':''}${L.pts}</b><br>`:''}
-  คะแนนชีวิต <b class="px">${L.base}</b>${L.pts?` → <b class="px big">${L.score}</b>`:''}<br>ฉายาสุดท้าย: <b${T.gold?' style="color:var(--gold)"':''}>${esc(fin)}</b></div>`;
+  คะแนนชีวิต <b class="px">${L.base}</b>${L.pts?` → <b class="px big">${L.score}</b>`:''}${scoreBar(R,L)}ฉายาสุดท้าย: <b${T.gold?' style="color:var(--gold)"':''}>${esc(fin)}</b></div>`;
  if(!L.rows.length)return`<h2>บัญชีกรรม</h2><p class="dim" style="font-size:13px;margin:0 0 6px">บัญชีว่างเปล่า ชาตินี้ไม่ได้ทำบุญหรือบาปที่ใครจะจำได้</p>${sum}`;
  return`<h2>บัญชีกรรม</h2><p class="dim" style="font-size:12px;margin:0 0 6px">เรื่องดีและเรื่องร้ายที่คุณทำไว้ในหอ เรียงตามชั้น</p>
  <ol class="ledger">${L.rows.map((x,i)=>`<li style="animation-delay:${(i*st).toFixed(2)}s"><span class="px">${x.f}F</span><span><span class="${x.d>0?'kk':'b'}">${x.d>0?'✦':'✧'} ${esc(x.t)}</span>${x.fx?`<br><span class="x">${esc(x.fx)}</span>`:''}</span><span class="o ${x.hit?(x.d>0?'fr':'er'):'no'}" style="animation-delay:${(i*st+.15).toFixed(2)}s">${x.lab}${x.pt?` ${x.pt>0?'+':''}${x.pt}`:''}</span></li>`).join('')}</ol>
@@ -2034,7 +2114,7 @@ const leanOf=(l,r,P,w)=>clamp(Math.round(Math.log((r+P)/(l+P))/w*100),-100,100);
 function fatePattern(R){const H=R.stH||'',cnt=c=>H.split(c).length-1,p=R.h.pers,fl=R.won?100:R.floor,M=R.map||[],mc=k=>M.filter(m=>m===k).length,w3=Math.log(4);
  let pw=typeof R.ptW==='number'?R.ptW:0;if(typeof R.ptF!=='number'){const j=M.findIndex(m=>m==='comp'||m==='pet');pw=j>=0&&(R.comps.length||R.pets.length)?fl-j-1:0;}
  let g=0,b=0;(R.ledger||[]).forEach(x=>{if(x.d>0)g+=x.d;else if(x.d<0)b-=x.d;});if(!g&&!b){if(R.karma>0)g=R.karma;else b=-R.karma;}
- const v=[leanOf(cnt('a')+(p==='bold'?3:0)+(R.bosses||0)*.5,cnt('d')+(p==='careful'?3:0)+(R.retreats||0)*1.5,5,w3),
+ const v=[leanOf(cnt('a')+(p==='bold'?3:0)+(R.bosses||0)*.5,cnt('d')+(p==='careful'?3:0)+(R.retreats||0)*1.5+(R.sneaks||0)*1.5,5,w3),
   leanOf(cnt('l')+(p==='greedy'?3:0)+mc('treasure')*.5,cnt('h')+(p==='kind'?3:0)+mc('good')*.5+mc('pet')*.5,5,w3),
   leanOf(fl-pw,pw,4,w3),leanOf(g,b,3,w3)];
  const sd=shash(R.h.name+'|'+fl);v.forEach((x,i)=>{if(!x)v[i]=(sd>>i)&1?1:-1;});
@@ -2194,7 +2274,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
   <dt>อายุในหอ</dt><dd>${fl} ชั้น · ค่าเฉลี่ยราว ${Math.round(avg)} ชั้น (${diff>=0?`นานกว่า ${diff}`:`สั้นกว่า ${-diff}`} ชั้น)</dd>
   ${coh.length?`<dt>เพื่อนรุ่นเดียวกัน</dt><dd>${coh.length} คน · คุณไปได้ไกลกว่า ${beat} คน</dd>`:''}</dl>
   <div class="eu">「${esc(S.eu.who)}」 ${esc(S.eu.line)}</div></div>`;
- const cohH=coh.length?`<h2 data-tip="cohort">เพื่อนรุ่นเดียวกัน</h2><ol class="coh">${[...coh].sort((x,y)=>y.f-x.f).map(c=>`<li><span class="px">${c.rk}</span><span>${esc(c.n)} · ${esc(c.cn)}<br><span class="x">${esc(c.cause)}</span></span><span class="px">${c.won?'👑 ':''}${c.f}F</span></li>`).join('')}</ol>`:'';
+ const cohH=cohHTML(R,coh,fl);
  const DT=dayOf(h),dHit=!!DT&&dayHit(R);
  const dayH=DT?`<div class="daybox end" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${dHit?`ชีวิตนี้ได้เจอ${esc(DT.hn)}`:`ชีวิตนี้ไม่ได้เจอ${esc(DT.hn)}`}<span id="dayStat">${esc(S.dayStat||'')}</span></div>`:'';
  const share=!!(window.SHARE&&window.SHARE.open),lb=!!(window.LB&&window.LB.open);
