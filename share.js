@@ -68,7 +68,7 @@ function drawPat(ctx,d,y){const p=d.pat;
  line(ctx,'ลวดลายชะตา',64,y+28,{size:22,col:P.ink3,maxW:300});
  setF(ctx,600,40);const cw=Math.min(190,ctx.measureText(p.code).width);line(ctx,p.code,64,y+72,{size:40,weight:600,col:P.stamp,maxW:190,min:24});
  line(ctx,p.n,64+cw+22,y+70,{size:34,weight:600,col:P.ink,maxW:600-64-cw-22,min:20});
- const bx=738,bw=176;p.v.forEach((v,i)=>{const yy=y+14+i*19;
+ const bx=738,bw=176;p.v.forEach((v,i)=>{const yy=y+9+i*18;
   line(ctx,PAT_P[i][0],bx-10,yy+7,{size:17,col:v<0?P.stamp:P.ink3,maxW:96,min:12,align:'right'});line(ctx,PAT_P[i][1],bx+bw+10,yy+7,{size:17,col:v>0?P.stamp:P.ink3,maxW:96,min:12});
   rect(ctx,bx,yy,bw,3,P.rule);rect(ctx,bx+bw/2-1,yy-4,2,11,P.ink3);const k=bx+bw*(.5+v/200);rect(ctx,k-5,yy-4,10,11,P.red);});
  return 84;}

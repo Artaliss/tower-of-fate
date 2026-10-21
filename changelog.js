@@ -80,7 +80,9 @@ function init(){
  const st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);
  const seen=get(KEY);
  // returning player = has any saved progress from before this version
- const old=['tof-auto-memorial-v1','tof-memorial-v1','tof-auto-save-v1','tof-lineage-v1','tof-ach-v1'].some(k=>get(k));
+ // (auto.js runs first and already writes a birth-phase save for a brand-new player, so only a save of a started run counts)
+ let runSave=false;try{const s=JSON.parse(get('tof-auto-save-v1')||'null');runSave=!!s&&s.phase!=='birth';}catch(e){}
+ const old=runSave||['tof-auto-memorial-v1','tof-memorial-v1','tof-lineage-v1','tof-ach-v1'].some(k=>get(k));
  btn=document.createElement('button');btn.type='button';btn.className='clbtn';btn.setAttribute('aria-haspopup','dialog');
  btn.innerHTML=`📜 อัปเดต v${esc(CUR)}${seen!==CUR&&old?'<span class="dot" aria-label="มีของใหม่"></span>':''}`;btn.onclick=open;
  document.body.appendChild(btn);
