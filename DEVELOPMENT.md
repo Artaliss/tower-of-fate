@@ -69,6 +69,7 @@
 ## Cloudflare (ตารางอันดับ)
 
 - KV namespace: `tower-of-fate-scores` ผูกกับ Pages project `tower-of-fate` เป็นตัวแปร `TOF_KV` (Settings → Bindings, production) — ตั้งแล้ว 2026-10-21
+- Deploy hook ชื่อ `manual` (branch main) อยู่ใน Pages → Settings → Builds ใช้สั่ง deploy เองเมื่อ webhook ของ GitHub ล่าช้า (URL เป็นความลับ ห้ามใส่ใน repo นี้เพราะเป็น public)
 - API: `GET /api/scores` → `{top, recent}`, `POST /api/scores` ส่งผลรอบ มีตรวจค่า จำกัดจำนวนครั้งต่อ IP
 - ข้อจำกัด: เกมคำนวณฝั่งผู้เล่น คะแนนปลอมได้ถ้าตั้งใจ (มีการตรวจพื้นฐานเท่านั้น)
 - รายละเอียดเพิ่ม: `tools/LEADERBOARD.md` (ฟังก์ชัน fnv/clean/canon มีซ้ำใน leaderboard.js กับ scores.js ต้องแก้ให้ตรงกัน); ลบคะแนนโกงได้ที่ Workers KV → tower-of-fate-scores → key `top`
