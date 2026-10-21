@@ -1629,6 +1629,7 @@ function focusPrimary(){const b=card.querySelector('[data-enter]')||card.querySe
 function render(){if(S.phase!=='decide')card.classList.remove('legend');$('formBox').hidden=S.phase!=='birth';renderHUD();renderParty();renderLog();renderCtl();renderLineage();saveRun();
  const ph=S.phase;
  if(ph==='birth')renderBirth();else if(ph==='flow'){renderFlow();revealArm();}else if(ph==='decide')renderDecide();else if(ph==='combat')renderCombat();else if(ph==='dying')renderDying();else if(ph==='end')renderEnd();
+ if(ph!=='end')endBar(false);try{window.SHARE&&window.SHARE.onPhase&&window.SHARE.onPhase(ph);}catch(e){}
  if(ph!=='flow')focusPrimary();}
 function renderCtl(){const on=S.phase==='flow'||S.phase==='decide'||S.phase==='combat';$('ctl').hidden=!on;if(!on){renderStance();return;}
  const p=$('btnPause');p.textContent=S.paused?'▶ เดินต่อ':'⏸ หยุด';p.setAttribute('aria-pressed',S.paused?'true':'false');
@@ -1864,6 +1865,23 @@ function eulogy(R){const H=R.stH||'',n=H.length,h=R.h,fl=R.won?100:R.floor,cnt=c
  else if(R.kills>=40)deed=`ปราบมอนสเตอร์ไป ${R.kills} ตัว`;else if(R.pets.length)deed=`มี${PETS[R.pets[0]].n}อยู่ข้างกายจนวันสุดท้าย`;else deed=`เดินขึ้นมาได้ ${fl} ชั้น`;
  const last=R.won?'และได้ยืนบนยอดหอในวันสุดท้ายของเรื่องนี้':SUDDEN[R.ck]?'จากไปเร็วจนไม่มีใครทันได้ร่ำลา':'ร่างกายทรุดลงทีละน้อยก่อนจะหยุดเดิน';
  return{who,line:`${deed} ${last}`};}
+// ---- share (share.js): card data, sheet, sticky end bar ----
+function shareData(R,sum,x){const h=R.h,cnt={};for(const c of R.stH||'')cnt[c]=(cnt[c]||0)+1;
+ const top=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0],sk=STK.find(k=>k[0]===top),n=(R.stH||'').length;
+ const betray=[];[...R.log].reverse().forEach(l=>{const m=/^(.+?)ทรยศ!/.exec(l.t||'');if(m&&betray.length<2)betray.push({f:l.f,n:m[1]});});
+ let bossLast=0;R.map.forEach((m,i)=>{if(m==='boss')bossLast=i+1;});const lc=R.comps.find(c=>c.legend);
+ return Object.assign({},sum,{pct:x.pct,med:x.med,lv:h.lv,house:h.house||h.name,petN:R.pets.map(p=>PETS[p]?PETS[p].n:'').filter(Boolean),comps:R.comps.map(c=>c.n),
+  map:R.map.slice(),stance:sk&&n?`${STANCES[sk].n} · ${Math.round(cnt[top]/n*100)}% ของทาง`:'',note:S.shareNote||'',
+  hk:{legs:R.hist.filter(v=>v.rar==='l').map(v=>({f:v.f,t:v.t})),betray,bossLast,legComp:lc?lc.n:'',master:h.master||'',coh:x.coh.length,beat:x.beat,nearP:R.pMax||0,nearF:R.pMaxF||0,gold:!!(S.title&&S.title.gold)}});}
+function openShare(auto){if(!S||!S.shareD||!window.SHARE)return;try{window.SHARE.open(Object.assign({},S.shareD,{note:S.shareNote||'',date:Date.now()}),{auto,onNote:v=>{S.shareNote=v;}});}catch(e){}}
+let ebIO=null;
+function endBar(on){const b=$('endBar');if(!b)return;if(ebIO){ebIO.disconnect();ebIO=null;}
+ if(!on){b.hidden=true;document.body.classList.remove('eb-on');return;}
+ const acts=[...card.querySelectorAll('.endacts')],vis=new Set();
+ const upd=()=>{const show=S&&S.phase==='end'&&vis.size===0;b.hidden=!show;document.body.classList.toggle('eb-on',show);};
+ if(!('IntersectionObserver' in window)||!acts.length){upd();return;}
+ ebIO=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)vis.add(e.target);else vis.delete(e.target);});upd();},{threshold:.4});acts.forEach(a=>ebIO.observe(a));
+ if(!b._w){b._w=1;$('ebShare').onclick=()=>openShare(false);$('ebReborn').onclick=()=>{const r=$('btnReborn');if(r)r.click();};}}
 function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.floor;clearTimeout(S.tm);clearInterval(cdI);
  if(!S.saved){S.fresh=saveSeen(R);S.title=runTitle(R);S.mont=montage(R);S.lg=ledgerRoll(R);S.eu=eulogy(R);}
  if(!S.saved){S.saved=true;finalizeRun();}
@@ -1895,9 +1913,9 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  <dt>กรรม</dt><dd class="px" style="color:var(--karma)">${R.karma>0?'+':''}${R.karma} ${R.karma>=0?'กรรมดี':'กรรมชั่ว'}</dd></dl>
  <div class="judge">${judge(R.karma)}</div></div>
  ${certH}
- <div class="acts"><button class="btn pri" id="btnHeir" data-k="1" data-enter data-tip="lineage">สืบทอดโดยลูกศิษย์ ↗<span class="kb">[Enter]</span></button><button class="btn" id="btnReborn" data-k="2" data-tip="reborn">เกิดใหม่ ↻<span class="kb">[2]</span></button></div>
+ <div class="acts endacts"><button class="btn pri" id="btnHeir" data-k="1" data-enter data-tip="lineage">สืบทอดโดยลูกศิษย์ ↗<span class="kb">[Enter]</span></button><button class="btn" id="btnReborn" data-k="2" data-tip="reborn">เกิดใหม่ ↻<span class="kb">[2]</span></button></div>
  <p class="dim" style="font-size:12px;margin:4px 0 10px">ลูกศิษย์ได้ทอง ${fmt(Math.min(600,Math.round(h.gold*.3)))}${R.pets.length?` กับ${esc(PETS[R.pets[0]].n)}`:''} และรับกรรมของคุณไปบางส่วน · เกิดใหม่ได้เริ่มสายใหม่ แต่กรรมชาตินี้จะติดไปกับดวงเกิดนิดหน่อย</p>
- ${share||lb?`<div class="acts" style="margin-top:0">${share?'<button class="btn" id="btnShare" type="button">📤 การ์ดสรุปชีวิต</button>':''}${lb?'<button class="btn" id="btnLB2" type="button">🏆 อันดับ & ความสำเร็จ</button>':''}</div>`:''}
+ ${share||lb?`<div class="acts endacts" style="margin-top:0">${share?'<button class="btn shr" id="btnShare" type="button">📤 แชร์ชีวิตนี้<small>การ์ด + ลิงก์ให้เพื่อนมาลองบ้าง</small></button>':''}${lb?'<button class="btn" id="btnLB2" type="button">🏆 อันดับ & ความสำเร็จ</button>':''}</div>`:''}
  ${ledgerHTML(R)}
  ${S.mont.length?`<h2>ช่วงเวลาที่ยังจำได้</h2><ol class="mont">${S.mont.map(m=>`<li class="${m.rar}"><span class="px">${m.f}F</span><span><b>${esc(m.t)}</b> · เลือก "${esc(m.c)}"${m.res?`<br><span class="x">${esc(m.res)}</span>`:''}</span></li>`).join('')}</ol>`:''}
  ${cohH}
@@ -1913,10 +1931,15 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
   odds:combOdds(h),pct,karma:R.karma,score:L.score,themeId:R.theme||S.themeId||'',gen:h.gen||1,pets:[...R.pets],comps:R.comps.map(c=>c.n),kills:R.kills,bosses:R.bosses,scars:R.scars,keyMoments:R.keys,timeouts:R.timeouts,
   stanceHist:R.stH||'',durationMs:S.t0?Date.now()-S.t0:0,date:Date.now(),lookName:LI.n};
  if(!S.sent){S.sent=true;try{window.ACH&&window.ACH.onRunEnd&&window.ACH.onRunEnd(sum);}catch(e){}try{window.LB&&window.LB.submit&&window.LB.submit(sum);}catch(e){}}
- const bs=$('btnShare');if(bs)bs.onclick=()=>{try{window.SHARE.open({name:sum.name,village:sum.village,rankK:sum.rankK,rankCol:sum.rankCol,clsId:sum.clsId,clsN:sum.clsN,look:sum.look,floor:fl,won,title:sum.title,cause:sum.cause,odds:sum.odds,pct,karma:R.karma,score:L.score,themeId:sum.themeId,gen:sum.gen,pets:sum.pets,date:Date.now()});}catch(e){}};
+ S.shareD=shareData(R,sum,{pct,med,coh,beat});
+ const bs=$('btnShare');if(bs)bs.onclick=()=>openShare(false);
+ endBar(share);
+ // the share sheet opens by itself once per run, after the karma ledger has finished revealing
+ if(share&&!S.sharePop){S.sharePop=true;clearTimeout(S.popT);const run=S.runId,wait=500+(RM?0:Math.min(4000,L.rows.length*250+500));
+  S.popT=setTimeout(()=>{if(!S||S.phase!=='end'||S.runId!==run||document.querySelector('dialog[open]'))return;openShare(true);},wait);}
  const bl=$('btnLB2');if(bl)bl.onclick=()=>{try{window.LB.open();}catch(e){}};
  renderMemo();}
-function newBirth(bo){clearSave();if(S){clearTimeout(S.tm);clearInterval(cdI);clearTimeout(dyT);clearTimeout(cbTimer);clearTimeout(S.rvT);}clearFx();music(0,0);
+function newBirth(bo){clearSave();if(S){clearTimeout(S.popT);try{window.SHARE&&window.SHARE.close&&window.SHARE.isOpen&&window.SHARE.close();}catch(e){}clearTimeout(S.tm);clearInterval(cdI);clearTimeout(dyT);clearTimeout(cbTimer);clearTimeout(S.rvT);}clearFx();music(0,0);
  const sp=S?S.speed:loadSpeed();bo=isObj(bo)?bo:null;S={phase:'birth',hero:rollBirth(bo),bo,rerolled:false,rvDone:false,R:null,K:null,cb:null,cmp:null,saved:false,runId:0,speed:sp,paused:false,tm:0,frame:null};
  snap=null;VIS.coins=[];VIS.show=null;VIS.star=0;render();}
 function loadSpeed(){try{const v=+localStorage.getItem('tof-auto-speed');return SPEEDS.includes(v)?v:1;}catch(e){return 1;}}

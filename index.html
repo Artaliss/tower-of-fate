@@ -4,6 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>หอคอยโชคชะตา</title>
+<meta name="description" content="เกมพิกเซลไต่หอคอย 100 ชั้น เกิดมาพร้อมแรงค์กับอาชีพที่สุ่มได้ แล้วชีวิตก็เดินขึ้นหอไปเอง คุณเลือกแค่ตอนที่ชะตาเปลี่ยน จะไปได้ถึงชั้นไหน?">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="หอคอยโชคชะตา">
+<meta property="og:locale" content="th_TH">
+<meta property="og:title" content="หอคอยโชคชะตา · คุณจะไปได้ถึงชั้นไหน?">
+<meta property="og:description" content="เกิดมาพร้อมแรงค์กับอาชีพที่สุ่มได้ แล้วปล่อยให้ชีวิตไต่หอคอย 100 ชั้นไปเอง คุณเลือกแค่ตอนที่ชะตาเปลี่ยน ครึ่งหนึ่งล้มก่อนชั้น 53">
+<meta property="og:url" content="https://tower-of-fate.pages.dev/">
+<meta property="og:image" content="https://tower-of-fate.pages.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="หอคอยโชคชะตา เกมพิกเซลไต่หอคอย 100 ชั้น">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="หอคอยโชคชะตา · คุณจะไปได้ถึงชั้นไหน?">
+<meta name="twitter:description" content="เกิดมาพร้อมแรงค์กับอาชีพที่สุ่มได้ แล้วปล่อยให้ชีวิตไต่หอคอย 100 ชั้นไปเอง คุณเลือกแค่ตอนที่ชะตาเปลี่ยน">
+<meta name="twitter:image" content="https://tower-of-fate.pages.dev/og.png">
+<meta name="theme-color" content="#15232a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@300;400;500;600&family=DotGothic16&display=swap" rel="stylesheet">
@@ -273,6 +289,17 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
 .hdbtn{flex:none;background:var(--bg2);border:1px solid var(--line);border-radius:3px;padding:2px 9px;font-size:13px;line-height:1.5;color:var(--gold)}
 .hdbtn[hidden]{display:none}
 @media (max-width:700px){.tile b{font-size:12px}.odds.big b{font-size:20px}}
+.btn.shr{flex:1 1 100%;display:flex;flex-direction:column;align-items:center;gap:1px;background:var(--ember);color:#1a0b04;border-color:#000;box-shadow:inset 0 -3px 0 #a8431c,inset 0 2px 0 #ffb08a;font-size:16px;font-weight:600;padding:10px 12px}
+.btn.shr small{font-size:12px;font-weight:400;color:#3a1606}
+.btn.shr:hover:not(:disabled){filter:brightness(1.06);border-color:#000}
+.endbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;gap:8px;padding:8px max(12px,env(safe-area-inset-left,0px)) calc(8px + env(safe-area-inset-bottom,0px));background:rgba(11,18,21,.94);border-top:2px solid var(--gold2);box-shadow:0 -6px 20px rgba(0,0,0,.5)}
+.endbar[hidden]{display:none}
+.endbar button{flex:1;min-height:46px;border-radius:4px;font-size:15px;font-weight:500;border:2px solid var(--line2);background:var(--panel2)}
+.endbar button.pri{flex:1.6;background:var(--gold);color:#1a1206;border-color:#7a5214}
+.endbar .shb{background:var(--ember);color:#1a0b04;border-color:#000}
+@media (min-width:700px){.endbar{left:50%;right:auto;transform:translateX(-50%);width:min(560px,100%);border:2px solid var(--gold2);border-bottom:0;border-radius:8px 8px 0 0}}
+body.eb-on .wrap{padding-bottom:84px}
+body.eb-on .helpbtn{bottom:calc(74px + env(safe-area-inset-bottom,0px))}
 </style>
 </head>
 <body>
@@ -317,6 +344,7 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
  <section class="panel memo"><h2>สุสานนักผจญภัย</h2><div id="memo"></div></section>
  <footer class="keys">ปุ่มลัด: 1–4 เลือก · Space หยุด/เดินต่อ · Enter ดำเนินต่อ</footer>
 </div>
+<div class="endbar" id="endBar" hidden role="region" aria-label="แชร์หรือเริ่มชีวิตใหม่"><button type="button" class="shb" id="ebShare">📤 แชร์ชีวิตนี้</button><button type="button" class="pri" id="ebReborn">เกิดใหม่ ↻</button></div>
 <script src="sprites.js"></script>
 <script src="share.js"></script>
 <script src="achievements.js"></script>
