@@ -1,0 +1,92 @@
+// Tower of Fate — CHANGELOG: "มีอะไรใหม่" window. Pops once per version for returning players; new players are marked seen silently.
+(function(){
+'use strict';
+// newest first. v: version, d: date (YYYY-MM-DD), t: headline, i: items
+const LOG=[
+{v:'2.0',d:'2026-10-21',t:'หอคอยกว้างขึ้นเยอะ',i:[
+ '📜 อีเวนต์ระหว่างทางเพิ่มจาก 35 เป็น 130 เรื่อง แต่ละด่านมีเรื่องของตัวเองราว 20 เรื่อง',
+ '⚑ จุดเปลี่ยนชะตาเกิน 100 แบบแล้ว มีเรื่องต่อเนื่องใหม่ 3 เรื่อง (เด็กฝึกอัศวิน, ลัทธิเปลวเทียน, แมวเก้าชีวิต) และชั้นพิเศษใหม่อีก 6 แบบ',
+ '🧙 ตัวละครใหม่ 12 ตัว เช่น อัศวินชรา นักกวี พระธุดงค์ แมวพูดได้ ปีศาจไฟตัวจิ๋ว',
+ '🛡 ทหารรับจ้างหน้าตาไม่ซ้ำกันแล้ว ดูจากอาชีพกับนิสัยได้เลย คนบ้าบิ่นคาดผ้าแดง หมอยาเถื่อนสะพายกระเป๋ายา',
+ '⚔️ การต่อสู้มีท่าทางมากขึ้น ทั้งพุ่งเข้าตี กระเด็น หลบ คริติคอล และสกิลของแต่ละอาชีพมีเอฟเฟกต์ของตัวเอง',
+ '⏱ เวลาคิดตอนจุดเปลี่ยนเป็น 30 วินาที ใครอยากเร่งกดปุ่ม ⏱ ให้เหลือ 15 ได้',
+ '🎲 สุ่มหน้าตาใหม่ได้ไม่จำกัด ส่วนแรงค์กับอาชีพยังสุ่มใหม่ได้ครั้งเดียวเหมือนเดิม และตั้งชื่อเองได้แล้ว',
+ '💬 แตะคำในตัวเลือก เช่น "กรรมดี" เพื่อดูว่ามีผลอะไร ระหว่างที่อ่าน เวลาจะหยุดรอ',
+ '❓ หน้าวิธีเล่นแบ่งเป็นแท็บตามหมวด หน้าแรกมีแถบสรุประบบสำคัญ พับเก็บได้',
+ '📤 การ์ดแชร์แบบใหม่ มีแผนที่หอ 100 ชั้นของรอบนั้น แชร์ลง LINE, X, Threads ได้ในปุ่มเดียว ลิงก์ที่ส่งไปขึ้นชื่อกับชั้นของคุณ',
+ '🕯 ตอนจบมีภาพย้อนความทรงจำ งานศพ และลวดลายชะตา 16 แบบที่บอกว่าคุณใช้ชีวิตในหอแบบไหน']},
+{v:'1.4',d:'2026-10-21',t:'สายตระกูลและตารางอันดับ',i:[
+ '🧬 ส่งต่อชะตาให้ลูกศิษย์หรือเกิดใหม่ได้ มรดกบางส่วนตามไปด้วย',
+ '👥 มีเพื่อนรุ่นเดียวกัน 3 ถึง 4 คนเข้าหอพร้อมคุณ และมีข่าวเมื่อมีใครล้ม',
+ '🧭 เลือกท่าทีได้ บุก ระวังตัว หาของ หรือช่วยเหลือ',
+ '📄 ใบมรณบัตร คำไว้อาลัย และความสำเร็จ 37 อย่าง',
+ '🏆 ตารางอันดับทั่วโลก',
+ '🔊 แถบปรับระดับเสียงบนปุ่ม ♪']},
+{v:'1.3',d:'2026-10-20',t:'เหลือโหมดเดียว',i:[
+ '🗼 ตัดโหมดกดเลือกทุกชั้นออก เหลือแบบชีวิตเดินเอง ผู้เล่นตัดสินใจเฉพาะจุดเปลี่ยน',
+ '🧙 ตัวละครในเนื้อเรื่อง 19 ตัว',
+ '🎵 ฮีโร่แต่ละคนมีเพลงประจำตัว เสียงเปิดเป็นค่าเริ่มต้น']},
+{v:'1.2',d:'2026-10-20',t:'ชะตากำหนด',i:[
+ '⚑ ระบบจุดเปลี่ยนชะตาแบบมีเวลานับถอยหลัง ทหารรับจ้าง สัตว์เลี้ยง หีบ ลางร้าย',
+ '💾 เซฟอัตโนมัติ ปิดเว็บแล้วกลับมาเล่นต่อได้',
+ '💬 tooltip และคำอธิบายศัพท์']},
+{v:'1.0',d:'2026-10-19',t:'เปิดหอ',i:[
+ '🗼 หอคอย 100 ชั้น 5 ด่าน ร่างคนกับร่างสไลม์ เพลงชิปทูน']}];
+const CUR=LOG[0].v,KEY='tof-seen-ver';
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const get=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
+const set=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
+const vnum=v=>String(v||'0').split('.').map(Number).reduce((a,x,i)=>a+x*Math.pow(1000,2-i),0);
+const fmtD=d=>{const p=d.split('-').map(Number),M=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];return `${p[2]} ${M[p[1]-1]} ${p[0]+543}`;};
+const CSS=`
+.clbtn{position:fixed;left:max(12px,env(safe-area-inset-left,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:50;background:var(--panel,#1c1a2a);color:var(--ink,#f3ead6);border:2px solid var(--gold,#f4bb4a);border-radius:20px;padding:6px 12px;font:500 14px var(--fT,system-ui);cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.clbtn .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff6a5a;margin-left:6px;vertical-align:middle}
+body.eb-on .clbtn{bottom:calc(74px + env(safe-area-inset-bottom,0px))}
+.cldlg{border:3px solid var(--gold,#f4bb4a);border-radius:14px;background:var(--panel,#1c1a2a);color:var(--ink,#f3ead6);padding:0;width:min(520px,calc(100vw - 32px));max-height:min(80vh,640px);font:15px/1.6 var(--fT,system-ui)}
+.cldlg::backdrop{background:rgba(0,0,0,.6)}
+.cldlg .hd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border-bottom:2px solid rgba(244,187,74,.3);position:sticky;top:0;background:inherit}
+.cldlg .hd b{font-size:18px}
+.cldlg .x{background:none;border:0;color:inherit;font-size:22px;cursor:pointer;line-height:1;padding:4px 8px}
+.cldlg .bd{padding:8px 16px 16px;overflow:auto;max-height:calc(min(80vh,640px) - 110px)}
+.cldlg .ver{margin:12px 0 4px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.cldlg .ver .vn{font:16px var(--fP,monospace);color:var(--gold,#f4bb4a)}
+.cldlg .ver .vd{opacity:.6;font-size:13px}
+.cldlg ul{margin:4px 0 8px;padding-left:4px;list-style:none}
+.cldlg li{margin:6px 0}
+.cldlg details{margin-top:12px;border-top:1px dashed rgba(244,187,74,.3);padding-top:8px}
+.cldlg summary{cursor:pointer;opacity:.8}
+.cldlg .ft{padding:10px 16px 14px;border-top:2px solid rgba(244,187,74,.3);text-align:right}
+.cldlg .ok{background:var(--gold,#f4bb4a);color:#1a1206;border:2px solid #7a5214;border-radius:10px;padding:8px 18px;font:600 15px var(--fT,system-ui);cursor:pointer}
+@media (max-width:420px){.clbtn{padding:6px 10px;font-size:13px}}`;
+function verHTML(L,open){return `<div class="ver"><span class="vn">v${esc(L.v)}</span><b>${esc(L.t)}</b><span class="vd">${fmtD(L.d)}</span></div><ul>${L.i.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;}
+let dlg=null,paused=false;
+const pause=on=>{if(on===paused)return;paused=on;try{document.dispatchEvent(new CustomEvent('tof:pause',{detail:{on}}));}catch(e){}};
+function open(){
+ if(!dlg){dlg=document.createElement('dialog');dlg.className='cldlg';dlg.setAttribute('aria-labelledby','clT');
+  dlg.innerHTML=`<div class="hd"><b id="clT">📜 มีอะไรใหม่</b><button type="button" class="x" aria-label="ปิด">✕</button></div>
+<div class="bd">${verHTML(LOG[0])}${LOG.length>1?`<details><summary>เวอร์ชันก่อนหน้า</summary>${LOG.slice(1).map(L=>verHTML(L)).join('')}</details>`:''}</div>
+<div class="ft"><button type="button" class="ok">เข้าใจแล้ว ไปต่อ</button></div>`;
+  document.body.appendChild(dlg);
+  dlg.querySelector('.x').onclick=close;dlg.querySelector('.ok').onclick=close;
+  dlg.addEventListener('close',()=>{pause(false);mark();});
+  dlg.addEventListener('click',e=>{if(e.target===dlg)close();});}
+ if(dlg.open)return;
+ try{dlg.showModal();}catch(e){dlg.setAttribute('open','');}
+ pause(true);}
+function close(){if(!dlg)return;if(dlg.open&&dlg.close)dlg.close();else{dlg.removeAttribute('open');pause(false);mark();}}
+function mark(){set(KEY,CUR);const d=btn&&btn.querySelector('.dot');if(d)d.remove();}
+let btn=null;
+function init(){
+ const st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);
+ const seen=get(KEY);
+ // returning player = has any saved progress from before this version
+ const old=['tof-auto-memorial-v1','tof-memorial-v1','tof-auto-save-v1','tof-lineage-v1','tof-ach-v1'].some(k=>get(k));
+ btn=document.createElement('button');btn.type='button';btn.className='clbtn';btn.setAttribute('aria-haspopup','dialog');
+ btn.innerHTML=`📜 อัปเดต v${esc(CUR)}${seen!==CUR&&old?'<span class="dot" aria-label="มีของใหม่"></span>':''}`;btn.onclick=open;
+ document.body.appendChild(btn);
+ if(seen&&vnum(seen)>=vnum(CUR))return;
+ if(!old&&!seen){set(KEY,CUR);return;} // brand-new player: nothing to compare with
+ setTimeout(open,700);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+window.CHANGELOG={open,LOG,version:CUR};
+})();
