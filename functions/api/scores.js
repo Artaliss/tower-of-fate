@@ -3,6 +3,7 @@
 // GET  -> {top:[...], recent:[...]}  (Cache-Control: max-age=30)
 // POST -> body = entry JSON (see LEADERBOARD.md) -> {ok:true, id, rank} | {error}
 
+import { readLive, prune, writeLive, okDay } from './live.js';
 const TOP_N = 100, RECENT_N = 50;
 const RL_MAX = 10, RL_WIN = 600;          // 10 posts / 10 min / IP
 const DUP_TTL = 86400;
@@ -13,6 +14,8 @@ const DRG = ['', 'n', 'f', 's', 'x'];   // secret dragon floor result (v2.1) —
 const CLAN = ['', 'f', 's', 'd'];       // family dragon mark (v2.1) — not part of canon()
 const FORMS = ['slime', 'human', ''];
 const SALT = 'tof-v1';
+// a ticketed run must have lasted at least this long on the server clock before it may enter 'top' (v2.2 anti-cheat)
+const minMs = e => e.floor * 250;
 
 // ---- shared with leaderboard.js (keep identical) ----
 function fnv(s) { let h = 2166136261 >>> 0; s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
@@ -52,10 +55,13 @@ export function validate(b, now = Date.now()) {
   if (!isInt(e.ach, 0, 500)) return { err: 'ach' };
   if (!isInt(e.date, now - 30 * 86400e3, now + 86400e3)) return { err: 'date' };
   e.clan = CLAN.includes(b.clan) ? b.clan : '';
+  // v2.2 run ticket / presence id / daily theme (not stored, not part of canon)
+  const x = { tk: typeof b.tk === 'string' && /^[a-f0-9]{20}$/.test(b.tk) ? b.tk : '', sid: typeof b.sid === 'string' && /^[a-z0-9]{6,24}$/.test(b.sid) ? b.sid : '',
+    day: okDay(b.day) ? b.day : '', dh: b.dh === 1 ? 1 : 0 };
   if (typeof b.h !== 'string' || b.h !== fnv(SALT + '|' + canon(e))) return { err: 'integrity' };
   e.id = fnv(canon(e)) + e.date.toString(36).slice(-3);
   e.at = now;
-  return { e };
+  return { e, x };
 }
 
 export const cmp = (a, b) => (b.won - a.won) || (b.floor - a.floor) || (b.score - a.score) || (a.date - b.date);
@@ -102,7 +108,7 @@ export async function onRequestPost({ request, env }) {
   if (text.length > MAX_BODY) return json({ error: 'too-large' }, 413);
   let body; try { body = JSON.parse(text); } catch { return json({ error: 'bad-json' }, 400); }
 
-  const { e, err } = validate(body);
+  const { e, x, err } = validate(body);
   if (err) return json({ error: 'invalid', field: err }, 400);
 
   // rate limit per IP (fixed window stored with TTL)
@@ -118,19 +124,37 @@ export async function onRequestPost({ request, env }) {
   rl.c++;
   await kv.put(rlKey, JSON.stringify(rl), { expirationTtl: Math.max(60, Math.ceil((rl.t + RL_WIN * 1000 - now) / 1000)) });
 
-  // dedupe identical submissions
-  const dupKey = 'dup:' + e.id;
+  // dedupe identical submissions (one score per run ticket)
+  const dupKey = x.tk ? 'dup:tk:' + x.tk : 'dup:' + e.id;
   if (await kv.get(dupKey)) return json({ ok: true, dup: true, id: e.id });
   await kv.put(dupKey, '1', { expirationTtl: DUP_TTL });
 
+  // only runs that carry a server ticket and lasted plausibly long reach 'top'; the rest still show in 'recent'
+  let tkv = null; if (x.tk) { try { tkv = JSON.parse(await kv.get('tk:' + x.tk) || 'null'); } catch { } }
+  e.ok = tkv && typeof tkv.t0 === 'number' && now - tkv.t0 >= minMs(e) ? 1 : 0;
+
   const [top, recent] = await Promise.all([getList(kv, 'top'), getList(kv, 'recent')]);
   let rank = null;
-  if (!top.some(x => x && x.id === e.id)) {
+  if (e.ok && !top.some(y => y && y.id === e.id)) {
     top.push(e); top.sort(cmp); top.length = Math.min(top.length, TOP_N);
     const i = top.findIndex(x => x.id === e.id); rank = i >= 0 ? i + 1 : null;
     if (rank) await kv.put('top', JSON.stringify(top));
   }
   const rec = [e, ...recent.filter(x => x && x.id !== e.id)].slice(0, RECENT_N);
   await kv.put('recent', JSON.stringify(rec));
-  return json({ ok: true, id: e.id, rank });
+
+  // presence ends with the run; the run counts toward its day's stats
+  let day = null;
+  if (x.sid || x.day) {
+    try {
+      const v = prune(await readLive(kv));
+      if (x.sid) delete v.u[x.sid];
+      if (x.day && Math.abs(Date.parse(x.day) - now) < 3 * 86400e3) {
+        const d = v.d[x.day] || (v.d[x.day] = { n: 0, h: 0, w: 0, f: 0 });
+        d.n++; d.h += x.dh; d.w += e.won ? 1 : 0; d.f += e.floor; day = d;
+      }
+      await writeLive(kv, v);
+    } catch { }
+  }
+  return json({ ok: true, id: e.id, rank, v: e.ok, day });
 }

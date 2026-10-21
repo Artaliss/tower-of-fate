@@ -2,7 +2,7 @@
 // Sim region (SIM-START..SIM-END) is adapted from engine.js and runs headless (window.AUTO_SIM) when no DOM exists.
 (function(){
 'use strict';
-const {RANKS,CLASSES,BIOMES,VILLAGES,NA,NB,COMPN,MONS,BOSSES,PETS,EVENTS,JUDGE}=window.CONTENT;
+const {RANKS,CLASSES,BIOMES,VILLAGES,NA,NB,COMPN,MONS,BOSSES,PETS,EVENTS,JUDGE}=window.CONTENT,DAYS=window.CONTENT.DAYS||[];
 /*SIM-START*/
 let rnd=Math.random;
 const rr=(a,b)=>a+(b-a)*rnd(), pick=a=>a[Math.floor(rnd()*a.length)], clamp=(v,a,b)=>v<a?a:v>b?b:v, ri=(a,b)=>a+Math.floor(rnd()*(b-a+1));
@@ -103,6 +103,10 @@ const TRAITS=[
 const trOf=c=>TRAITS.find(t=>t.id===c.tr);
 const hasTr=(R,id)=>R.comps.some(c=>c.tr===id);
 const omenOf=h=>RUN_OMENS.find(o=>o.id===h.omen)||RUN_OMENS[0];
+// daily theme (v2.2): h.day={d:'YYYY-MM-DD',t:id} is set at birth; the run keeps it even past midnight
+const dayOf=h=>h&&h.day&&DAYS.find(x=>x.id===h.day.t)||null;
+const dayW=(R,k)=>{const D=R.dayT&&DAYS.find(x=>x.id===R.dayT);return D&&D.sp[k]||1;};
+const dayHit=R=>{const D=R.dayT&&DAYS.find(x=>x.id===R.dayT);return!!D&&(D.hit||Object.keys(D.sp)).some(k=>R.used['sp:'+k]);};
 const MD=(R,k,d)=>{const v=R.mod&&R.mod[k];return v===undefined?d:v;};
 const gMul=R=>MD(R,'gold',1)*(hasPet(R,'drg')?1.2:1);
 const keyGap=R=>ri(4,8)+(R?MD(R,'kg',0):0);
@@ -111,6 +115,7 @@ function newRun(h){const R={h:JSON.parse(JSON.stringify(h)),floor:1,pets:[],comp
  way:{},sameN:0,plainN:0,ledger:[],kctx:'',lastKOmen:-9,
  mod:Object.assign({},omenOf(h).mod),used:{},omenX:[],arcs:{},quietN:0,drama:0,lastQuiet:0,lastDrama:0,lastDramaId:'',hist:[],xseen:null,
  st:PST[h.pers]||'def',stH:'',stCh:0,coh:[],mile:[],lu:{},gIn:0,gPrev:h.gold,ck:'',theme:''};
+ {const DT=dayOf(h);if(DT){R.dayT=DT.id;for(const k in DT.mod||{})R.mod[k]=k==='regen'?(R.mod[k]||0)+DT.mod[k]:(R.mod[k]===undefined?1:R.mod[k])*DT.mod[k];}}
  trackKarma(R);R.keyGap=keyGap(R);planArcs(R);
  // apprentice inheritance: the pet joins at once, the master's karma follows as a ledger row and a small blessing or debt
  const I=h.inh;if(I&&typeof I==='object'){if(I.pet&&PETS[I.pet])R.pets.push(I.pet);
@@ -1163,7 +1168,7 @@ function hatch(R,out){R.egg=null;if(R.pets.length<2){const p=pick(PETK);R.pets.p
 function genSpecial(R){const ok=Object.keys(SPECIAL).filter(k=>!SPECIAL[k].ok||SPECIAL[k].ok(R));
  let pool=ok.filter(k=>!R.used['sp:'+k]||(k==='mimic'&&MD(R,'mimic',1)>1&&R.used['sp:mimic']<3));if(!pool.length)pool=ok.filter(k=>k!==R.lastSp);
  const fresh=k=>R.xseen&&!R.xseen['sp:'+k]?1.6:1;
- const sw=ST_SP[R.st]||{};const k=pool[wIdx(pool.map(x=>tierW(R,TIER[x])*(x==='mimic'?MD(R,'mimic',1):1)*(x==='dragon'&&clanM(R)==='s'?12:1)*fresh(x)*(sw[x]||1)))];R.lastSp=k;return k;}
+ const sw=ST_SP[R.st]||{};const k=pool[wIdx(pool.map(x=>tierW(R,TIER[x])*(x==='mimic'?MD(R,'mimic',1):1)*(x==='dragon'&&clanM(R)==='s'?12:1)*dayW(R,x)*fresh(x)*(sw[x]||1)))];R.lastSp=k;return k;}
 // build a decision card (key moment)
 function mkKey(R,type,ev){const f=R.floor,K={type,ev,tag:'',title:'',text:'',vis:null,ch:[],ai:0,rar:'c',tid:type};
  if(type==='boss'){K.tag=`ชั้น ${f} · ชั้นบอส`;K.title=ev.en.n;K.text=ev.en.x;K.vis={t:'en',en:ev.en};K.ch=choicesOf(R,ev);K.ai=aiBoss(R,ev);K.vs=true;}
@@ -1305,7 +1310,7 @@ function secFight(R,way){const en=secEn(R),h=R.h,out=mkOut();R.sec.m0=clanM(R);R
  else{R.cause=`ถูก${en.n}ฆ่าบนชั้นลับเหนือยอดหอคอย`;h.hp=0;}
  return out;}
 /*SIM-END*/
-if(typeof document==='undefined'){window.AUTO_SIM={secEn,secFight,secOpts,estimateWin,fight,SEC_K,DRG,rollHero,HZ,LX,pRoll,project,hzM,autoLife,newRun,planFloor,applyKey,mkKey,BAL,RUN_OMENS,STANCES};return;}
+if(typeof document==='undefined'){window.AUTO_SIM={DAYS,dayHit,secEn,secFight,secOpts,estimateWin,fight,SEC_K,DRG,rollHero,HZ,LX,pRoll,project,hzM,autoLife,newRun,planFloor,applyKey,mkKey,BAL,RUN_OMENS,STANCES};return;}
 
 // ================= UI =================
 const {heroSpr,MSPR,BSPR,PSPR,PROPS,COIN,ICONS,sprCanvas,blit,bgImg,drawOverlay,drawProp,compSpr,compKey}=window.ART;
@@ -1641,7 +1646,7 @@ function resumeRun(){let d=null;try{d=JSON.parse(localStorage.getItem(SAVEK)||'n
  if(!d)return false;
  const okV=d.v===1||d.v===SAVE_V;
  try{if(okV&&d.phase==='birth'&&isObj(d.hero)){const hero=Object.assign(rollHero(),d.hero);if(!CLASSES[hero.cls]||!RANKS[hero.rank]||!PERS[hero.pers]||!hero.name)throw 0;
-   if(hero.look&&hero.look.form)rollHero.form=hero.look.form;linFix(hero);
+   if(hero.look&&hero.look.form)rollHero.form=hero.look.form;linFix(hero);if(!hero.day){const dk=dayKey(),D=dayPick(dk);if(D)hero.day={d:dk,t:D.id};}
    S={phase:'birth',hero,rerolled:!!d.rerolled,bo:isObj(d.bo)?d.bo:null,rvDone:true,R:null,K:null,cb:null,cmp:null,saved:false,runId:0,speed:loadSpeed(),paused:false,tm:0,frame:null};snap=null;VIS.coins=[];VIS.show=null;S.themeId=heroTheme(hero);render();return true;}
   const sec=d.phase==='secret'&&isObj(d.R)&&d.R.won&&isObj(d.R.sec)&&['ask','talk','choose','res'].includes(d.R.sec.st)&&!!DRG[d.R.sec.c];
   if(!okV||!isObj(d.R)||!isObj(d.hero)||(!sec&&(!d.R.alive||d.R.won)))throw 0;
@@ -1660,6 +1665,7 @@ function resumeRun(){let d=null;try{d=JSON.parse(localStorage.getItem(SAVEK)||'n
   S={phase:'flow',hero,rerolled:true,R,K:null,cb:null,cmp:null,saved:false,runId:d.runId||Date.now(),t0:+d.t0||Date.now(),speed:loadSpeed(),paused:!!d.paused,tm:0,
    frame:isObj(d.frame)&&isArr(d.frame.msgs)?d.frame:{f:R.floor,tag:`ชั้น ${R.floor}`,title:'',text:'',msgs:[]}};
   snap=null;VIS.coins=[];VIS.show=S.frame.vis||null;VIS.walk0=performance.now();
+  if(isObj(R.net)&&typeof R.net.sid==='string')setTimeout(liveBeat,1500);else R.net=null;
   S.themeId=heroTheme(R.h);if(!R.theme)R.theme=S.themeId;const lead={t:'กลับมาเดินต่อจากที่ค้างไว้',c:'lv'};R.log.unshift({f:R.floor,t:lead.t,c:lead.c});
   if(sec){S.phase='secret';render();return true;}
   const K=d.K,okK=d.phase==='decide'&&isObj(K)&&isArr(K.ch)&&K.ch.length&&(['boss','ev','pet','comp','omen','arc','shop'].includes(K.type)||SPECIAL[K.type])&&(K.type!=='arc'||R.arcs[K.arc]);
@@ -1701,7 +1707,7 @@ function lookInfo(h){let L=null;try{L=window.ART.lookOf(look(h));}catch(e){}if(!
  if(L.form==='slime'){const hue=((L.hue%360)+360)%360;let lo=0;for(const [hi,nm] of HUEB){if(hue<hi)return{n:'สไลม์'+nm,p:(nm==='สีแดง'?35:hi-lo)/360*fe};lo=hi;}}
  return{n:'คน'+SKINN[(L.skin||0)%6],p:fe/6};}
 const combOdds=h=>Math.max(1,Math.round(h.odds/lookInfo(h).p));
-function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf(h),LI=lookInfo(h),mx=30,an=!S.rvDone&&!RM;
+function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf(h),DT=dayOf(h),LI=lookInfo(h),mx=30,an=!S.rvDone&&!RM;
  if(!S.themeId||S.themeHero!==h){S.themeHero=h;S.themeId=heroTheme(h);}
  const D=i=>an?` style="--d:${i*350}ms"`:'';
  const bars=RANKS.map((r,i)=>`<div class="col ${i===h.rank?'me':''}">${i===h.rank?'<span class="me-tag">คุณ</span>':''}<div class="bar" style="height:${Math.max(3,r.w/mx*100)}%"></div></div>`).join('');
@@ -1719,7 +1725,8 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  <div class="odds big rv"${D(4)} data-tip="combo">ฮีโร่แบบคุณ: <b>1 ใน ${fmt(combOdds(h))}</b><span class="sm">แรงค์กับอาชีพ 1 ใน ${fmt(h.odds)} · หน้าตา 1 ใน ${fmt(1/LI.p)}</span></div>
  ${inh}${clanH}<div class="rv"${D(5)}><div class="fatebox">ดวงชะตา: <b>${esc(HINTS[h.hint])}</b></div>
  <div class="pas" style="margin-top:6px">นิสัย: <b>${esc(PERS[h.pers].n)}</b> · ${esc(PERS[h.pers].d)}</div>
- <div class="omenbox ${O.k==='พร'?'bless':O.k==='คำสาป'?'curse':'mix'}"><span class="ok">${O.k==='ผสม'?'พรปนคำสาป':O.k}ประจำชาตินี้</span> <b>${esc(O.n)}</b><br>${esc(O.d)}</div></div></div>
+ <div class="omenbox ${O.k==='พร'?'bless':O.k==='คำสาป'?'curse':'mix'}"><span class="ok">${O.k==='ผสม'?'พรปนคำสาป':O.k}ประจำชาตินี้</span> <b>${esc(O.n)}</b><br>${esc(O.d)}</div>${DT?`<div class="daybox" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${esc(DT.d)}</div>`:''}</div></div>
+ <div class="livebox" id="liveBox"${S.liveHTML?'':' hidden'}>${S.liveHTML||''}</div>
  <p class="dim" style="font-size:13px;margin:10px 0 0">ในโหมดนี้ชีวิตเดินไปเอง คุณได้ตัดสินใจเฉพาะตอนสำคัญ มีเวลาคิด ${dTime} วินาที (เปลี่ยนได้ที่ปุ่ม ⏱ ข้างปุ่มความเร็ว) ถ้าไม่เลือก ฮีโร่จะเลือกเองตามนิสัย ทุกชั้นชะตาจะทอยว่าคุณรอดไหม โอกาสขึ้นอยู่กับ HP ที่เหลือ แผลเป็น กรรม คำสาป เพื่อนร่วมทาง และท่าทีที่คุณเลือก</p>
  <div class="nmset"><label for="inName">ตั้งชื่อเอง</label><input id="inName" type="text" maxlength="${NAME_MAX}" autocomplete="off" spellcheck="false" placeholder="${esc(h.name0||h.name)}" value="${h.cname?esc(h.name):''}"><span class="hint">ปล่อยว่างไว้ก็ใช้ชื่อที่สุ่มมา</span></div>
  <div class="acts"><button class="btn" id="btnReroll" data-k="1" ${S.rerolled?'disabled':''}>สุ่มแรงค์/อาชีพใหม่ ${S.rerolled?'(ใช้ไปแล้ว)':'(เหลือ 1 ครั้ง)'}<span class="kb">[1]</span></button>
@@ -1737,7 +1744,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  const inp=$('inName');inp.addEventListener('input',()=>{setName(S.hero,inp.value);const nm=card.querySelector('.cert .nm');if(nm)nm.textContent=S.hero.name;renderHUD();renderParty();saveRun();});
  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
  inp.addEventListener('change',()=>{if(cleanName(inp.value)!==inp.value)inp.value=S.hero.cname?S.hero.name:'';});
- $('btnEnter').onclick=startRun;}
+ $('btnEnter').onclick=startRun;liveBox();}
 // player-typed hero name: no control chars or HTML-ish characters, single spaces, at most NAME_MAX characters; empty = the rolled name
 const NAME_MAX=16;
 const cleanName=v=>Array.from(String(v||'').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e<>&"'`\\]/g,'').replace(/\s+/g,' ').trim()).slice(0,NAME_MAX).join('').trim();
@@ -1749,20 +1756,40 @@ function rollBirth(bo){let h;const C=clanBirth();
   const k=clamp(Math.round((P.karma||0)*.25),-6,6),g=Math.min(600,Math.round((P.gold||0)*.3));h.inh={gold:g,pet:P.pet&&PETS[P.pet]?P.pet:null,k,from:P.name};h.gold+=g;if(k>=2)h.luk+=2;
   h.m0=birthM(h);h.proj=project(1,h.m0).med;h.hint=fuzzHint(h.proj);}
  else{h=rollHero({kShift:bo?bo.kShift:0,dsl:C.cls});h.gen=1;h.lin=newLinId();h.house=h.name;if(bo&&isObj(bo.prev))h.prev=bo.prev;}
- h.clan=clanOf(C);return h;}
+ h.clan=clanOf(C);{const d=dayKey(),D=dayPick(d);if(D)h.day={d,t:D.id};}return h;}
 function startRun(){clearTimeout(S.rvT);VIS.star=0;S.R=newRun(S.hero);const R=S.R;R.xseen=loadSeen();S.runId=Date.now();S.t0=Date.now();snap=null;
  S.themeId=heroTheme(S.hero)||S.themeId||'';R.theme=S.themeId;
  // cohort: 3-4 heroes rolled the same way enter with you; their whole lives are simulated now with the same hazard table and AI
- R.coh=[];for(let i=0,n=ri(3,4);i<n;i++){const ch=rollHero(),L=autoLife(ch);poolAdd(L);R.coh.push({n:ch.name,rk:RANKS[ch.rank].k,cn:CLASSES[ch.cls].n,f:L.won?100:L.floor,won:L.won,cause:L.won?'พิชิตยอดหอคอย':L.cause,ck:L.ck||''});}
+ R.coh=[];for(let i=0,n=ri(3,4);i<n;i++){const ch=rollHero();ch.day=S.hero.day;const L=autoLife(ch);poolAdd(L);R.coh.push({n:ch.name,rk:RANKS[ch.rank].k,cn:CLASSES[ch.cls].n,f:L.won?100:L.floor,won:L.won,cause:L.won?'พิชิตยอดหอคอย':L.cause,ck:L.ck||''});}
  const o=mkOut();say(R,o,`${S.hero.name} ก้าวเข้าสู่หอคอยโชคชะตา`,'lv');
  say(R,o,`เพื่อนรุ่นเดียวกันอีก ${R.coh.length} คนเข้าหอมาพร้อมคุณ: ${R.coh.map(c=>c.n).join(', ')}`,'info');
  if(R.pets.length&&S.hero.inh&&S.hero.inh.pet)say(R,o,`${PETS[R.pets[0]].n}ของอาจารย์${S.hero.inh.from}เดินตามเข้ามาด้วย`,'good');
  {const CL=S.hero.clan||{};if(CL.pet&&R.pets.includes(CL.pet))say(R,o,`${PETS[CL.pet].n} สัตว์ประจำตระกูล เดินตามเข้ามาด้วย`,'good');if(CL.m==='s')say(R,o,`คำสาปนักล่ามังกรติดตัวมาด้วย มอนสเตอร์เผ่ามังกรจะดุกว่าปกติ (ล้มมังกรไปแล้ว ${CL.n||0}/3)`,'bad');
   const C=loadClan();if(C.fresh){C.fresh='';saveClan(C);}}
+ {const DT=dayOf(S.hero);if(DT)say(R,o,`หัวข้อวันนี้: ${DT.n} · ${DT.d}`,'info');}
+ R.net={sid:newSid()};liveStart(R);
  mileTick(R,o);
  S.frame={f:1,tag:'ชั้น 1 · ทางเข้า',title:'ประตูหอคอยเปิดออก',text:'บันไดหินวนขึ้นไปจนลับตา ไม่มีใครรู้ว่าตัวเองจะไปได้ถึงไหน',msgs:o.msgs};
  S.phase='flow';VIS.walk0=performance.now();VIS.show=null;music(0,1);render();if(o.mile)showMile(o.mile);ach('lineage',{gen:S.hero.gen||1});schedule(floorMs());}
 const floorMs=()=>BASE_MS/S.speed;
+// ---- daily theme + live presence (v2.2) ----
+const dayKey=()=>new Date(Date.now()+7*3600e3).toISOString().slice(0,10); // Thai calendar day
+const dayPick=d=>DAYS.length?DAYS[shash('tof-day|'+d)%DAYS.length]:null;
+const newSid=()=>(Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-6)).replace(/[^a-z0-9]/g,'');
+// the server hands out a run ticket at the start; only ticketed runs can reach the global top list. Silent no-op where /api/live is missing
+function liveStart(R){const L=window.LB&&window.LB.live;if(!L||!R.net)return;L.start(R.net.sid).then(j=>{if(j&&j.tk&&R.net)R.net.tk=j.tk;}).catch(()=>{});}
+function liveBeat(){const L=window.LB&&window.LB.live,R=S&&S.R;if(!L||!R||!R.net||!R.alive||document.hidden||!['flow','decide','combat'].includes(S.phase))return;
+ if(!R.net.tk){liveStart(R);return;}L.beat(R.net.sid,R.floor).catch(()=>{});}
+setInterval(liveBeat,5.5*60e3);
+const agoT=ms=>ms<9e4?'เมื่อสักครู่':ms<36e5?`${Math.round(ms/6e4)} นาทีก่อน`:`${Math.round(ms/36e5)} ชั่วโมงก่อน`;
+// birth screen: how many people are climbing right now + a rotating line about recent lives
+function liveBox(){const L=window.LB&&window.LB.live;if(!L||S.liveAsk)return;S.liveAsk=1;const run=S;
+ Promise.all([L.get(dayKey()),L.recent()]).then(([g,rec])=>{if(S!==run)return;const now=Date.now();
+  const feed=(Array.isArray(rec)?rec:[]).filter(e=>e&&now-(e.at||e.date)<864e5).slice(0,8).map(e=>`${agoT(now-(e.at||e.date))} ${e.name} ${e.floor===101?'ผ่านชั้นลับเหนือยอดหอ':e.won?'พิชิตยอดหอคอย':`ล้มลงที่ชั้น ${e.floor}`}`);
+  if(!g&&!feed.length)return;
+  S.liveHTML=`${g?`<div>🔥 ${g.n?`ตอนนี้มี <b class="px">${fmt(g.n)}</b> คนกำลังไต่หอ`:'ตอนนี้ในหอยังเงียบ ยังไม่มีใครไต่อยู่'}${g.day&&g.day.n?` · วันนี้เข้าหอไปแล้ว ${fmt(g.day.n)} คน`:''}</div>`:''}${feed.length?`<div class="feed" id="liveFeed">${esc(feed[0])}</div>`:''}`;
+  const box=$('liveBox');if(box){box.innerHTML=S.liveHTML;box.hidden=false;}
+  clearInterval(S.feedI);let i=0;if(feed.length>1)S.feedI=setInterval(()=>{const f=$('liveFeed');if(S!==run||!f){clearInterval(run.feedI);return;}i=(i+1)%feed.length;f.textContent=feed[i];},4500);}).catch(()=>{});}
 // tooltip/help pause: tips.js dispatches 'tof:pause' {on:true|false} (may nest). While >0 the decision countdown and the floor timer hold.
 let tipPause=0;
 function tipHold(){if(!S||tipPause<=0||S.phase!=='flow'||S.paused||!S.tmAt||S.tipHold)return;clearTimeout(S.tm);S.tipLeft=Math.max(0,S.tmAt-performance.now());S.tipHold=1;}
@@ -2168,6 +2195,8 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
   ${coh.length?`<dt>เพื่อนรุ่นเดียวกัน</dt><dd>${coh.length} คน · คุณไปได้ไกลกว่า ${beat} คน</dd>`:''}</dl>
   <div class="eu">「${esc(S.eu.who)}」 ${esc(S.eu.line)}</div></div>`;
  const cohH=coh.length?`<h2 data-tip="cohort">เพื่อนรุ่นเดียวกัน</h2><ol class="coh">${[...coh].sort((x,y)=>y.f-x.f).map(c=>`<li><span class="px">${c.rk}</span><span>${esc(c.n)} · ${esc(c.cn)}<br><span class="x">${esc(c.cause)}</span></span><span class="px">${c.won?'👑 ':''}${c.f}F</span></li>`).join('')}</ol>`:'';
+ const DT=dayOf(h),dHit=!!DT&&dayHit(R);
+ const dayH=DT?`<div class="daybox end" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${dHit?`ชีวิตนี้ได้เจอ${esc(DT.hn)}`:`ชีวิตนี้ไม่ได้เจอ${esc(DT.hn)}`}<span id="dayStat">${esc(S.dayStat||'')}</span></div>`:'';
  const share=!!(window.SHARE&&window.SHARE.open),lb=!!(window.LB&&window.LB.open);
  card.innerHTML=`<div class="epi"><div class="tag">${won?'ตำนานบทใหม่':'แผ่นจารึกหน้าหลุมศพ'}</div><div class="big">${won?'👑 ':'✝ '}${esc(h.name)}</div><div class="rtitle${S.title.gold?' gold':''}">ฉายา: ${esc(S.title.t)}</div>
  <dl class="kv"><dt>แรงค์/อาชีพ</dt><dd>${RANKS[h.rank].k} · ${C.n} (1 ใน ${fmt(h.odds)})</dd><dt>ชั้นที่ไปถึง</dt><dd class="px">${fl} / 100</dd><dt>เลเวล</dt><dd class="px">${h.lv}</dd>
@@ -2178,6 +2207,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  <div class="judge">${judge(R.karma)}</div></div>
  ${certH}
  ${patHTML(S.pat)}
+ ${dayH}
  <div class="acts endacts"><button class="btn pri" id="btnHeir" data-k="1" data-enter data-tip="lineage">สืบทอดโดยลูกศิษย์ ↗<span class="kb">[Enter]</span></button><button class="btn" id="btnReborn" data-k="2" data-tip="reborn">เกิดใหม่ ↻<span class="kb">[2]</span></button></div>
  <p class="dim" style="font-size:12px;margin:4px 0 10px">ลูกศิษย์ได้ทอง ${fmt(Math.min(600,Math.round(h.gold*.3)))}${R.pets.length?` กับ${esc(PETS[R.pets[0]].n)}`:''} และรับกรรมของคุณไปบางส่วน · เกิดใหม่ได้เริ่มสายใหม่ แต่กรรมชาตินี้จะติดไปกับดวงเกิดนิดหน่อย</p>
  ${share||lb?`<div class="acts endacts" style="margin-top:0">${share?'<button class="btn shr" id="btnShare" type="button">📤 แชร์ชีวิตนี้<small>การ์ด + ลิงก์ให้เพื่อนมาลองบ้าง</small></button>':''}${lb?'<button class="btn" id="btnLB2" type="button">🏆 อันดับ & ความสำเร็จ</button>':''}</div>`:''}
@@ -2195,8 +2225,12 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  const sum={name:h.name,village:h.village,rankK:RANKS[h.rank].k,rankIdx:h.rank,rankCol:RANKS[h.rank].col,clsId:C.id,clsN:C.n,look:look(h),form:look(h).form,floor:R.sec&&R.sec.win?101:fl,won,title:S.title.t,cause:won?'พิชิตยอดหอคอย':R.cause,
   odds:combOdds(h),pct,karma:R.karma,score:L.score,themeId:R.theme||S.themeId||'',gen:h.gen||1,pets:[...R.pets],comps:R.comps.map(c=>c.n),kills:R.kills,bosses:R.bosses,scars:R.scars,keyMoments:R.keys,timeouts:R.timeouts,
   stanceHist:R.stH||'',durationMs:S.t0?Date.now()-S.t0:0,date:Date.now(),lookName:LI.n,
+  tk:R.net&&R.net.tk||'',sid:R.net&&R.net.sid||'',day:h.day&&h.day.d||'',dh:dHit?1:0,
   drg:R.sec&&['n','f','s','x'].includes(R.sec.res)?R.sec.res:'',drgC:R.sec&&R.sec.res&&DRG[R.sec.c]?R.sec.c:'',clan:R.clanM||'',lift:!!R.lift};
- if(!S.sent){S.sent=true;try{window.ACH&&window.ACH.onRunEnd&&window.ACH.onRunEnd(sum);}catch(e){}try{window.LB&&window.LB.submit&&window.LB.submit(sum);}catch(e){}}
+ if(!S.sent){S.sent=true;try{window.ACH&&window.ACH.onRunEnd&&window.ACH.onRunEnd(sum);}catch(e){}try{window.LB&&window.LB.submit&&window.LB.submit(sum);}catch(e){}
+  // day stats come back a moment after this run was submitted
+  if(DT&&h.day&&window.LB&&window.LB.live){const run=S.runId;setTimeout(()=>window.LB.live.get(h.day.d).then(g=>{const d=g&&g.day;if(!d||!d.n||!S||S.runId!==run)return;
+   S.dayStat=` · จาก ${fmt(d.n)} คนที่เข้าหอวันนี้ ${Math.round(d.h/d.n*100)}% ได้เจอเรื่องนี้ ${dHit?'ชีวิตนี้เป็นหนึ่งในนั้น':'ชีวิตนี้ไม่ได้อยู่ในกลุ่มนั้น'}`;const el=$('dayStat');if(el)el.textContent=S.dayStat;}),3500);}}
  S.shareD=shareData(R,sum,{pct,med,coh,beat});
  const bs=$('btnShare');if(bs)bs.onclick=()=>openShare(false);
  endBar(share);

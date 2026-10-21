@@ -1,5 +1,5 @@
 // leaderboard.js — กระดานอันดับ + ความสำเร็จ + สถิติของฉัน
-// API: window.LB = { submit(summary), open(tab?), flush(), mine() }
+// API: window.LB = { submit(summary), open(tab?), flush(), mine(), live:{start(sid), beat(sid,floor), get(day)} }
 // POST/GET '/api/scores' (Cloudflare Pages Function). ส่งไม่สำเร็จจะเก็บคิวไว้ใน localStorage แล้วส่งใหม่ตอนโหลดครั้งหน้า
 (function(){
 'use strict';
@@ -33,6 +33,9 @@ function toEntry(s){s=(s&&typeof s==='object')?s:{};
   score:int(s.score,0,1e7),karma:int(s.karma,-9999,9999),gen:int(s.gen||1,1,9999),ach:int(achN,0,500),
   date:Math.round(num(s.date)>1e12?num(s.date):Date.now()),v:VER,
   drg:DRG.includes(s.drg)?s.drg:'',clan:CLAN.includes(s.clan)?s.clan:''};
+ // v2.2: run ticket + presence id + daily theme (ไม่อยู่ใน canon)
+ if(typeof s.tk==='string'&&/^[a-f0-9]{20}$/.test(s.tk))e.tk=s.tk;if(typeof s.sid==='string'&&/^[a-z0-9]{6,24}$/.test(s.sid))e.sid=s.sid;
+ if(typeof s.day==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s.day)){e.day=s.day;e.dh=s.dh?1:0;}
  if(e.floor===101&&!(e.won&&(e.drg==='f'||e.drg==='s')))e.floor=100; // 101 = ผ่านชั้นลับมังกร (v2.1)
  if(e.won&&e.floor<100)e.won=false;
  if(e.date>Date.now())e.date=Date.now();
@@ -97,6 +100,8 @@ function css(){if(document.getElementById('lb-css'))return;const st=document.cre
 .lb-drg.f{background:#1f4a3a;color:#bff3d8;border:1px solid #5fd3a0}
 .lb-drg.s{background:#4a1a1a;color:#ffc9b8;border:1px solid #ff7a5a}
 .lb-tag{font-size:10px;font-family:'DotGothic16','Mitr',monospace;background:var(--gold,#f4bb4a);color:#1a1206;padding:0 4px;border-radius:2px;margin-left:4px;vertical-align:1px}
+.lb-leg{margin:0 0 8px;font-size:12px;color:var(--muted,#a3b5ad);background:var(--bg2,#101b20);border:1px dashed var(--line2,#3d5a66);border-radius:3px;padding:6px 10px}
+.lb-leg summary{cursor:pointer;color:var(--gold,#f4bb4a)}.lb-leg ul{margin:6px 0 0;padding-left:16px}.lb-leg li{margin:3px 0}.lb-leg b{color:var(--ink,#f1e7d0);font-weight:500}
 .lb-note{font-size:11.5px;color:var(--dim,#6f857e);margin:8px 0 0;text-align:center}
 @media (max-width:420px){.lb-row{grid-template-columns:22px 30px 1fr auto;gap:6px;padding:5px 6px}.lb-hd h2{font-size:15px}.lb-tabs button{padding:6px 8px;font-size:12.5px}}
 @media (prefers-reduced-motion:no-preference){#lbDlg[open]{animation:lbIn .2s steps(3)}@keyframes lbIn{from{opacity:0;transform:translateY(8px)}}}`;
@@ -120,11 +125,18 @@ function row(e,i,me){const rk=RANKC[e.rankK]?e.rankK:'?';
  const cls0=CLSN[e.clsId]||esc(e.clsN)||'';
  const cls=e.clsId==='dsl'?`<span class="lb-hid"><em>อาชีพลับ</em>${cls0}</span>`:cls0;
  const drg=e.drg==='f'?'<span class="lb-drg f" title="ไว้ชีวิตมังกรบนชั้นลับ">🐉 สหายมังกร</span>':e.drg==='s'?'<span class="lb-drg s" title="ล้มมังกรบนชั้นลับ">⚔ นักล่ามังกร</span>':'';
- const sub=[cls+(e.form==='slime'?' (สไลม์)':''),e.village?'จาก'+esc(e.village):'','รุ่นที่ '+int(e.gen,1,9999),e.ach?'🏅'+int(e.ach,0,500):''].filter(Boolean).join(' · ');
+ const sub=[cls+(e.form==='slime'?' (สไลม์)':''),e.village?'จาก'+esc(e.village):'','รุ่นที่ '+int(e.gen,1,9999),e.ach?`<span title="ความสำเร็จที่ปลดล็อกแล้ว ${int(e.ach,0,500)} อย่าง">🏅${int(e.ach,0,500)}</span>`:''].filter(Boolean).join(' · ');
  return `<li class="lb-row${me?' me':''}${e.won?' win':''}"><span class="no">${i==null?'':i+1}</span><span class="lb-rk" style="background:${RANKC[rk]||'#888'}">${esc(rk)}</span>
-<span class="lb-who"><b>${esc(e.name)}${drg}${e.title?` <i>“${esc(e.title)}”</i>`:''}${me?'<span class="lb-tag">คุณ</span>':''}</b><span>${sub}</span></span>
-<span class="lb-fl">${e.floor===101?'<b>🐉 101</b>':e.won?'<b>👑</b>':`<b>${int(e.floor,0,100)}</b>`}<span>${e.floor===101?'ชั้นลับ':e.won?'พิชิตยอด':'ชั้น'} · ${num(e.score).toLocaleString('en-US')}</span></span></li>`;}
+<span class="lb-who"><b>${esc(e.name)}${drg}${e.title?` <i>“${esc(e.title)}”</i>`:''}${me?'<span class="lb-tag">คุณ</span>':''}${e.ok===0?'<span class="lb-drg" style="border:1px solid #6f857e;color:#a3b5ad" title="รอบนี้ไม่มีตั๋วจากเซิร์ฟเวอร์ หรือจบเร็วเกินกว่าที่เล่นได้จริง">ไม่นับอันดับ</span>':''}</b><span>${sub}</span></span>
+<span class="lb-fl">${e.floor===101?'<b>🐉 101</b>':e.won?'<b>👑</b>':`<b>${int(e.floor,0,100)}</b>`}<span title="คะแนนชีวิต">${e.floor===101?'ชั้นลับ':e.won?'พิชิตยอด':'ชั้น'} · ${num(e.score).toLocaleString('en-US')} คะแนน</span></span></li>`;}
 
+// วิธีอ่านแถวในตาราง (แสดงใต้แท็บอันดับทั่วโลก/ล่าสุด)
+const LEGEND=`<details class="lb-leg"><summary>อ่านตารางยังไง</summary><ul>
+<li><b>👑</b> พิชิตยอดหอชั้น 100 · <b>🐉 101</b> ขึ้นไปผ่านชั้นลับเหนือยอดหอได้ · ตัวเลขเดี่ยวคือชั้นที่ล้มลง</li>
+<li><b>คะแนน</b> คือคะแนนชีวิต ได้จากชั้นที่ไปถึง + บอสที่ล้มได้ตัวละ 3 + พิชิตยอดอีก 30 + ครึ่งหนึ่งของเลเวล + ผ่านชั้นลับอีก 10 ถึง 15 แล้วบวกหรือลบตามบัญชีกรรมตอนจบ ใช้ตัดสินตอนไปได้ชั้นเท่ากัน</li>
+<li><b>🏅</b> จำนวนความสำเร็จที่คนนั้นปลดล็อกไว้ตอนส่งผล</li>
+<li><b>อันดับทั่วโลก</b> รับเฉพาะรอบที่เล่นจบบนเว็บนี้จริง (เซิร์ฟเวอร์ออกตั๋วให้ตอนเข้าหอ) รอบที่ไม่มีตั๋วหรือจบเร็วผิดปกติจะขึ้นแค่ในแท็บล่าสุด พร้อมป้าย "ไม่นับอันดับ"</li>
+<li><b>รุ่นที่</b> ลำดับรุ่นในสายตระกูล (ลูกศิษย์สืบทอดต่อกันมากี่รุ่น) · <b>F ถึง SS</b> แรงค์ตอนเกิด</li></ul></details>`;
 function msg(t,s){return `<div class="lb-msg"><b>${t}</b>${s||''}</div>`;}
 async function load(){if(cache&&Date.now()-cacheAt<30e3)return cache;
  const ac=typeof AbortController==='function'?new AbortController():null;const to=setTimeout(()=>ac&&ac.abort(),7000);
@@ -150,7 +162,7 @@ async function show(t){if(!dlg)return;cur=t;
   `<p class="lb-note"><button type="button" class="lb-x" style="width:auto;padding:0 10px;font:inherit;font-size:12px" data-go="mine">ดูสถิติของฉัน</button></p>`;
   const go=B.querySelector('[data-go]');if(go)go.onclick=()=>show('mine');return;}
  const L=t==='top'?d.top:d.recent,ids=myIds();
- B.innerHTML=L.length?`<ul class="lb-list">${L.map((e,i)=>row(e,t==='top'?i:null,isMine(e,ids,mine))).join('')}</ul>`+
+ B.innerHTML=L.length?LEGEND+`<ul class="lb-list">${L.map((e,i)=>row(e,t==='top'?i:null,isMine(e,ids,mine))).join('')}</ul>`+
   (t==='top'?'<p class="lb-note">เรียงตาม: พิชิตยอดก่อน → ชั้นสูงสุด → คะแนน</p>':'')
   :msg('ยังว่างเปล่า','ยังไม่มีใครส่งผลขึ้นกระดานเลย คุณอาจเป็นคนแรก');}
 
@@ -158,7 +170,15 @@ function open(tab){try{if(typeof document==='undefined')return;if(!dlg)build();
  if(!dlg.open){if(typeof dlg.showModal==='function')dlg.showModal();else dlg.setAttribute('open','');}
  show(TABS.some(x=>x[0]===tab)?tab:'top');}catch(e){}}
 
-window.LB={submit,open,flush,mine:()=>rd(K_MINE,[])};
+// ---- live: คนกำลังไต่หอ + ตั๋วรอบ (กันโกง) + สถิติหัวข้อของวัน ----
+const LIVE='/api/live';
+async function liveCall(body){if(typeof fetch!=='function')return null;
+ try{const r=await fetch(LIVE,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{Accept:'application/json'},body:body?JSON.stringify(body):undefined,credentials:'same-origin'});
+  if(!r.ok)return null;const j=await r.json();return j&&!j.error?j:null;}catch(e){return null;}}
+const live={start:sid=>liveCall({a:'start',sid}),beat:(sid,f)=>liveCall({a:'beat',sid,f:int(f,1,101)}),
+ get:day=>{if(typeof fetch!=='function')return Promise.resolve(null);return fetch(LIVE+'?day='+encodeURIComponent(day||''),{headers:{Accept:'application/json'},credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(j=>j&&!j.error?j:null).catch(()=>null);},
+ recent:()=>load().then(d=>d&&!d.error?d.recent:[])};
+window.LB={submit,open,flush,mine:()=>rd(K_MINE,[]),live};
 // ส่งคิวที่ค้างจากรอบก่อน
 try{const go=()=>setTimeout(flush,2500);if(document.readyState==='complete')go();else window.addEventListener('load',go);window.addEventListener('online',()=>flush());}catch(e){}
 })();
