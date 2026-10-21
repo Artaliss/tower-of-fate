@@ -84,6 +84,13 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
 .cert .hd{text-align:center;font-weight:600;letter-spacing:.04em;color:#6b3f12;font-size:14px;border-bottom:2px dashed #a8874f;padding-bottom:4px}
 .cert .nm{text-align:center;font-size:24px;font-weight:600;margin:6px 0 0}
 .cert .vil{text-align:center;font-size:13px;color:#6b5634}
+.nmset{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 8px;margin:10px 0 0;font-size:13px}
+.nmset label{color:var(--ink)}
+.nmset input{font:inherit;font-size:15px;width:min(220px,100%);padding:5px 8px;background:var(--panel2);color:var(--ink);border:2px solid var(--line2);border-radius:3px}
+.nmset input:focus{outline:2px solid var(--gold);outline-offset:1px}
+.nmset input::placeholder{color:var(--dim)}
+.nmset .hint{flex-basis:100%;text-align:center;font-size:12px;color:var(--dim)}
+.lookn{text-align:center;font-size:12px;color:var(--dim);margin:6px 0 0}
 .badges{display:flex;justify-content:center;gap:6px;margin:8px 0;flex-wrap:wrap}
 .rk{font-family:var(--fP);font-weight:700;padding:1px 10px;border-radius:2px;color:#111;font-size:16px;border:2px solid #0004}
 .cls{background:#3a2a14;color:var(--parch);padding:2px 10px;border-radius:2px;font-size:14px}
@@ -282,6 +289,7 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
   <button id="btnPause" type="button" aria-pressed="false">⏸ หยุด</button>
   <span class="dim" style="font-size:12px">ความเร็ว</span>
   <button type="button" data-speed="1" class="px">1x</button><button type="button" data-speed="2" class="px">2x</button><button type="button" data-speed="4" class="px">4x</button><button type="button" data-speed="8" class="px">8x</button><button type="button" data-speed="16" class="px">16x</button>
+  <button type="button" id="btnDT" class="dtb" title="เวลาคิดตอนเจอจุดเปลี่ยนชะตา กดเพื่อสลับ 30/15 วินาที" aria-label="เวลาคิดตอนเจอจุดเปลี่ยนชะตา กดเพื่อสลับ 30/15 วินาที">⏱ 30 วิ</button>
   <span class="note" id="ctlNote"></span>
  </div>
  <div class="stance" id="stanceBox" hidden role="group" aria-label="ท่าที"><span class="dim" style="font-size:12px" data-tip="stance">ท่าที</span><span id="stBtns"></span><span class="note" id="stNote" aria-live="off"></span></div>
