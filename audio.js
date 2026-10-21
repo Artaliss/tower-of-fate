@@ -171,12 +171,17 @@ const A={muted:(()=>{try{return localStorage.getItem(MKEY)==="1";}catch(e){retur
     case 'win':{const lst=notes(8).map((n,k)=>({s:k*2,d:Math.abs(n.d),l:2}));e=play(lst,.07,MAJ,'square',.13,1,.25);
      [0,4,7,12].forEach((s,k)=>this._tone('square',mtof(72+s),t0+e+k*.08,.14,.12,m,.125));
      [0,4,7].forEach(s=>this._tone('triangle',mtof(72+s),t0+e+.32,1,.12,m));e+=1.3;break;}
+    // funeral: the hero's motif slowed to a hymn over a soft minor pad (end cinematic)
+    case 'funeral':{const lst=notes(4).map((n,k)=>({s:k*6,d:Math.abs(n.d)%5,l:6}));e=play(lst,.16,MIN,'triangle',.15,1,0);
+     [0,2,4].forEach((d,k)=>this._tone('triangle',mtof(dg(MIN,d,0)),t0+k*.05,e+1.2,.07,m));this._tone('triangle',mtof(dg(MIN,0,-1)),t0,e+1.6,.12,m);e+=1.6;break;}
     case 'key':{notes(2).forEach((n,k)=>this._tone('triangle',mtof(dg(sc,n.d,1+H.oct)),t0+k*.07,.1,.13,m));return;}
     default:return;
    }
    this._duck(e);
   }catch(e){}
  },
+ // hush(true) holds the music bus at 45% (end cinematic); hush(false) brings it back
+ hush(on){this.hushed=!!on;const b=this.bus,c=this.ctx;if(!b||!c)return;try{const t=c.currentTime,g=b.gain;g.cancelScheduledValues(t);g.setValueAtTime(g.value,t);g.linearRampToValueAtTime(on?.45:1,t+.6);}catch(e){}},
  sfx(name){
   const c=this.ctx;if(!c||this.muted||c.state!=='running')return;
   try{

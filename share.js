@@ -60,7 +60,18 @@ function norm(d){d=Object.assign({},d||{});d.name=str(d.name)||'นักผจ�
  d.clsN=str(d.clsN);d.won=!!d.won;d.floor=d.won?100:Math.max(1,Math.round(+d.floor||1));d.title=str(d.title);d.cause=str(d.cause);
  d.karma=+d.karma||0;d.score=+d.score||0;d.date=d.date||Date.now();d.pets=Array.isArray(d.pets)?d.pets:[];d.petN=Array.isArray(d.petN)?d.petN:[];d.comps=Array.isArray(d.comps)?d.comps:[];
  d.map=Array.isArray(d.map)&&d.map.length===100?d.map:Array(100).fill('');d.hk=d.hk&&typeof d.hk==='object'?d.hk:{};d.note=cleanNote(d.note);d.gen=d.gen||1;
- if(!(d.rankIdx>=0))d.rankIdx=Math.max(0,RANK_K.indexOf(d.rankK));return d;}
+ if(!(d.rankIdx>=0))d.rankIdx=Math.max(0,RANK_K.indexOf(d.rankK));
+ d.pat=d.pat&&typeof d.pat==='object'&&str(d.pat.code)&&Array.isArray(d.pat.v)&&d.pat.v.length===4?{code:str(d.pat.code),n:str(d.pat.n),v:d.pat.v.map(x=>clampN(+x||0,-100,100))}:null;return d;}
+// ลวดลายชะตา row: code + name on the left, four mini lean bars on the right (poles: บ/ร ห/ช ด/พ ☀/☾)
+const PAT_P=[['บุก','ระวังตัว'],['หาของ','ช่วยเหลือ'],['คนเดียว','มีเพื่อน'],['กรรมดี','กรรมชั่ว']];
+function drawPat(ctx,d,y){const p=d.pat;
+ line(ctx,'ลวดลายชะตา',64,y+28,{size:22,col:P.ink3,maxW:300});
+ setF(ctx,600,40);const cw=Math.min(190,ctx.measureText(p.code).width);line(ctx,p.code,64,y+72,{size:40,weight:600,col:P.stamp,maxW:190,min:24});
+ line(ctx,p.n,64+cw+22,y+70,{size:34,weight:600,col:P.ink,maxW:600-64-cw-22,min:20});
+ const bx=738,bw=176;p.v.forEach((v,i)=>{const yy=y+14+i*19;
+  line(ctx,PAT_P[i][0],bx-10,yy+7,{size:17,col:v<0?P.stamp:P.ink3,maxW:96,min:12,align:'right'});line(ctx,PAT_P[i][1],bx+bw+10,yy+7,{size:17,col:v>0?P.stamp:P.ink3,maxW:96,min:12});
+  rect(ctx,bx,yy,bw,3,P.rule);rect(ctx,bx+bw/2-1,yy-4,2,11,P.ink3);const k=bx+bw*(.5+v/200);rect(ctx,k-5,yy-4,10,11,P.red);});
+ return 84;}
 function verdict(k){return k>=20?'ใจบุญทั้งหอ':k>=6?'กรรมดี':k>-6?'กลางๆ':k>-20?'กรรมชั่ว':'บาปหนา';}
 function recNo(d){const y=new Date(d.date).getFullYear();return d.rankK+(CLS_IDS.indexOf(d.clsId)+1)+'-'+y+'-'+String(d.floor).padStart(3,'0');}
 
@@ -176,7 +187,7 @@ async function render(d){
  line(ctx,deeds,RX,496,{size:26,col:P.ink3,maxW:RW,min:18});
  drawStamp(ctx,d.won?'พิชิตยอดหอ':'สิ้นชีพ ชั้น '+d.floor,PX+PW/2+18,PY+PH-34,d.won?P.gold2:P.red);
  // stat grid 2x3
- const GY=544,GH=92,CW=456,CX=[64,560];
+ const GY=544,GH=d.note&&d.pat?88:92,CW=456,CX=[64,560];
  const party=[...d.petN,...d.comps].filter(Boolean);
  const cells=[
   [d.won?'ผลลัพธ์':'สาเหตุการตาย',d.won?'พิชิตยอดหอคอย':(d.cause.replace(/\s*\(ชั้น \d+\)\s*$/,'')||'ชะตาขาด'),d.won?P.gold2:P.red],
@@ -191,12 +202,13 @@ async function render(d){
   setF(ctx,600,32);if(i===0&&ctx.measureText(c[1]).width>CW)para(ctx,c[1],x,y+57,{size:25,min:20,weight:500,col:c[2],maxW:CW,lines:2,lh:1.2});
   else line(ctx,c[1],x,y+70,{size:32,weight:600,col:c[2],maxW:CW,min:20});});
  let y=GY+3*GH+8;rect(ctx,64,y-6,W-128,2,P.rule);
+ if(d.pat){y+=drawPat(ctx,d,y);rect(ctx,64,y-6,W-128,2,P.rule);}
  // player's note
  if(d.note){setF(ctx,500,32);y+=40;const h=para(ctx,'“'+d.note+'”',64,y,{size:34,min:24,weight:500,col:P.red,maxW:W-128,lines:2,lh:1.25});y+=h-14;}
  // map + big number
  const footY=1232;
  line(ctx,'แผนที่หอ 100 ชั้น · ล่างซ้ายคือชั้น 1 · ขอบทองคือชั้นบอส',64,y+40,{size:22,col:P.ink3,maxW:W-128,min:18});
- const mapTop=y+84,gap=4,avail=footY-24-mapTop,ch=Math.max(14,Math.floor((avail-9*gap)/10)),cw=40;
+ const mapTop=y+84,gap=4,avail=footY-24-mapTop,ch=Math.max(10,Math.floor((avail-9*gap)/10)),cw=40;
  drawMap(ctx,d,74,mapTop,cw,ch,gap);
  const NX=560,NW=W-64-NX,pct=d.pct!=null&&isFinite(+d.pct)?clampN(Math.round(+d.pct),0,100):null;
  // legend sits on the bottom of the right column; the big number fills the space above it
@@ -204,10 +216,11 @@ async function render(d){
  const ly=footY-22-34;
  LG.forEach(([k,n],i)=>{const x=NX+(i%4)*(NW/4),yy=ly+Math.floor(i/4)*34;rect(ctx,x,yy-16,18,18,MAPC[k]);line(ctx,n,x+26,yy,{size:19,col:P.ink2,maxW:NW/4-30,min:14});});
  if(pct!=null){
-  const room=ly-24-mapTop,ns=clampN(Math.round(room*.5),90,150),ny=mapTop+Math.round(ns*.78);
-  line(ctx,pct+'%',NX-6,ny,{size:ns,weight:600,col:P.stamp,maxW:NW,min:80});
+  const room=ly-24-mapTop,tight=room<230,ns=tight?clampN(Math.round(room*.5),48,150):clampN(Math.round(room*.5),90,150),ny=mapTop+Math.round(ns*.78);
+  line(ctx,pct+'%',NX-6,ny,{size:ns,weight:600,col:P.stamp,maxW:NW,min:40});
   const cap=d.won?'ของนักผจญภัยรุ่นเดียวกันขึ้นไปไม่ถึงยอดหอ':'ของนักผจญภัยรุ่นเดียวกันไปไม่ถึงชั้นนี้';
-  const hh=para(ctx,cap,NX,ny+42,{size:27,min:21,col:P.ink,maxW:NW,lines:2,lh:1.22});
+  const cl=Math.max(0,Math.min(2,Math.floor((ly-30-(ny+14))/34)));
+  const hh=cl?para(ctx,cap,NX,ny+42,{size:27,min:21,col:P.ink,maxW:NW,lines:cl,lh:1.22}):0;
   const my=ny+42+hh+2;if(d.med&&my<ly-30)line(ctx,'ครึ่งหนึ่งล้มก่อนชั้น '+d.med,NX,my,{size:23,fam:fP,col:P.ink2,maxW:NW,min:18});
  }
  // footer
@@ -233,6 +246,7 @@ function hooks(d){const k=d.hk||{},out=[],seed=hashStr(d.name+'|'+d.floor+'|'+d.
  if(k.coh>0){if(k.beat===k.coh)add('coh','cmp',5,`ไปได้ไกลกว่าเพื่อนรุ่นเดียวกันทั้ง ${k.coh} คน`,97);else if(k.beat===0)add('coh','cmp',3,`เพื่อนรุ่นเดียวกัน ${k.coh} คนไปไกลกว่าทุกคน`,97);}
  if(k.nearP>=.15&&k.nearF&&k.nearF<d.floor)add('near','near',5,`ชั้น ${k.nearF} โอกาสตายพุ่งถึง ${Math.round(k.nearP*100)}% แต่ก็รอดมาได้`,k.nearF);
  if(d.title)add('title','title',k.gold?6:3,`ได้ฉายา「${d.title}」`,96);
+ if(d.pat)add('pat','pat',4.2,`ลวดลายชะตาคือ ${d.pat.code} 「${d.pat.n}」`,96.5);
  if(Math.abs(d.karma)>=15)add('karma','karma',4,d.karma>0?`ทำบุญไว้จนกรรมดีถึง +${d.karma}`:`สะสมกรรมชั่วไว้ถึง ${d.karma}`,95);
  if(d.scars>=3)add('scar','scar',3,`มีแผลเป็น ${d.scars} แผล แต่ก็ยังเดินต่อ`,94);
  out.sort((a,b)=>b.s-a.s);const g={},pick=[];for(const h of out){if(g[h.g])continue;g[h.g]=1;pick.push(h);if(pick.length>=3)break;}

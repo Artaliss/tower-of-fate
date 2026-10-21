@@ -248,5 +248,30 @@ function drawProp(x,pr,t){const X=126,Y=84;if(!pr)return;
  else if(pr==='book'){x.fillStyle='#6a3a2a';x.fillRect(X,Y+6,18,14);for(let i=0;i<5;i++){x.fillStyle=['#c84a3a','#4a8ac8','#d4a43a','#5ab05a','#a86ad0'][i];x.fillRect(X+1+i*3,Y+8,2,10);}}
  else if(pr==='shrine'){x.fillStyle='#5a4a3a';x.fillRect(X-2,Y-6,24,4);x.fillRect(X,Y-2,2,22);x.fillRect(X+18,Y-2,2,22);x.fillStyle=`rgba(244,187,74,${.5+.3*Math.sin(t/400)})`;x.fillRect(X+6,Y+6,8,8);x.fillStyle='#f4bb4a';blit(x,COIN,X+6,Y+12);}
  else blit(x,heroSpr('npc'),X,Y+4+(Math.floor(t/500)%2),{flip:true,key:'npc'});}
-window.ART={mk,heroSpr,lookOf,rollLook,heroLook,HERO_ROWS,HP_,MSPR,BSPR,BOSS_ROWS,BOSS_PAL,PSPR,PROPS,NPCS,COIN,ICONS,sprCanvas,blit,BG,hash,bgImg,drawTorch,drawOverlay,drawProp,compSpr,compKey};
+// ---- end cinematic: funeral ground (dusk) and summit night (win), candle, wreath, headstone ----
+const CANDLE=mk(["..w..","..w..",".www.",".wwy.",".wwy.",".wwy.","ooooo"],{w:'#f1e7d0',y:'#c8b890',o:'#5a4a3a'});
+const WREATH=mk(["..gggg..",".gGrrGg.","gGr..rGg","gr....rg","gr....rg","gGr..rGg",".gGrrGg.","..gggg.."],{g:'#3a6a2a',G:'#5a9a3a',r:'#e86a8a'});
+const STONE=mk(["...oooooo...","..osssssso..",".osssssssso.",".osskkkksso.",".osssssssso.",".ossskkssso.",".osssskssso.",".ossskkksso.",".osssssssso.",".osssssssso.",".osssssssso.",".osssssssso.","oooooooooooo","dddddddddddd"],{o:'#2a2e33',s:'#9aa0a8',k:'#4a4e56',d:'#4a3a2a'});
+const funC={};
+function funeralBg(win){const k=win?'w':'f';if(funC[k])return funC[k];const c=document.createElement('canvas');c.width=192;c.height=128;const x=c.getContext('2d');
+ const px=(X,Y,w,h,col)=>{x.fillStyle=col;x.fillRect(X,Y,w,h);};
+ const sky=win?['#0a0c24','#141a44','#2a2a6a','#4a3a7a']:['#1a1a2e','#3a2a48','#6a3a5a','#a8586a'];
+ for(let i=0;i<4;i++)px(0,i*24,192,24,sky[i]);for(let i=0;i<4;i++)px(0,i*24+20,192,4,sky[Math.min(3,i+1)]+'80');
+ for(let i=0;i<(win?80:24);i++)px(Math.floor(hash(i*13+1)*192),Math.floor(hash(i*7+3)*(win?90:46)),1,1,hash(i)>.7?'#ffffff':'#a8a8d8');
+ if(!win){x.fillStyle='#f4d8a0';x.beginPath();x.arc(150,72,9,0,7);x.fill();px(0,74,192,26,'#6a3a5a');}
+ else{x.fillStyle='#f6f0d0';x.beginPath();x.arc(36,22,7,0,7);x.fill();x.fillStyle=sky[0];x.beginPath();x.arc(39,20,6,0,7);x.fill();}
+ for(let X=0;X<192;X++){const h=10+Math.round(Math.sin(X/23)*5+Math.sin(X/9+1)*2+hash(X)*1.5);px(X,92-h,1,h+8,win?'#101430':'#2a2238');}
+ for(let X=0;X<192;X++){const h=4+Math.round(Math.sin(X/17+2)*3+hash(X+300)*1.2);px(X,98-h,1,h+2,win?'#161c3a':'#3a2e3e');}
+ px(0,100,192,28,win?'#3a3e5a':'#3d5a34');for(let k=0;k<24;k++)px(k*8,100+(k%3),8,2,win?'#4a4e6a':'#4f7a3a');px(0,100,192,1,'#0006');
+ if(!win){for(let i=0;i<40;i++){const gx=Math.floor(hash(i*3+7)*192);px(gx,99-Math.floor(hash(i+2)*3),1,3,hash(i+5)>.5?'#6a9a42':'#4f7a34');}
+  for(let i=0;i<5;i++){const sx=8+i*44+Math.floor(hash(i*5)*14);if(sx>70&&sx<120)continue;px(sx,90,5,10,'#5a5e66');px(sx+1,89,3,1,'#5a5e66');px(sx+2,92,1,4,'#3a3e44');px(sx+1,93,3,1,'#3a3e44');}
+  for(let X=0;X<192;X+=6){px(X,94,1,7,'#2a1e18');}px(0,95,192,1,'#2a1e18');px(0,98,192,1,'#2a1e18');}
+ else{px(56,100,80,6,'#5a5e7a');px(60,98,72,2,'#6a6e8a');for(let i=0;i<10;i++)px(60+i*8,96,2,4,'#8a8ea8');}
+ for(let i=0;i<14;i++)px(Math.floor(hash(i*11+9)*190),104+Math.floor(hash(i*5+4)*20),1,1,win?'#8a8ea8':'#f4e070');
+ const vg=x.createRadialGradient(96,80,40,96,80,130);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,0.5)');x.fillStyle=vg;x.fillRect(0,0,192,128);
+ funC[k]=c;return c;}
+// candle flame flickers with t (static when t is 0)
+function drawCandle(x,X,Y,t,i){blit(x,CANDLE,X,Y,{key:'candle',noShadow:true});const fl=t?Math.round(Math.sin(t/110+i*2.1)+Math.sin(t/47+i)*.6):0;
+ x.fillStyle='rgba(255,200,90,0.16)';x.fillRect(X-2,Y-6,9,8);x.fillStyle='#ff9a2a';x.fillRect(X+1,Y-3-Math.max(0,fl),3,3+Math.max(0,fl));x.fillStyle='#fff2a0';x.fillRect(X+2,Y-2,1,2);}
+window.ART={CANDLE,WREATH,STONE,funeralBg,drawCandle,mk,heroSpr,lookOf,rollLook,heroLook,HERO_ROWS,HP_,MSPR,BSPR,BOSS_ROWS,BOSS_PAL,PSPR,PROPS,NPCS,COIN,ICONS,sprCanvas,blit,BG,hash,bgImg,drawTorch,drawOverlay,drawProp,compSpr,compKey};
 })();
