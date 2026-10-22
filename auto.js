@@ -2094,11 +2094,13 @@ function loadClan(){try{const v=JSON.parse(localStorage.getItem(CKEY)||'null');i
 function saveClan(C){try{localStorage.setItem(CKEY,JSON.stringify(C));}catch(e){}}
 // birth: an egg brought back from the secret floor hatches (once) into the family pet
 function clanBirth(){const C=loadClan();if(C.egg){const c=C.egg;C.pet=Math.random()<.6?EGGP[c]||'drk':pick(PETK);C.fresh=c;C.egg='';saveClan(C);}return C;}
+// marks this player has earned at least once (C.got, filled in from C.m for saves made before it existed); d implies s was held
+const clanGot=C=>{const g=String(C.got||'')+(C.m||'')+(C.m==='d'?'s':'');return['f','s','d'].filter(x=>g.includes(x));};
 const clanOf=C=>({m:['f','s','d'].includes(C.m)?C.m:'',n:clamp(C.n|0,0,2),pet:PETS[C.pet]?C.pet:''});
 function clanApply(R){const C=loadClan(),X=R.sec||{};let m=C.m;
  if(m==='s'){if(R.lift){m='d';C.n=0;}else C.n=clamp((C.n|0)+(R.dk|0),0,2);}
  if(X.win){C.egg=DRG[X.c]?X.c:'k';if(X.way===1){C.cls=1;if(X.m0!=='s'){m='s';C.n=0;}}else if(X.m0!=='s')m='f';}
- if(m!==C.m||X.win||R.dk){C.m=m;C.log=[...(isArr(C.log)?C.log:[]).slice(-19),{t:Date.now(),name:R.h.name,r:X.res||'',lift:R.lift?1:0}];saveClan(C);}
+ if(m!==C.m||X.win||R.dk){C.m=m;C.got=clanGot(C).join('');C.log=[...(isArr(C.log)?C.log:[]).slice(-19),{t:Date.now(),name:R.h.name,r:X.res||'',lift:R.lift?1:0}];saveClan(C);}
  R.clanM=m;R.clanN=C.n|0;}
 const clanLine=(m,n)=>m==='f'?'มอนสเตอร์เผ่ามังกรตัวเล็กจะไม่ทำร้ายคนในตระกูล บอสมังกรก็ออมมือให้':m==='s'?`คำสาปติดตัวมาแต่เกิด มอนสเตอร์เผ่ามังกรดุขึ้น 25% จะคลายเมื่อคนในตระกูลล้มมังกรครบ 3 ตัว (ตอนนี้ ${n}/3)`:m==='d'?'คำสาปคลายไปแล้ว แต่คนยังเรียกตระกูลนี้ด้วยชื่อนั้น':'';
 function addLife(R){const h=R.h,L=loadLin();if(!h.lin){h.lin=newLinId();h.house=h.house||h.name;h.gen=h.gen||1;}
@@ -2216,8 +2218,10 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  const bars=RANKS.map((r,i)=>`<div class="col ${i===h.rank?'me':''}">${i===h.rank?'<span class="me-tag">คุณ</span>':''}<div class="bar" style="height:${Math.max(3,r.w/mx*100)}%"></div></div>`).join('');
  const I=h.inh,lin=h.master?`<div class="vil" data-tip="lineage">รุ่นที่ ${h.gen} แห่งสาย${esc(h.house)} · ศิษย์ของ${esc(h.master)}</div>`:`<div class="vil" data-tip="gen">รุ่นที่ ${h.gen||1} แห่งสาย${esc(h.house||h.name)}${h.prev?` · ว่ากันว่าเป็น${esc(h.prev.name)}กลับชาติมาเกิด`:''}</div>`;
  const inh=I?`<div class="inhbox rv"${D(5)} data-tip="lineage">มรดกจากอาจารย์${esc(I.from)}: ทอง +${fmt(I.gold)}${I.pet&&PETS[I.pet]?` · ${esc(PETS[I.pet].n)}ตามมาด้วย`:''}${I.k>=2?' · บุญของอาจารย์คุ้มครอง (LUK +2 ความเสี่ยงตายลดลงเล็กน้อย)':I.k<=-2?' · หนี้กรรมของอาจารย์ตามมาด้วย (ความเสี่ยงตายสูงขึ้นเล็กน้อย)':''}</div>`:'';
- const CL=h.clan||{},CF=loadClan().fresh,cp=CL.pet&&PETS[CL.pet];
- const clanH=CL.m||cp||C.id==='dsl'?`<div class="inhbox clanbox rv"${D(5)}>${CL.m?`<span data-tip="clan"><b>${CLAN_T[CL.m]}</b></span> · ${esc(clanLine(CL.m,CL.n))}`:''}${cp?`${CL.m?'<br>':''}<span data-tip="clanpet">${CF?`ไข่มังกร${esc(DRG[CF]?DRG[CF].n.replace('มังกร',''):'')}ที่คนในตระกูลเก็บกลับมาฟักแล้ว ได้${esc(cp.n)}เป็นสัตว์ประจำตระกูล`:h.petHome?`${esc(cp.n)} สัตว์ประจำตระกูล ชาตินี้ฝากไว้ที่บ้าน`:`${esc(cp.n)} สัตว์ประจำตระกูล เดินตามมาด้วย`} (${esc(cp.d)})</span> <button class="btn sm" id="btnPetHome" type="button" aria-pressed="${!!h.petHome}">${h.petHome?'พาไปด้วย':'ฝากไว้ที่บ้าน'}</button>`:''}${C.id==='dsl'?`${CL.m||cp?'<br>':''}<span data-tip="dsl">เกิดมาเป็นนักล่ามังกร อาชีพลับที่เกิดได้เฉพาะในตระกูลที่เคยฆ่ามังกร</span>`:''}</div>`:'';
+ const CL=h.clan||{},CC=loadClan(),CF=CC.fresh,cp=CL.pet&&PETS[CL.pet];
+ // the family may go by any mark it has earned; the pet can stay home for this life
+ const cAct=[...clanGot(CC).filter(x=>x!==CL.m).map(x=>`<button class="btn sm" type="button" data-clanm="${x}">ใช้ชื่อ${CLAN_T[x]}</button>`),cp?`<button class="btn sm" id="btnPetHome" type="button" aria-pressed="${!!h.petHome}">${h.petHome?'พาไปด้วย':'ฝากไว้ที่บ้าน'}</button>`:''].join(' ');
+ const clanH=CL.m||cp||C.id==='dsl'?`<div class="inhbox clanbox rv"${D(5)}>${CL.m?`<span data-tip="clan"><b>${CLAN_T[CL.m]}</b></span> · ${esc(clanLine(CL.m,CL.n))}`:''}${cp?`${CL.m?'<br>':''}<span data-tip="clanpet">${CF?`ไข่มังกร${esc(DRG[CF]?DRG[CF].n.replace('มังกร',''):'')}ที่คนในตระกูลเก็บกลับมาฟักแล้ว ได้${esc(cp.n)}เป็นสัตว์ประจำตระกูล`:h.petHome?`${esc(cp.n)} สัตว์ประจำตระกูล ชาตินี้ฝากไว้ที่บ้าน`:`${esc(cp.n)} สัตว์ประจำตระกูล เดินตามมาด้วย`} (${esc(cp.d)})</span>`:''}${C.id==='dsl'?`${CL.m||cp?'<br>':''}<span data-tip="dsl">เกิดมาเป็นนักล่ามังกร อาชีพลับที่เกิดได้เฉพาะในตระกูลที่เคยฆ่ามังกร</span>`:''}${cAct.trim()?`<div class="clanacts">${cAct}</div>`:''}</div>`:'';
  const excH=h.ex&&h.ex.got?`<div class="inhbox clanbox rv"${D(5)}><span data-tip="excal"><b>🗡 ดาบศักดิ์สิทธิ์ในหิน</b></span> · ติดตัวมาตั้งแต่เกิด (ATK +10% · ตีบอสแรงขึ้น 10%)</div>`:'';
  card.innerHTML=`<div class="cert${an?' anim':''}"><div class="hd">✦ ใบประกาศนักผจญภัย ✦</div><div class="nm">${esc(h.name)}</div><div class="vil">ถิ่นกำเนิด: ${esc(h.village)}</div>${lin}
  <div class="tiles"><div class="tile rv"${D(0)}><span class="tl">แรงค์</span><span class="rk" style="background:${Rk.col}">RANK ${Rk.k}</span><span class="tp px">${Rk.w}%</span></div>
@@ -2250,6 +2254,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  inp.addEventListener('change',()=>{if(cleanName(inp.value)!==inp.value)inp.value=S.hero.cname?S.hero.name:'';});
  $('btnEnter').onclick=startRun;liveBox();
  // family pet stays home for this life only (lets the no-pet win stay reachable)
+ card.querySelectorAll('[data-clanm]').forEach(b=>b.onclick=()=>{const C=loadClan(),m=b.dataset.clanm;if(!clanGot(C).includes(m))return;C.got=clanGot(C).join('');C.m=m;saveClan(C);S.hero.clan=clanOf(C);ach('clan',{m});render();saveRun();});
  const ph=$('btnPetHome');if(ph)ph.onclick=()=>{const h2=S.hero;if(h2.petHome)delete h2.petHome;else h2.petHome=1;render();saveRun();};
  const bu=$('btnUnl');if(bu)bu.onclick=()=>{S.unlOpen=!S.unlOpen;const pn=$('unlPanel');if(pn)pn.hidden=!S.unlOpen;bu.setAttribute('aria-expanded',S.unlOpen?'true':'false');};
  const bs=$('btnShareBirth');if(bs)bs.onclick=()=>{try{window.SHARE.openBirth(birthShareData(S.hero));}catch(e){}};}

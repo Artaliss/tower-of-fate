@@ -59,6 +59,7 @@ const DEFS=[
  {id:'drg_find',n:'บันไดที่ไม่มีในแผนที่',d:'เจอบันไดที่พาขึ้นไปเหนือยอดหอ',icon:'🌌',tier:'gold',hid:1,t:s=>['n','f','s','x'].includes(str(s.drg))},
  {id:'drg_spare',n:'สหายมังกร',d:'ตีมังกรจนยอมแพ้ แล้วปล่อยมันไป',icon:'🐉',tier:'legend',hid:1,t:s=>str(s.drg)==='f'},
  {id:'drg_slay',n:'นักล่ามังกร',d:'ฆ่ามังกรบนชั้นลับ',icon:'🐲',tier:'legend',hid:1,t:s=>str(s.drg)==='s'},
+ {id:'clan_pick',n:'ชื่อที่เลือกใช้',d:'เปลี่ยนฉายาตระกูลมังกรตอนเกิด',icon:'📜',tier:'silver',hid:1,ev:1},
  {id:'drg_lift',n:'ดยุกปราบมังกร',d:'ตระกูลล้มมังกรครบ 3 ตัว คำสาปเลยหายไป',icon:'🏰',tier:'legend',hid:1,t:s=>s.lift===true},
  {id:'win_dsl',n:'เลือดมังกรบนคมดาบ',d:'ชนะเกมด้วยนักล่ามังกร',icon:'🔥',tier:'gold',hid:1,cls:'dsl'},
  // v2.4–v2.7 (ev:1 = ปลดล็อกจาก onEvent เท่านั้น)
@@ -172,6 +173,7 @@ function onEvent(type,data){try{const d=(data&&typeof data==='object')?data:{};
   case 'lineage':{const g=Math.floor(num(d.gen));R.gen=Math.max(R.gen,g);if(g>=3)unlock('gen3');if(g>=10)unlock('gen10');break;}
   case 'gw':unlock('gw');break;
   case 'credits':unlock('credits');break;
+  case 'clan':unlock('clan_pick');break;
   case 'memo':unlock('memo');break;
   case 'candle':unlock('candle');break;
   case 'move':if(str(d.dir)==='in')M=load();unlock('move');break;// รับเซฟ: เริ่มจากของที่เพิ่งย้ายมา ไม่เอาของเครื่องเดิมกลับมาปน
