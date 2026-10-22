@@ -1820,7 +1820,7 @@ function renderHUD(){const R=S.R,h=R?R.h:S.hero,C=CLASSES[h.cls];let hp=h.hp;if(
  $('v-atk').textContent=Math.round(A);$('v-def').textContent=Math.round(D);$('v-luk').textContent=Math.round(Lk);
  $('v-mp').textContent=`${Math.round(h.mp)}`;$('b-mp').style.width=clamp(h.mp/h.mmp*100,0,100)+'%';
  $('v-lv').textContent=`Lv.${h.lv}`;$('b-lv').style.width=clamp(h.exp/need(h.lv)*100,0,100)+'%';$('v-gold').textContent=fmt(h.gold);
- $('v-fate').textContent=fateText();if(R){achWatch(R);if(R.alive)partyTick(R);}
+ $('v-fate').textContent=fateText();if(R){achWatch(R);if(R.alive){partyTick(R);hpTick(R,hp);}}
  $('pFill').style.width=f+'%';$('pMark').style.left=f+'%';$('track').setAttribute('aria-valuenow',f);
  $('biomeTag').textContent=R?`${BIOMES[biome(R.floor)]} · ชั้น ${R.floor}`:'ห้องโถงแห่งการสุ่มเกิด';
  {const tn=$('towerNow'),t=towerNow(R);if(tn){tn.hidden=!t;tn.textContent=t;}}
@@ -2602,6 +2602,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
   S.popT=setTimeout(()=>{if(!S||S.phase!=='end'||S.runId!==run||document.querySelector('dialog[open]'))return;openShare(true);},wait);}
  const bl=$('btnLB2');if(bl)bl.onclick=()=>{try{window.LB.open();}catch(e){}};
  try{gwMount(R);}catch(e){}
+ memoBtn();
  renderMemo();}
 // ---- v2.7 after death (1in8b REA v3): wishes left undone, the days given to them (kept in the memorial), and a scene nobody saw ----
 // A wish = {k, t: name of the day, m: what was missing, w: handwritten line, + scene fields for ART.drawWish}. Free, no card needed.
@@ -2692,6 +2693,22 @@ function bxTry(){if(RM||CINE.static||!CINE.el||CINE.bxS===S||!S||!S.R)return fal
   const x=bx.querySelector('canvas').getContext('2d'),t0=performance.now();x.imageSmoothingEnabled=false;
   const loop=t=>{CINE.raf=requestAnimationFrame(loop);if(t-(CINE.lt||0)<50)return;CINE.lt=t;try{drawBx(x,B,t-t0);}catch(e){}};try{drawBx(x,B,0);}catch(e){}CINE.raf=requestAnimationFrame(loop);
   CINE.tm=setTimeout(()=>cineClose(),13500);return true;}catch(e){return false;}}
+// ---- online memorial (v2.7, memorial.js): the run as a small JSON with scene descriptors (no pictures), button on the end screen ----
+// lowest HP (% of max) seen on each floor, for the memorial's 100-floor strip; saved with R
+function hpTick(R,hp){if(!isArr(R.hpF)||R.hpF.length!==100)R.hpF=Array(100).fill(-1);const i=clamp(R.floor,1,100)-1,v=Math.round(clamp(hp/Math.max(1,R.h.mhp)*100,0,100));if(R.hpF[i]<0||v<R.hpF[i])R.hpF[i]=v;}
+function memoData(R){const h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.floor,T=S.title||{t:''},pt=S.pat,eu=S.eu||{who:'',line:''};
+ const fr=[{k:'b',f:1,c:`เกิดที่${h.village}`,s:`แรงค์ ${RANKS[h.rank].k} · 1 ใน ${fmt(h.odds)}`}];
+ (S.mont||[]).slice(0,6).forEach(m=>fr.push({k:'m',f:m.f,v:visLite(momVis(m)),r:m.rar||'',c:m.t,s:`เลือก "${m.c}"${m.res?` · ${m.res}`:''}`}));
+ fr.push(won?{k:'w',f:100,c:'ยืนอยู่บนยอดหอคอย',s:'ลมบนนี้เย็นกว่าที่คิด'}:{k:'d',f:fl,v:R.death==='boss'?{t:'en',en:{id:BOSSES[biome(fl)].id,boss:true}}:null,c:cauShort(R.cause)||'ชะตาขาด',s:BIOMES[biome(fl)]});
+ return{v:1,n:h.name,vl:h.village,hs:h.house||h.name,g:h.gen||1,rk:h.rank,ck:C.id,cn:C.n+(pathHiName(R)?' · '+pathHiName(R):''),lk:look(h),
+  f:R.sec&&R.sec.win?101:fl,w:won?1:0,dg:R.sec&&['n','f','s','x'].includes(R.sec.res)?R.sec.res:'',ti:T.t,tg:T.gold?1:0,ca:won?'พิชิตยอดหอคอย':R.cause,
+  kr:R.karma,sc:S.lg?S.lg.score:0,lv:h.lv,kl:R.kills,bo:R.bosses,od:Math.max(1,Math.round(h.odds||1)),pt:pt?{c:pt.code,n:pt.n}:null,eu:eu.who,el:eu.line,jd:judge(R.karma),
+  mp:R.map.slice(0,100),hp:isArr(R.hpF)?R.hpF.slice(0,100):[],pets:R.pets.slice(0,4),cm:R.comps.slice(0,4).map(c=>({n:c.n,cls:c.cls,tr:c.tr||'',legend:!!c.legend})),
+  rain:(S.cineRain!=null?S.cineRain:!won&&(fl<30||!!SUDDEN[R.ck]||R.karma<-8))?1:0,fr:fr.slice(0,9),dt:Date.now()};}
+function memoBtn(){const R=S.R,M=window.MEMO;if(!R||!M||!M.create)return;const rows=card.querySelectorAll('.endacts'),row=rows[1]||rows[0];if(!row)return;
+ const b=document.createElement('button');b.type='button';b.className='btn';b.id='btnMemo';
+ const set=()=>{b.textContent=R.memo?'🕯 ดูอนุสรณ์ของชีวิตนี้':'🕯 ตั้งอนุสรณ์ออนไลน์';};set();
+ b.onclick=()=>{if(R.memo){M.open(R.memo);return;}let d=null;try{d=memoData(R);}catch(e){d=null;}if(!d)return;M.create(d,{onDone:id=>{R.memo=id;set();saveRun();}});};row.appendChild(b);}
 function newBirth(bo){clearSave();if(CINE.on)cineClose(true);if(S){clearTimeout(S.popT);try{window.SHARE&&window.SHARE.close&&window.SHARE.isOpen&&window.SHARE.close();}catch(e){}clearTimeout(S.tm);clearInterval(cdI);clearTimeout(dyT);clearTimeout(cbTimer);clearTimeout(S.rvT);}clearFx();music(0,0);
  const sp=S?S.speed:loadSpeed();bo=isObj(bo)?bo:null;S={phase:'birth',hero:rollBirth(bo),bo,rerolled:false,rvDone:false,R:null,K:null,cb:null,cmp:null,saved:false,runId:0,speed:sp,paused:false,tm:0,frame:null};
  snap=null;VIS.coins=[];VIS.show=null;VIS.star=0;render();}
