@@ -57,13 +57,17 @@ function flagsOf(d){return(d.sw?1:0)|(d.sw&&d.exG?2:0);}
 function tailOf(rest){const z=rest.indexOf(0),z2=z<0?-1:rest.indexOf(0,z+1);return{z,z2,f:z2>=0&&z2+1<rest.length?rest[z2+1]&31:0};}
 function encode(d){
  const rank=clampN(d.rankIdx|0,0,7),cls=Math.max(0,CLS_IDS.indexOf(d.clsId)),won=!!d.won,floor=won?100:clampN(Math.round(+d.floor||1),1,100),pct=clampN(Math.round(+d.pct||0),0,100);
- const name=cleanTxt(d.name,16)||'?',title=cleanTxt(d.title,18);
- let n=packThai(name),t=packThai(title),ver=1;
- if(!n||!t){const te=new TextEncoder();n=[...te.encode(name)];t=[...te.encode(title)];ver=2;}
- if(cls>7)ver+=4; // v2.5: classes 8+ ride in ver 5/6 with cls-8 in the 3-bit slot
- const dg=won?(d.drg==='f'?1:d.drg==='s'?2:0):0;
- const b=[ver,dg*64+rank*8+(cls&7),floor|(won?128:0),pct|(d.form==='human'?128:0),...n,0,...t],fl=flagsOf(d);
- const pack=x=>{x=x.slice();x.push(fnv8(x));return b64u(x);};const c0=pack(b);if(!fl)return c0;const c1=pack([...b,0,fl]);return c1.length<=120?c1:c0;}
+ let name=cleanTxt(d.name,16)||'?',title=cleanTxt(d.title,18);
+ const dg=won?(d.drg==='f'?1:d.drg==='s'?2:0):0,fl=flagsOf(d),pack=x=>{x=x.slice();x.push(fnv8(x));return b64u(x);};
+ // long emoji names/titles can push the code past 120 chars (decode rejects it): drop the title, then the name, one grapheme at a time
+ for(;;){let n=packThai(name),t=packThai(title),ver=1;
+  if(!n||!t){const te=new TextEncoder();n=[...te.encode(name)];t=[...te.encode(title)];ver=2;}
+  if(cls>7)ver+=4; // v2.5: classes 8+ ride in ver 5/6 with cls-8 in the 3-bit slot
+  const b=[ver,dg*64+rank*8+(cls&7),floor|(won?128:0),pct|(d.form==='human'?128:0),...n,0,...t];
+  const c0=pack(b);if(fl){const c1=pack([...b,0,fl]);if(c1.length<=120)return c1;}
+  if(c0.length<=120)return c0;
+  const gt=graphemes(title),gn=graphemes(name);
+  if(gt.length)title=gt.slice(0,-1).join('').trim();else if(gn.length>1)name=gn.slice(0,-1).join('').trim();else return c0;}}
 function decode(code){
  try{code=String(code||'');if(!/^[A-Za-z0-9_-]{8,120}$/.test(code))return null;
   const b=unb64u(code);if(b.length<7)return null;const body=b.subarray(0,b.length-1);if(fnv8(body)!==b[b.length-1])return null;
