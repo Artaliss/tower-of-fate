@@ -333,7 +333,7 @@ function genEvent(R,np){const f=R.floor;if(f%10===0){const en=modMon(R,mkBoss(f)
  let r=rnd();if(r<.3)return{kind:'mon',en:genMonster(f,R)};r-=.3;
  const hk=R.st==='help'?1.3:1,pr=.05*MD(R,'pet',1)*hk;if(r<pr&&!np&&R.pets.length<2)return{kind:'pet',pet:pick(PETK)};r-=pr;
  if(r<.06*hk&&!np&&R.comps.length<2)return{kind:'comp',comp:genComp(f,R)};
- const b=biome(f),okE=(e,i)=>(e.b===b||e.b===-1)&&evW(R,e)>0&&!(np&&payEv(i));let pool=[];EVENTS.forEach((e,i)=>{if(okE(e,i)&&!R.seen.includes(i))pool.push(i);});
+ const b=biome(f),okE=(e,i)=>(Array.isArray(e.b)?e.b.includes(b):e.b===b||e.b===-1)&&evW(R,e)>0&&!(np&&payEv(i));let pool=[];EVENTS.forEach((e,i)=>{if(okE(e,i)&&!R.seen.includes(i))pool.push(i);});
  if(!pool.length)EVENTS.forEach((e,i)=>{if(okE(e,i))pool.push(i);});
  let x=rnd()*pool.reduce((a,i)=>a+evW(R,EVENTS[i]),0),ti=pool[pool.length-1];for(const i of pool){x-=evW(R,EVENTS[i]);if(x<0){ti=i;break;}}
  R.seen.push(ti);if(R.seen.length>6)R.seen.shift();if(EVENTS[ti].ok)(R.stE||(R.stE={}))[ti]=1;
@@ -1441,13 +1441,13 @@ const DRAMA=[
    say(R,out,`${t.n}ตัวใหญ่เกือบเท่าตัวเดินออกมาจากเงามืด`,'bad');R.map[f-1]='fight';doFight(R,en,out,{rw:2});}},
  {id:'quake',n:'หอคอยสั่น',run(R,out){const f=R.floor,h=R.h,lose=Math.round(h.gold*.1);h.hp-=h.mhp*.2;h.gold-=lose;R.map[f-1]='trap';out.shake=1;out.cause=`ถูกหินจากเพดานทับ (ชั้น ${f})`;
    say(R,out,`หอคอยทั้งหลังเอียงวูบ หินจากเพดานร่วงลงมาเป็นห่า ถุงทองขาด ทองหล่นหายไป ${lose} เหรียญ`,'bad');}},
- {id:'meteor',n:'ฝนดาวตก',run(R,out){const h=R.h;h.hp=h.mhp;h.mp=h.mmp;h.luk+=1;R.map[R.floor-1]='good';say(R,out,'ฝนดาวตกลอดหน้าต่างหอคอยเข้ามา แสงอุ่นจนแผลทุกแผลปิดสนิท (HP เต็ม · LUK +1)','lv');}},
+ {id:'meteor',bi:[3,4],n:'ฝนดาวตก',run(R,out){const h=R.h;h.hp=h.mhp;h.mp=h.mmp;h.luk+=1;R.map[R.floor-1]='good';say(R,out,'ฝนดาวตกลอดหน้าต่างหอคอยเข้ามา แสงอุ่นจนแผลทุกแผลปิดสนิท (HP เต็ม · LUK +1)','lv');}},
  {id:'mirror',n:'เงาในกระจก',run(R,out){const f=R.floor,h=R.h;const en={id:'merc',cls:cid(R),n:'เงาของคุณ',hp:h.mhp*.75,mhp:h.mhp*.75,atk:eAtk(R)*.85,def:eDef(R)*.85,boss:false};
    say(R,out,'เงาของคุณก้าวออกมาจากกระจกบานใหญ่ แล้วชักอาวุธแบบเดียวกับคุณ','bad');R.map[f-1]='fight';doFight(R,en,out,{rw:2});}},
  {id:'vault',n:'ห้องสมบัติที่ถูกลืม',run(R,out){const f=R.floor,g=Math.round(60*scl(f)*gMul(R));R.h.gold+=g;out.coins=g;R.map[f-1]='treasure';say(R,out,`ผนังพังลงมา ข้างหลังเป็นห้องเก็บสมบัติที่ไม่มีใครแตะมาเป็นร้อยปี ได้ทอง ${g}`,'lv');}}];
 // drama wave 2 (vis: optional scene for floors without a fight; the UI may read D.vis)
 DRAMA.push(
- {id:'bandits',n:'กองโจรดักปล้น',run(R,out){const f=R.floor,en=Object.assign(mkMon({hp:1.4,atk:1.15,def:1},f,1),{id:'merc',n:'กองโจรป่า',cls:'war'});
+ {id:'bandits',bi:[0,1,2],n:'กองโจรดักปล้น',run(R,out){const f=R.floor,en=Object.assign(mkMon({hp:1.4,atk:1.15,def:1},f,1),{id:'merc',n:'กองโจรป่า',cls:'war'});
    say(R,out,'เชือกที่ขึงขวางบันไดดีดขึ้นมาพร้อมเสียงโห่ โจรคลุมหน้าหกเจ็ดคนกระโดดลงมาจากคานเพดาน','bad');R.map[f-1]='fight';doFight(R,en,out,{rw:2,cause:`ถูกกองโจรป่ารุมปล้นจนสิ้นใจ (ชั้น ${f})`});}},
  {id:'lanterns',n:'คืนโคมลอย',vis:{t:'prop',pr:'fire'},run(R,out){const h=R.h;heal(R,.3);h.luk+=1;R.kctx='ปล่อยโคมลอยกับนักผจญภัยคนอื่น';R.karma+=1;R.kctx='';R.map[R.floor-1]='good';
    say(R,out,'นักผจญภัยทั้งชั้นมารวมกันที่ระเบียง ปล่อยโคมกระดาษขึ้นฟ้าพร้อมกันหลายร้อยดวง มีคนยื่นโคมให้คุณดวงหนึ่ง (HP +30% · LUK +1)','lv');}},
@@ -1456,9 +1456,9 @@ DRAMA.push(
    else{const lose=Math.round(h.gold*.15);h.gold-=lose;R.map[f-1]='bad';say(R,out,`ตื่นมาถุงทองเบากว่าเมื่อคืน หายไป ${lose} เหรียญ รอยเท้าเปล่าเดินลงบันไดไปทางเดียว`,'bad');}}},
  {id:'eclipse',n:'สุริยุปราคาในหอ',vis:{t:'prop',pr:'star'},run(R,out){const f=R.floor;R.hzT.push({k:1.25,until:f+2,n:'สุริยุปราคาในหอ',ic:'🌑'});gainExp(R,10+2*f,out);R.map[f-1]='bad';
    say(R,out,'ช่องแสงทุกช่องในหอมืดลงพร้อมกันกลางวัน มอนสเตอร์ทั้งชั้นร้องโหยหวน คุณนั่งนิ่งจนแสงกลับมา ระหว่างนั้นจับทางได้ว่ามอนสเตอร์เดินกันยังไงในความมืด แต่ใจยังสั่นไปอีกสองสามชั้น','bad');}},
- {id:'caravan',n:'คาราวานหลงทาง',vis:npc('merchant'),run(R,out){const f=R.floor,g=gG(R,25);R.potions++;coin(R,out,g);R.map[f-1]='treasure';
+ {id:'caravan',bi:[0,1],n:'คาราวานหลงทาง',vis:npc('merchant'),run(R,out){const f=R.floor,g=gG(R,25);R.potions++;coin(R,out,g);R.map[f-1]='treasure';
    say(R,out,`คาราวานพ่อค้าหลงขึ้นมาถึงชั้นนี้ พวกเขาขอให้ชี้ทางลง แล้วแบ่งยาให้หนึ่งขวดกับทองอีก ${g} (+1 ยา)`,'good');}},
- {id:'miasma',n:'หมอกพิษ',run(R,out){const f=R.floor,h=R.h;
+ {id:'miasma',bi:[1,2,3],n:'หมอกพิษ',run(R,out){const f=R.floor,h=R.h;
    if(cid(R)==='pri'){heal(R,.1);R.map[f-1]='calm';say(R,out,'หมอกสีม่วงไหลลงมาจากชั้นบน คุณสวดกันพิษไว้ทัน ผ่านไปได้แบบไอนิดหน่อย','info');return;}
    h.hp-=h.mhp*.15;h.mp=0;R.map[f-1]='trap';out.cause=`สำลักหมอกพิษ (ชั้น ${f})`;say(R,out,'หมอกสีม่วงไหลลงมาจากชั้นบน แสบตาแสบคอไปหมด เวทมนตร์ในตัวหายเกลี้ยง (HP −15% · MP 0)','bad');}});
 const QUIET=['ทุ่งหญ้าเงียบจนได้ยินเสียงแมลง','แสงคริสตัลส่องทางให้ตลอด','หมอกในป่าบางลงจนเห็นทางชัด','ลาวาสงบเหมือนหลับไปชั่วคราว','ดวงดาวรอบตัวหมุนช้าลงเหมือนรอคุณ'];
@@ -1474,7 +1474,12 @@ function quietTick(R,n){const out=mkOut(),f0=R.floor,g0=R.h.gold,l0=R.h.lv,k0=R.
 function dramaTick(R,D){const out=mkOut();R.drama++;R.lastDrama=R.floor;D.run(R,out);if(R.alive&&R.h.hp<=0)mortal(R,out,out.cause);finishFloor(R,out);return out;}
 function hatch(R,out){R.egg=null;if(R.pets.length<2){const p=pick(PETK);R.pets.push(p);R.h.luk+=2;say(R,out,`ไข่ฟักแล้ว! ${PETS[p].n}ตัวน้อยมองคุณเป็นแม่ทันที (${PETS[p].d})`,'good');}
  else{R.h.luk+=4;say(R,out,'ไข่ฟักออกมาเป็นนกไฟตัวจิ๋ว มันบินวนรอบหัวคุณสามรอบแล้วหายไป ทิ้งโชคไว้ให้ (LUK +4)','good');}}
-function genSpecial(R){const ck=crownKey(R);if(ck)return R.lastSp=ck;for(const k of ['nec','ang'])if(!R.used['sp:'+k]&&SPECIAL[k].ok(R))return R.lastSp=k;if(excOk(R))return R.lastSp='excal';const ok=Object.keys(SPECIAL).filter(k=>!SPECIAL[k].ok||SPECIAL[k].ok(R));
+// where a key moment fits the tower (biome index: 0 grass 1-20, 1 crystal cave, 2 cursed forest, 3 volcano, 4 star realm); unlisted = anywhere
+const SP_BI={starfall:[4],dragon:[1,2,3,4],bard:[0,1,2,3],hunter:[0,1,2,3],noble:[0,1,2],cultist:[2,3,4],imp:[2,3,4],healer:[0,1,2],bridge:[1,2,3],
+ crystal:[1],campfire:[0,1,2,3],snack:[0,1],cavein:[1,3],drill:[0,1],lantern:[1,2],bones:[1,2,3],fairyq:[0,2],stars:[4],snailrace:[0,1],brew:[2],
+ ruin:[0,1,2],harvest:[0,1,2],pit:[1,3],whale:[4],phoenix:[3],astral:[4]};
+const spFits=(R,k)=>!SP_BI[k]||SP_BI[k].includes(biome(R.floor));
+function genSpecial(R){const ck=crownKey(R);if(ck)return R.lastSp=ck;for(const k of ['nec','ang'])if(!R.used['sp:'+k]&&SPECIAL[k].ok(R))return R.lastSp=k;if(excOk(R))return R.lastSp='excal';const ok=Object.keys(SPECIAL).filter(k=>(!SPECIAL[k].ok||SPECIAL[k].ok(R))&&spFits(R,k));
  let pool=ok.filter(k=>!R.used['sp:'+k]||(k==='mimic'&&MD(R,'mimic',1)>1&&R.used['sp:mimic']<3));if(!pool.length)pool=ok.filter(k=>k!==R.lastSp);
  const fresh=k=>R.xseen&&!R.xseen['sp:'+k]?1.6:1;
  const sw=ST_SP[R.st]||{};const k=pool[wIdx(pool.map(x=>tierW(R,TIER[x])*(x==='mimic'?MD(R,'mimic',1):1)*(x==='dragon'&&clanM(R)==='s'?12:1)*(x==='promo'?10:1)*dayW(R,x)*fresh(x)*(sw[x]||1)))];R.lastSp=k;return k;}
@@ -1583,7 +1588,7 @@ function planFloor0(R){
   const aid=dueArc(R);if(aid&&R.sinceKey>=1)return{type:'key',K:mkKey(R,'arc',aid)};
   if(R.sinceKey>=1&&crownKey(R))return{type:'key',K:mkKey(R,genSpecial(R))}; // v2.7: a contest or a favour being called in does not wait for the usual key gap
   if(R.sinceKey>=1&&R.floor-R.lastQuiet>=8&&R.floor>2&&rnd()<.09*MD(R,'quiet',1)){const n=quietLen(R);if(n>=3)return{type:'quiet',n};}
-  if(R.floor>3&&R.floor-R.lastDrama>=7&&rnd()<.07)return{type:'drama',D:pick(DRAMA.filter(d=>d.id!==R.lastDramaId))};}
+  if(R.floor>3&&R.floor-R.lastDrama>=7&&rnd()<.07)return{type:'drama',D:pick(DRAMA.filter(d=>d.id!==R.lastDramaId&&(!d.bi||d.bi.includes(biome(R.floor)))))};}
  let ev=genEvent(R);
  if(ev.kind==='boss'){const K=mkKey(R,'boss',ev);const again=R.bossAt===R.floor;R.bossAt=R.floor;if(again&&K.ai!==0&&!payCh(K.ch[K.ai])){K.auto=1;return{type:'autokey',K};}return{type:'key',K};}
  // a pet or companion only shows up when the player actually gets to choose; otherwise roll something else
