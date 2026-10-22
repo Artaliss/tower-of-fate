@@ -47,8 +47,7 @@ function toEntry(s){s=(s&&typeof s==='object')?s:{};
   date:Math.round(num(s.date)>1e12?num(s.date):Date.now()),v:VER,
   drg:DRG.includes(s.drg)?s.drg:'',clan:CLAN.includes(s.clan)?s.clan:''};
  // v0.2.8 หอเกียรติยศ: รูปลักษณ์มาจาก summary.look กับ summary.pets ที่ const sum={...} ใน auto.js ส่งมาอยู่แล้ว
- // TODO(ต่อสาย Excalibur ตอน merge): ตอนนี้ยังไม่มีใครส่ง summary.gear มา ให้เพิ่มใน const sum={...} ของ auto.js (บรรทัดก่อน ACH.onRunEnd/LB.submit)
- //   เช่น gear:(ถือ Excalibur อยู่)?['excal']:[] แค่นี้พอ gearIn() ที่นี่กับใน scores.js กรอง id ตาม GEAR ให้เอง
+ // gear มาจาก const sum ใน auto.js: ['excal'] เมื่อฮีโร่พกดาบในหิน (hasSw) gearIn() ที่นี่กับใน scores.js กรอง id ตาม GEAR
  const lk=lkOf(s),gear=gearIn(s.gear);if(lk)e.lk=lk;if(gear)e.gear=gear;
  // v2.2: run ticket + presence id + daily theme (ไม่อยู่ใน canon)
  if(typeof s.tk==='string'&&/^[a-f0-9]{20}$/.test(s.tk))e.tk=s.tk;if(typeof s.sid==='string'&&/^[a-z0-9]{6,24}$/.test(s.sid))e.sid=s.sid;

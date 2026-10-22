@@ -177,6 +177,7 @@ function newRun(h){const R={h:JSON.parse(JSON.stringify(h)),floor:1,pets:[],comp
   if(I.k>=2)R.hzP*=.94;else if(I.k<=-2)R.hzP*=1.06;}
  // family pet hatched from a secret-floor egg: every new life starts with it
  const CP=h.clan&&h.clan.pet;if(CP&&PETS[CP]&&!R.pets.includes(CP)&&R.pets.length<2)R.pets.push(CP);
+ R.exF=!hasSw(R)&&rnd()<EXC.fq?ri(EXC.lo,EXC.hi):0; // floor from which the sword in the stone may show up (0 = not this life)
  return R;}
 // ---- karma ledger: every change of R.karma is written down with the floor and what caused it (R.kctx) ----
 function trackKarma(R){let k=0;Object.defineProperty(R,'karma',{enumerable:true,configurable:true,get:()=>k,set:v=>{const d=v-k;k=v;if(!d)return;if(R.h){const ci=cid(R);if(d<0&&(ci==='pri'||ci==='ang')){if(R.path)R.path=Math.max(0,R.path+d*1.5);}else if((ci==='nec'&&d<0)||(ci==='ang'&&d>0))R.pathQ=(R.pathQ||0)+Math.abs(d);}
@@ -195,7 +196,8 @@ function rollFloor(R){if(R.floor<=R.rolled||R.floor>=100)return false;R.rolled=R
  return rnd()<p;}
 // "fate shifts" from events: d floors of extra life ~ hazard x e^{-g d} (Gompertz slope)
 function shiftFate(R,d){R.hzP*=Math.exp(-HZ.g*d);R.fateShift+=d;return d;}
-const eAtk=R=>R.h.atk*(hasPet(R,'fox')?1.12:1)*(hasPet(R,'drk')?1.1:1)*stOf(R).a*hzF(R,'a');
+const hasSw=R=>!!(R&&(R.exc||(R.h&&R.h.ex&&R.h.ex.got))); // sword in the stone (EXC): pulled this life or carried since birth
+const eAtk=R=>R.h.atk*(hasPet(R,'fox')?1.12:1)*(hasPet(R,'drk')?1.1:1)*(hasSw(R)?EXC.atk:1)*stOf(R).a*hzF(R,'a');
 const eDef=R=>R.h.def*(hasPet(R,'wolf')?1.12:1)*(hasPet(R,'drs')?1.1:1)*(hasTr(R,'shield')?1.1:1)*stOf(R).df;
 const eLuk=R=>(R.h.luk+(hasPet(R,'owl')?6:0)+(hasPet(R,'drg')?3:0)+(hasTr(R,'lucky')?4:0))*(cid(R)==='far'?1.5:1);
 const riskAdj=(R,p)=>clamp(p*clamp(1-(eLuk(R)-8)*.012,.45,1.25)*(cid(R)==='arc'?1-.05*pathTier(R):cid(R)==='ang'&&pathTier(R)>=3?.85:1),.02,.95);
@@ -241,7 +243,7 @@ function sneakWin(R,en,n){const h=R.h,hp0=h.hp;h.hp=Math.max(1,hp0-h.mhp*SNK.hp)
 function power(a,d,hp){return Math.round(a*1.6+d*1.2+hp*.15);}
 const heroPower=R=>power(eAtk(R)+R.comps.reduce((s,c)=>s+c.pw*.6,0)+(cid(R)==='nec'?boneN(R)*bonePw(R)*.6:0),eDef(R),R.h.mhp);
 function fight(R,en,o){o=o||{};const h=R.h,id=cid(R),T=pathTier(R),A=eAtk(R)*(id==='war'?1+.02*T:id==='ang'?1+.03*Math.min(2,T):1),D=eDef(R),cc=critCh(R),dg=dodgeCh(R),rec=!o.dry;
- let hp=h.hp,ehp=en.hp,mp=h.mp,stole=0,ph=0;const ev=[];const bm=id==='dsl'?(isDrg(en)?1.5+.1*T:en.boss?1.1+.03*T:1):en.boss&&id==='dra'?1.25+.03*T:1,em=o.enMul||1,st=o.stop||0;
+ let hp=h.hp,ehp=en.hp,mp=h.mp,stole=0,ph=0;const ev=[];const bm=(id==='dsl'?(isDrg(en)?1.5+.1*T:en.boss?1.1+.03*T:1):en.boss&&id==='dra'?1.25+.03*T:1)*(en.boss&&hasSw(R)?EXC.boss:1),em=o.enMul||1,st=o.stop||0;
  const hit=(a,d)=>a*a/(a+d);
  // class path styles (v2.4): archer volley first, rogue stab from the shadows, mage double cast, priest heals when low
  const amb=o.ambush&&!en.calm&&!(id==='rog'&&T>=2&&rnd()<.3*(T-1));
@@ -1071,6 +1073,35 @@ Object.assign(TIER,{smith:'c',bard:'c',thief:'c',monk:'c',cat:'c',hunter:'c',sch
 // tier shares per draw stay at the original mix (~70% common / 23% rare / 7% legendary) however many keys each tier holds
 const TIER_N=Object.values(TIER).reduce((a,t)=>(a[t]=(a[t]||0)+1,a),{});
 const tierW=(R,r)=>{const sh=r==='l'?.07:r==='r'?.23:.7;return 6*(sh/(TIER_N[r]||1))/(.7/(TIER_N.c||1))*(r==='l'?MD(R,'leg',1):1);};
+// ---- the sword in the stone (Excalibur): shows up in about 1 of 4 lives that reach the middle floors (R.exF, rolled in newRun), one try per life.
+// Chance starts at EXC.p0% and grows EXC.dp% for every failed try across lives (tof-excal-v1 {v,n tries,got,f,who,t}: merged, never deleted or lowered).
+// Only the player's hero carries h.ex={n,got} (snapshot at birth), so cohort heroes and the headless sim never touch storage. Pulled = every later life starts with the sword.
+const EXC={p0:1,dp:2,max:50,atk:1.1,boss:1.1,fq:.32,lo:28,hi:58,hp:.05},EXK='tof-excal-v1';
+function excLoad(){try{if(typeof localStorage==='undefined')return null;const v=JSON.parse(localStorage.getItem(EXK)||'null');return v&&typeof v==='object'?v:{};}catch(e){return null;}}
+const excN=R=>{if(!R.h.ex)return 0;const v=excLoad();return Math.max(R.h.ex.n|0,v?Math.floor(+v.n||0):0);};
+const excCh=(n,b)=>clamp(EXC.p0+EXC.dp*n+(b||0),EXC.p0,EXC.max);
+function excRec(R,ok){if(!R.h.ex)return;const v=excLoad();if(!v)return;const o=Object.assign({},v,{v:1,n:Math.max(0,Math.floor(+v.n||0))+1});
+ if(ok&&!v.got){o.got=1;o.f=R.floor;o.who=R.h.name;o.t=Date.now();}try{localStorage.setItem(EXK,JSON.stringify(o));}catch(e){}}
+const excOk=R=>!!R.exF&&!hasSw(R)&&!R.used['sp:excal']&&R.floor>=R.exF&&R.floor<=95;
+const EXS=[[0,'ด้ามดาบมีฝุ่นจับหนา ยังไม่มีรอยมือใครเลย'],[1,'บนด้ามมีรอยมือเก่าๆ ขนาดพอดีกับมือคุณ'],[4,'หินรอบใบดาบมีรอยร้าวเส้นเล็กๆ อยู่หลายเส้น'],[10,'รอยร้าวลามไปครึ่งก้อนแล้ว เศษหินกองอยู่ที่โคนดาบ'],[18,'หินแตกลายงาทั้งก้อน ใบดาบเอียงไปข้างหนึ่งนิดๆ']];
+const EXF=[[1,'ดึงจนสุดแรงแล้ว ดาบไม่ขยับสักนิด เหมือนดึงเสาหอคอย'],[2,'ด้ามดาบอุ่นขึ้นในมือ แต่ใบดาบยังจมอยู่ในหินเท่าเดิม'],[4,'ดาบขยับขึ้นมานิดหนึ่ง มีเสียงหินครูดเบาๆ แล้วก็ติดแน่นอีก'],[7,'มีเสียงดังเปรี๊ยะ รอยร้าวเส้นใหม่วิ่งรอบใบดาบ'],[12,'หินร้าวเป็นทางยาว เศษหินร่วงลงพื้น ใบดาบโผล่ขึ้นมาอีกเกือบคืบ'],[18,'ดาบโยกไปมาในหินได้แล้ว อีกไม่กี่ชาติคงหลุด']];
+const excLine=(L,n)=>{let t=L[0][1];for(const [k,s] of L)if(n>=k)t=s;return t;};
+// extra choices by class (index fixed so saves stay valid; other classes get them hidden): 2 strength, 3 pry the stone, 4 pray first
+const EXO=[null,null,{cl:['war','dra','dsl'],t:'ใช้แรงทั้งตัวกระชาก',b:4,hp:.15},{cl:['rog'],t:'แงะหินรอบใบดาบก่อน',b:3,hp:0,k:-1},{cl:['pri','ang'],t:'สวดขอพรก่อนแล้วค่อยดึง',b:2,hp:EXC.hp,k:1}];
+SPECIAL.excal={w:0,ok:excOk,mk(R,K){const f=R.floor,n=excN(R),id=cid(R);K.data={n};K.tag=`ชั้น ${f} · ดาบที่รอเจ้าของ`;K.title='ดาบศักดิ์สิทธิ์ในหิน';K.vis={t:'prop',pr:'swordstone'};
+  K.text=`แสงลอดลงมาจากรอยแยกบนเพดาน ตกลงบนหินก้อนใหญ่กลางห้อง ดาบเล่มหนึ่งปักจมอยู่ในหินถึงครึ่งใบ ตัวอักษรเก่าที่ฐานเขียนว่า "ผู้ใดถอนดาบนี้ได้ ผู้นั้นคือเจ้าของ" ${excLine(EXS,n)}${n?` (คนในชาติก่อนๆ ของคุณลองดึงมาแล้ว ${n} ครั้ง)`:''}`;
+  const pull=(t,b,hp,k)=>CH(t,[{t:`โอกาสดึงออก ${excCh(n,b)}%`,c:'w'},{t:'ได้ดาบติดตัวไปทุกชาติ',c:'g'},...(hp?[{t:`ดึงไม่ออก HP −${Math.round(hp*100)}%`,c:'b'}]:[]),...(k?[kk(k)]:[])]);
+  K.ch=[pull('ลองดึงดาบ',0,EXC.hp),CH('ไม่แตะ เดินผ่านไป',[{t:'ไม่เสี่ยง',c:''}])];
+  for(let i=2;i<EXO.length;i++){const o=EXO[i],c=pull(o.t,o.b,o.hp,o.k);if(o.cl.includes(id))c.cl=id;else Object.assign(c,{cl:o.cl[0],hide:true,dis:true});K.ch.push(c);}
+  K.ai=0;},
+ res(R,K,i,out){const f=R.floor,h=R.h,n=K.data&&K.data.n||0,o=EXO[i]||{b:0,hp:EXC.hp};
+  if(i===1){R.map[f-1]='calm';say(R,out,'คุณยืนมองดาบอยู่ครู่หนึ่ง แล้วเดินผ่านไป แสงบนเพดานค่อยๆ หรี่ลงข้างหลัง','info');return;}
+  R.exT=(R.exT||0)+1;if(o.k)R.karma+=o.k;
+  if(rnd()<excCh(n,o.b)/100){R.exc=1;R.excF=f;R.map[f-1]='good';excRec(R,true);out.excal=1;
+   sayK(R,out,`ใบดาบเลื่อนออกจากหินง่ายจนแทบไม่ต้องออกแรง${n?` หลังจากคนในชาติก่อนๆ ลองมาแล้ว ${n} ครั้ง`:''} แสงจากเพดานตกลงบนคมดาบพอดี ดาบเล่มนี้จะอยู่กับคุณและทุกชาติที่ตามมา (ATK +10% · ตีบอสแรงขึ้น 10%)`,'lv');return;}
+  excRec(R,false);R.map[f-1]='calm';if(o.hp)h.hp=Math.max(1,h.hp-h.mhp*o.hp);
+  say(R,out,`${excLine(EXF,n+1)}${o.hp?` (HP −${Math.round(o.hp*100)}%)`:''} ชาติหน้าคงดึงง่ายขึ้นอีกหน่อย`,'bad');}};
+TIER.excal='l';KEY_TG.excal=[['fight'],[],['fight'],['trick'],['pray']];
 // ---- v2.7: the last path tier has to be won. Path 80 -> contest key moment "crown", one retry at 90.
 // Ways: fair / spend gold / a patron's backing (a favour collected a few floors later, key "favor") / cheat (may be caught).
 // R.cw={id,n tries,won,how,f,pat,caught,paid}; the tier itself is R.pathHi=3 (pathTier checks it). {r} = the rival's name.
@@ -1435,7 +1466,7 @@ function quietTick(R,n){const out=mkOut(),f0=R.floor,g0=R.h.gold,l0=R.h.lv,k0=R.
 function dramaTick(R,D){const out=mkOut();R.drama++;R.lastDrama=R.floor;D.run(R,out);if(R.alive&&R.h.hp<=0)mortal(R,out,out.cause);finishFloor(R,out);return out;}
 function hatch(R,out){R.egg=null;if(R.pets.length<2){const p=pick(PETK);R.pets.push(p);R.h.luk+=2;say(R,out,`ไข่ฟักแล้ว! ${PETS[p].n}ตัวน้อยมองคุณเป็นแม่ทันที (${PETS[p].d})`,'good');}
  else{R.h.luk+=4;say(R,out,'ไข่ฟักออกมาเป็นนกไฟตัวจิ๋ว มันบินวนรอบหัวคุณสามรอบแล้วหายไป ทิ้งโชคไว้ให้ (LUK +4)','good');}}
-function genSpecial(R){const ck=crownKey(R);if(ck)return R.lastSp=ck;for(const k of ['nec','ang'])if(!R.used['sp:'+k]&&SPECIAL[k].ok(R))return R.lastSp=k;const ok=Object.keys(SPECIAL).filter(k=>!SPECIAL[k].ok||SPECIAL[k].ok(R));
+function genSpecial(R){const ck=crownKey(R);if(ck)return R.lastSp=ck;for(const k of ['nec','ang'])if(!R.used['sp:'+k]&&SPECIAL[k].ok(R))return R.lastSp=k;if(excOk(R))return R.lastSp='excal';const ok=Object.keys(SPECIAL).filter(k=>!SPECIAL[k].ok||SPECIAL[k].ok(R));
  let pool=ok.filter(k=>!R.used['sp:'+k]||(k==='mimic'&&MD(R,'mimic',1)>1&&R.used['sp:mimic']<3));if(!pool.length)pool=ok.filter(k=>k!==R.lastSp);
  const fresh=k=>R.xseen&&!R.xseen['sp:'+k]?1.6:1;
  const sw=ST_SP[R.st]||{};const k=pool[wIdx(pool.map(x=>tierW(R,TIER[x])*(x==='mimic'?MD(R,'mimic',1):1)*(x==='dragon'&&clanM(R)==='s'?12:1)*(x==='promo'?10:1)*dayW(R,x)*fresh(x)*(sw[x]||1)))];R.lastSp=k;return k;}
@@ -1977,7 +2008,7 @@ function achWatch(R){if(!R||!window.ACH)return;const W=S.aw||(S.aw={f:R.floor,p:
  const cj=R.comps.map(c=>c.n).join();if(cj!==W.c){R.comps.forEach(c=>{if(!W.c.split(',').includes(c.n))ach('comp',{trait:c.tr});});W.c=cj;}
  if(R.karma!==W.k){ach('karma',{delta:R.karma-W.k,total:R.karma});W.k=R.karma;}}
 function renderHUD(){const R=S.R,h=R?R.h:S.hero,C=CLASSES[h.cls];let hp=h.hp;if(S.phase==='combat'&&S.cb)hp=S.cb.hp;
- $('hName').textContent=h.name;$('hSub').textContent=`รุ่นที่ ${h.gen||1} · แรงค์ ${RANKS[h.rank].k} · ${C.n} · ${h.village}`;
+ {const nm=$('hName'),sw=!!(R?hasSw(R):h.ex&&h.ex.got),v=h.name+'|'+sw;if(nm.dataset.v!==v){nm.dataset.v=v;nm.textContent=h.name;if(sw){const e=document.createElement('span');e.className='hexc';e.dataset.tip='excal';e.textContent=' 🗡';nm.appendChild(e);}}}$('hSub').textContent=`รุ่นที่ ${h.gen||1} · แรงค์ ${RANKS[h.rank].k} · ${C.n} · ${h.village}`;
  {const el=$('hPath'),P=R&&pathOf(R);if(el){if(!P)el.hidden=true;else{const v=R.path||0,t=pathTier(R),nx=PATH_T[t];el.hidden=false;
   el.innerHTML=`<span class="pt">✦ ${esc(P.n)}${t?' · '+esc(P.t[t-1]):''}</span> <span class="pbar"><i style="width:${clamp(v,0,100)}%"></i></span> <span class="px">${Math.floor(v)}${nx?'/'+nx:''}</span>`;
   el.dataset.tipn=P.n;el.dataset.tipd=`ได้แต้มจาก: ${P.src}${nx?` · ครบ ${nx} แต้มเป็น "${P.t[t]}": ${P.b[t]}`:' · ขึ้นถึงขั้นสุดท้ายแล้ว'}${t?` · ตอนนี้ได้: ${P.b[t-1]}`:''}${t===2&&v>=PATH_T[2]?' · แต้มครบแล้ว ต้องชนะการชิงตำแหน่งก่อนจึงจะได้ขั้นสุดท้าย':''}`;}}}
@@ -2013,8 +2044,9 @@ function renderLog(){const el=$('log');const L=S.R?S.R.log:[];el.innerHTML=L.sli
 const MKEY='tof-auto-memorial-v1',SKEY='tof-auto-seen-v1';
 function loadSeen(){try{const v=JSON.parse(localStorage.getItem(SKEY)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return{};}}
 function saveSeen(R){let n=0;try{const v=loadSeen();R.hist.forEach(x=>{if(!v[x.tid]){v[x.tid]=1;n++;}});localStorage.setItem(SKEY,JSON.stringify(v));}catch(e){}return n;}
+const excRow=R=>R.exc?`<dt>ดาบในหิน</dt><dd><span data-tip="excal">ถอนออกจากหินได้ที่ชั้น ${R.excF} ทุกชาติต่อไปจะเกิดมาพร้อมดาบเล่มนี้</span></dd>`:hasSw(R)?'<dt>ดาบในหิน</dt><dd><span data-tip="excal">พกติดตัวมาตั้งแต่เกิด</span></dd>':R.exT?`<dt>ดาบในหิน</dt><dd><span data-tip="excal">ลองดึงแล้วแต่ไม่ออก ชาติหน้าโอกาสขึ้นเป็น ${excCh(Math.max(excN(R),(R.h.ex&&R.h.ex.n|0)+1))}%</span></dd>`:'';
 function runTitle(R){const h=R.h,fl=R.won?100:R.floor,leg=R.hist.filter(x=>x.rar==='l').length,T=[];
- if(R.won)T.push([9,'ผู้พิชิตยอดหอ',1]);if(R.sec&&R.sec.res==='s')T.push([11,'นักล่ามังกร',1]);if(R.sec&&R.sec.res==='f')T.push([11,R.sec.m0==='s'?'ผู้ไว้ชีวิตมังกร':'สหายมังกร',1]);if(R.lift)T.push([12,'ดยุกปราบมังกร',1]);if(R.sec&&R.sec.res==='x')T.push([10,'ผู้ท้ามังกร',1]);if(leg>=2)T.push([8,'ผู้เห็นตำนานซ้ำสองครั้ง',1]);
+ if(R.won)T.push([9,'ผู้พิชิตยอดหอ',1]);if(R.sec&&R.sec.res==='s')T.push([11,'นักล่ามังกร',1]);if(R.sec&&R.sec.res==='f')T.push([11,R.sec.m0==='s'?'ผู้ไว้ชีวิตมังกร':'สหายมังกร',1]);if(R.lift)T.push([12,'ดยุกปราบมังกร',1]);if(R.sec&&R.sec.res==='x')T.push([10,'ผู้ท้ามังกร',1]);if(leg>=2)T.push([8,'ผู้เห็นตำนานซ้ำสองครั้ง',1]);if(R.exc)T.push([13,'ผู้ถอนดาบในหิน',1]);else if(hasSw(R))T.push([2,'ผู้ถือดาบในหิน']);
  if(R.karma>=20)T.push([6,'นักบุญแห่งหอคอย']);if(R.karma<=-20)T.push([6,'ปีศาจในคราบคน']);if(fl<=10)T.push([5,'ดาวที่ดับเร็ว']);
  if(R.fateShift>=8)T.push([6,'คนต่อชะตา']);if(R.fateShift<=-6)T.push([5,'คนขายอายุ']);if(R.pMax>=.15&&fl>R.pMaxF+5)T.push([5,'คนที่ยมทูตมองข้าม']);
  if(R.sameN>=3)T.push([2,'คนไม่เปลี่ยนใจ']);if(R.scars>=3)T.push([5,'คนที่ตายยาก']);
@@ -2186,6 +2218,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  const inh=I?`<div class="inhbox rv"${D(5)} data-tip="lineage">มรดกจากอาจารย์${esc(I.from)}: ทอง +${fmt(I.gold)}${I.pet&&PETS[I.pet]?` · ${esc(PETS[I.pet].n)}ตามมาด้วย`:''}${I.k>=2?' · บุญของอาจารย์คุ้มครอง (LUK +2 ความเสี่ยงตายลดลงเล็กน้อย)':I.k<=-2?' · หนี้กรรมของอาจารย์ตามมาด้วย (ความเสี่ยงตายสูงขึ้นเล็กน้อย)':''}</div>`:'';
  const CL=h.clan||{},CF=loadClan().fresh,cp=CL.pet&&PETS[CL.pet];
  const clanH=CL.m||cp||C.id==='dsl'?`<div class="inhbox clanbox rv"${D(5)}>${CL.m?`<span data-tip="clan"><b>${CLAN_T[CL.m]}</b></span> · ${esc(clanLine(CL.m,CL.n))}`:''}${cp?`${CL.m?'<br>':''}<span data-tip="clanpet">${CF?`ไข่มังกร${esc(DRG[CF]?DRG[CF].n.replace('มังกร',''):'')}ที่คนในตระกูลเก็บกลับมาฟักแล้ว ได้${esc(cp.n)}เป็นสัตว์ประจำตระกูล`:`${esc(cp.n)} สัตว์ประจำตระกูล เดินตามมาด้วย`} (${esc(cp.d)})</span>`:''}${C.id==='dsl'?`${CL.m||cp?'<br>':''}<span data-tip="dsl">เกิดมาเป็นนักล่ามังกร อาชีพลับที่เกิดได้เฉพาะในตระกูลที่เคยฆ่ามังกร</span>`:''}</div>`:'';
+ const excH=h.ex&&h.ex.got?`<div class="inhbox clanbox rv"${D(5)}><span data-tip="excal"><b>🗡 ดาบศักดิ์สิทธิ์ในหิน</b></span> · ติดตัวมาตั้งแต่เกิด (ATK +10% · ตีบอสแรงขึ้น 10%)</div>`:'';
  card.innerHTML=`<div class="cert${an?' anim':''}"><div class="hd">✦ ใบประกาศนักผจญภัย ✦</div><div class="nm">${esc(h.name)}</div><div class="vil">ถิ่นกำเนิด: ${esc(h.village)}</div>${lin}
  <div class="tiles"><div class="tile rv"${D(0)}><span class="tl">แรงค์</span><span class="rk" style="background:${Rk.col}">RANK ${Rk.k}</span><span class="tp px">${Rk.w}%</span></div>
   <div class="tile rv"${D(1)}><span class="tl">อาชีพ</span><span class="cls">${C.n}</span><span class="tp px">${((h.cp||C.w/CLS_SUM)*100).toFixed(1)}%</span></div>
@@ -2194,7 +2227,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  <div class="pas rv"${D(1)}>สกิลติดตัว <b>${C.p}</b> · ${C.pd}</div>
  <div class="cstats rv"${D(3)}><div>HP<b>${Math.round(h.mhp)}</b></div><div>ATK<b>${Math.round(h.atk)}</b></div><div>DEF<b>${Math.round(h.def)}</b></div><div>LUK<b>${Math.round(h.luk)}</b></div><div>MP<b>${Math.round(h.mmp)}</b></div><div>ทอง<b>${fmt(h.gold)}</b></div></div>
  <div class="odds big rv"${D(4)} data-tip="combo">ฮีโร่แบบคุณ: <b>1 ใน ${fmt(combOdds(h))}</b><span class="sm">แรงค์กับอาชีพ 1 ใน ${fmt(h.odds)} · หน้าตา 1 ใน ${fmt(1/LI.p)}</span></div>
- ${inh}${clanH}<div class="rv"${D(5)}><div class="fatebox">ดวงชะตา: <b>${esc(HINTS[h.hint])}</b></div>
+ ${inh}${clanH}${excH}<div class="rv"${D(5)}><div class="fatebox">ดวงชะตา: <b>${esc(HINTS[h.hint])}</b></div>
  <div class="pas" style="margin-top:6px">นิสัย: <b>${esc(PERS[h.pers].n)}</b> · ${esc(PERS[h.pers].d)}</div>
  <div class="omenbox ${O.k==='พร'?'bless':O.k==='คำสาป'?'curse':'mix'}"><span class="ok">${O.k==='ผสม'?'พรปนคำสาป':O.k}ประจำชาตินี้</span> <b>${esc(O.n)}</b><br>${esc(O.d)}</div>${DT?`<div class="daybox" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${esc(DT.d)}</div>`:''}</div></div>
  <div class="livebox" id="liveBox"${S.liveHTML?'':' hidden'}>${S.liveHTML||''}</div>
@@ -2243,13 +2276,15 @@ const cleanName=v=>Array.from(String(v||'').replace(/[\u0000-\u001f\u007f-\u009f
 function setName(h,v){const n=cleanName(v);if(!h.name0)h.name0=h.name;const own=!h.master&&(h.house===h.name||!h.house);
  h.name=n||h.name0;h.cname=n?1:0;if(own)h.house=h.name;}
 // a new hero: fresh line (gen 1), apprentice of a finished life (bo.heir), or a rebirth whose past karma tilts the rank roll (bo.kShift)
+// sword in the stone: what this player's line has done so far (tries, pulled), copied onto the hero at birth
+function excBirth(){const v=excLoad()||{};return{n:Math.max(0,Math.floor(+v.n||0)),got:v.got?1:0};}
 function rollBirth(bo){let h;const C=clanBirth();
  if(bo&&isObj(bo.heir)){const P=bo.heir;h=rollHero({dsl:C.cls,unl:loadUnl()});h.village=P.village||h.village;h.gen=(P.gen||1)+1;h.lin=P.lin;h.house=P.house||P.name;h.master=P.name;
   const k=clamp(Math.round((P.karma||0)*.25),-6,6),g=Math.min(600,Math.round((P.gold||0)*.3));h.inh={gold:g,pet:P.pet&&PETS[P.pet]?P.pet:null,k,from:P.name};h.gold+=g;if(k>=2)h.luk+=2;
   h.m0=birthM(h);h.proj=project(1,h.m0).med;h.hint=fuzzHint(h.proj);}
  else{h=rollHero({kShift:bo?bo.kShift:0,dsl:C.cls,unl:loadUnl()});h.gen=1;h.lin=newLinId();h.house=h.name;if(bo&&isObj(bo.prev))h.prev=bo.prev;}
- h.clan=clanOf(C);{const d=dayKey(),D=dayPick(d);if(D)h.day={d,t:D.id};}return h;}
-function startRun(){clearTimeout(S.rvT);VIS.star=0;S.R=newRun(S.hero);const R=S.R;R.xseen=loadSeen();S.runId=Date.now();S.t0=Date.now();snap=null;
+ h.clan=clanOf(C);h.ex=excBirth();{const d=dayKey(),D=dayPick(d);if(D)h.day={d,t:D.id};}return h;}
+function startRun(){clearTimeout(S.rvT);VIS.star=0;if(!S.hero.ex)S.hero.ex=excBirth();S.R=newRun(S.hero);const R=S.R;R.xseen=loadSeen();S.runId=Date.now();S.t0=Date.now();snap=null;
  S.themeId=heroTheme(S.hero)||S.themeId||'';R.theme=S.themeId;
  // cohort: 3-4 heroes rolled the same way enter with you; their whole lives are simulated now with the same hazard table and AI
  R.coh=[];for(let i=0,n=ri(3,4);i<n;i++){const ch=rollHero();ch.day=S.hero.day;const L=autoLife(ch);poolAdd(L);R.coh.push({n:ch.name,rk:RANKS[ch.rank].k,cn:CLASSES[ch.cls].n,f:L.won?100:L.floor,won:L.won,cause:L.won?'พิชิตยอดหอคอย':L.cause,ck:L.ck||''});}
@@ -2258,6 +2293,7 @@ function startRun(){clearTimeout(S.rvT);VIS.star=0;S.R=newRun(S.hero);const R=S.
  if(R.pets.length&&S.hero.inh&&S.hero.inh.pet)say(R,o,`${PETS[R.pets[0]].n}ของอาจารย์${S.hero.inh.from}เดินตามเข้ามาด้วย`,'good');
  {const CL=S.hero.clan||{};if(CL.pet&&R.pets.includes(CL.pet))say(R,o,`${PETS[CL.pet].n} สัตว์ประจำตระกูล เดินตามเข้ามาด้วย`,'good');if(CL.m==='s')say(R,o,`คำสาปนักล่ามังกรติดตัวมาด้วย มอนสเตอร์เผ่ามังกรจะดุกว่าปกติ (ล้มมังกรไปแล้ว ${CL.n||0}/3)`,'bad');
   const C=loadClan();if(C.fresh){C.fresh='';saveClan(C);}}
+ if(hasSw(R))say(R,o,'ดาบศักดิ์สิทธิ์ที่คนในชาติก่อนถอนออกจากหิน ห้อยอยู่ข้างเอวคุณมาตั้งแต่เกิด','good');
  {const DT=dayOf(S.hero);if(DT)say(R,o,`หัวข้อวันนี้: ${DT.n} · ${DT.d}`,'info');}
  R.net={sid:newSid()};liveStart(R);
  mileTick(R,o);
@@ -2727,7 +2763,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  const share=!!(window.SHARE&&window.SHARE.open),lb=!!(window.LB&&window.LB.open);
  card.innerHTML=`<div class="epi"><div class="tag">${won?'ตำนานบทใหม่':'แผ่นจารึกหน้าหลุมศพ'}</div><div class="big">${won?'👑 ':'✝ '}${esc(h.name)}</div><div class="rtitle${S.title.gold?' gold':''}">ฉายา: ${esc(S.title.t)}</div>
  <dl class="kv"><dt>แรงค์/อาชีพ</dt><dd>${RANKS[h.rank].k} · ${R.turned?esc(clsName(R.turned.from)):C.n} (1 ใน ${fmt(h.odds)})</dd>${R.turned?`<dt>เปลี่ยนร่าง</dt><dd>จาก${esc(clsName(R.turned.from))}เป็น${esc(C.n)} ที่ชั้น ${R.turned.f}</dd>`:''}${R.unl?`<dt>ปลดล็อก</dt><dd>ชีวิตต่อไปมีโอกาสเกิดเป็น${esc(clsName(R.unl))}</dd>`:''}${pathOf(R)?`<dt>ทางของอาชีพ</dt><dd><span data-tip="path">${esc(pathOf(R).n)}</span> · ${R.pathHi?`ขั้นสูงสุด "${esc(pathHiName(R))}"`:'ยังไม่ถึงขั้นแรก'} · ${Math.floor(R.path||0)} แต้ม</dd>`:''}${crownArch(R)?`<dt>ชิงตำแหน่ง</dt><dd>「${esc(crownArch(R).t)}」 ${esc(crownArch(R).d)}</dd>`:''}<dt>ชั้นที่ไปถึง</dt><dd class="px">${fl} / 100</dd><dt>เลเวล</dt><dd class="px">${h.lv}</dd>
- <dt>${won?'ผลลัพธ์':'สาเหตุการตาย'}</dt><dd>${esc(won?'พิชิตผู้กลืนดาราและยืนบนยอดหอคอย':R.cause)}</dd>${secSum(R)?`<dt>ชั้นลับ</dt><dd>${esc(secSum(R))}</dd>`:''}${CLAN_T[R.clanM]?`<dt>ตระกูล</dt><dd><span data-tip="clan">${CLAN_T[R.clanM]}</span>${R.clanM==='s'?` · ต้องล้มมังกรอีก ${3-(R.clanN|0)} ตัวคำสาปจึงจะคลาย`:''}</dd>`:''}<dt>ดวงชะตา</dt><dd>${esc(fateLine(R))}</dd>
+ <dt>${won?'ผลลัพธ์':'สาเหตุการตาย'}</dt><dd>${esc(won?'พิชิตผู้กลืนดาราและยืนบนยอดหอคอย':R.cause)}</dd>${secSum(R)?`<dt>ชั้นลับ</dt><dd>${esc(secSum(R))}</dd>`:''}${CLAN_T[R.clanM]?`<dt>ตระกูล</dt><dd><span data-tip="clan">${CLAN_T[R.clanM]}</span>${R.clanM==='s'?` · ต้องล้มมังกรอีก ${3-(R.clanN|0)} ตัวคำสาปจึงจะคลาย`:''}</dd>`:''}${excRow(R)}<dt>ดวงชะตา</dt><dd>${esc(fateLine(R))}</dd>
  <dt>จุดเปลี่ยน</dt><dd>${R.keys} ครั้ง${R.timeouts?` · ปล่อยให้นิสัย${esc(PERS[h.pers].n)}เลือกแทน ${R.timeouts} ครั้ง`:''}${R.sameN+R.plainN?` · ตอบไปเองโดยไม่ต้องหยุด ${R.sameN+R.plainN} ครั้ง`:''}</dd><dt>ทองที่ทิ้งไว้</dt><dd class="px">${fmt(h.gold)}</dd>
  <dt>ปาร์ตี้</dt><dd>${[...R.pets.map(p=>PETS[p].n),...R.comps.map(c=>c.n+' ('+clsName(c.cls)+')')].join(', ')||'เดินทางคนเดียว'}</dd>
  <dt>กรรม</dt><dd class="px" style="color:var(--karma)">${R.karma>0?'+':''}${R.karma} ${R.karma>=0?'กรรมดี':'กรรมชั่ว'}</dd></dl>
@@ -2756,7 +2792,8 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
   drg:R.sec&&['n','f','s','x'].includes(R.sec.res)?R.sec.res:'',drgC:R.sec&&R.sec.res&&DRG[R.sec.c]?R.sec.c:'',clan:R.clanM||'',lift:!!R.lift,
   pathHi:R.pathHi||0,turned:R.turned?1:0,rez:R.rez?1:0,sneaks:R.sneaks||0,caught:R.caught||0,cw:R.cw&&R.cw.id===C.id?{n:R.cw.n||0,won:R.cw.won?1:0,how:R.cw.how||'',caught:R.cw.caught||0,paid:R.cw.paid||''}:null,
   twN:Object.keys(R.used).filter(k=>k.startsWith('sp:tw_')).length,facW:(R.fac&&R.fac.h||[]).filter(x=>x.me===1).length,facB:(R.fac&&R.fac.h||[]).filter(x=>x.b).length,ltG:R.ltG||0,
-  dz:R.dZ&&R.dZ.in?(dayZone(R)&&fl>dayZone(R).b?2:1):0,sn:Object.keys(R.sn||{}),stE:Object.keys(R.stE||{}).length};
+  dz:R.dZ&&R.dZ.in?(dayZone(R)&&fl>dayZone(R).b?2:1):0,sn:Object.keys(R.sn||{}),stE:Object.keys(R.stE||{}).length,
+  exT:R.exT|0,exG:!!R.exc,sw:hasSw(R),gear:hasSw(R)?['excal']:[]};
  if(!S.sent){S.sent=true;try{window.ACH&&window.ACH.onRunEnd&&window.ACH.onRunEnd(sum);}catch(e){}try{window.LB&&window.LB.submit&&window.LB.submit(sum);}catch(e){}
   // day stats come back a moment after this run was submitted
   if(DT&&h.day&&window.LB&&window.LB.live){const run=S.runId;setTimeout(()=>window.LB.live.get(h.day.d).then(g=>{const d=g&&g.day;if(!d||!d.n||!S||S.runId!==run)return;
