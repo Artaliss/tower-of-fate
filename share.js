@@ -42,6 +42,10 @@ const CARE='บรรทัดนี้จะยังไม่ขึ้นก�
 // ---------- share code (identical copy in functions/s/[[path]].js) ----------
 // bytes: [ver, drg<<6|rank<<3|cls, floor|won<<7, pct|human<<7, ...name, 0, ...title, fnv8]  drg 0 none / 1 spared the dragon / 2 killed it (v2.1, only with won;
 // old links have 0 there so they decode the same; clients older than v2.1 reject codes with drg set)  ver 1 = Thai/ASCII packed 1 byte per char, ver 2 = UTF-8
+// flags tail (sword, added after v0.2.9): [..., title, 0, flags, fnv8] only when flags != 0. bit0 = carries Excalibur (tof-excal-v1), bit1 = pulled it out this life.
+// Names/titles never hold a 0 byte, so the second 0 marks the tail. Old decoders read "0,flags" as the end of the title and cleanTxt() strips
+// both as control chars, so the title comes out the same. Keep flags in 1..31 (and any future tail byte too) or old clients would show junk.
+// The tail is dropped if it would push the code past 120 chars. Birth codes get the same tail after the village.
 function fnv8(b){let h=2166136261>>>0;for(let i=0;i<b.length;i++){h^=b[i];h=Math.imul(h,16777619);}return(h^(h>>>8)^(h>>>16)^(h>>>24))&255;}
 function packThai(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(c>0&&c<128)o.push(c);else if(c>0xE00&&c<0xE80)o.push(0x80+c-0xE00);else return null;}return o;}
 function unpackThai(b){let s='';for(const x of b)s+=String.fromCodePoint(x<128?x:0xE00+x-0x80);return s;}
@@ -49,6 +53,8 @@ function b64u(bytes){let s='';for(const x of bytes)s+=String.fromCharCode(x);ret
 function unb64u(c){const s=atob(c.replace(/-/g,'+').replace(/_/g,'/'));const b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return b;}
 function cleanTxt(s,max){s=str(s).replace(/<[^>]*>/g,'').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g,'').replace(/[<>"'`\\&]/g,'').replace(/\s+/g,' ').trim();
  const g=[];for(const ch of Array.from(s)){if(g.length&&/[ัิ-ฺ็-๎]/.test(ch))g[g.length-1]+=ch;else g.push(ch);}return g.slice(0,max).join('').trim();}
+function flagsOf(d){return(d.sw?1:0)|(d.sw&&d.exG?2:0);}
+function tailOf(rest){const z=rest.indexOf(0),z2=z<0?-1:rest.indexOf(0,z+1);return{z,z2,f:z2>=0&&z2+1<rest.length?rest[z2+1]&31:0};}
 function encode(d){
  const rank=clampN(d.rankIdx|0,0,7),cls=Math.max(0,CLS_IDS.indexOf(d.clsId)),won=!!d.won,floor=won?100:clampN(Math.round(+d.floor||1),1,100),pct=clampN(Math.round(+d.pct||0),0,100);
  const name=cleanTxt(d.name,16)||'?',title=cleanTxt(d.title,18);
@@ -56,23 +62,24 @@ function encode(d){
  if(!n||!t){const te=new TextEncoder();n=[...te.encode(name)];t=[...te.encode(title)];ver=2;}
  if(cls>7)ver+=4; // v2.5: classes 8+ ride in ver 5/6 with cls-8 in the 3-bit slot
  const dg=won?(d.drg==='f'?1:d.drg==='s'?2:0):0;
- const b=[ver,dg*64+rank*8+(cls&7),floor|(won?128:0),pct|(d.form==='human'?128:0),...n,0,...t];b.push(fnv8(b));return b64u(b);}
+ const b=[ver,dg*64+rank*8+(cls&7),floor|(won?128:0),pct|(d.form==='human'?128:0),...n,0,...t],fl=flagsOf(d);
+ const pack=x=>{x=x.slice();x.push(fnv8(x));return b64u(x);};const c0=pack(b);if(!fl)return c0;const c1=pack([...b,0,fl]);return c1.length<=120?c1:c0;}
 function decode(code){
  try{code=String(code||'');if(!/^[A-Za-z0-9_-]{8,120}$/.test(code))return null;
   const b=unb64u(code);if(b.length<7)return null;const body=b.subarray(0,b.length-1);if(fnv8(body)!==b[b.length-1])return null;
   let ver=b[0],cx=0;if(ver>=5&&ver<=8){ver-=4;cx=8;}
   if(ver===3||ver===4){if(b.length<11||b[1]>>6||b[2]>>1||b[3]<1)return null;
    const rank=(b[1]>>3)&7,cls=(b[1]&7)+cx,human=!!(b[2]&1),gen=b[3],odds=b[4]*16777216+b[5]*65536+b[6]*256+b[7];
-   const rest=body.subarray(8),z=rest.indexOf(0);if(z<1)return null;
+   const rest=body.subarray(8),{z,z2,f}=tailOf(rest);if(z<1)return null;
    const dec=x=>ver===3?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
-   const name=cleanTxt(dec(rest.subarray(0,z)),16),village=cleanTxt(dec(rest.subarray(z+1)),20);if(!name)return null;
-   return{birth:true,rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],form:human?'human':'slime',gen,odds,name,village};}
+   const name=cleanTxt(dec(rest.subarray(0,z)),16),village=cleanTxt(dec(z2<0?rest.subarray(z+1):rest.subarray(z+1,z2)),20);if(!name)return null;
+   return{birth:true,rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],form:human?'human':'slime',gen,odds,name,village,sw:!!(f&1)};}
   if(ver!==1&&ver!==2)return null;const rank=(b[1]>>3)&7,cls=(b[1]&7)+cx,dg=b[1]>>6,floor=b[2]&127,won=!!(b[2]&128),pct=b[3]&127,human=!!(b[3]&128);
   if(dg>2||(dg&&!won)||floor<1||floor>100||pct>100||(won&&floor!==100))return null;
-  const rest=body.subarray(4),z=rest.indexOf(0);if(z<1)return null;
+  const rest=body.subarray(4),{z,z2,f}=tailOf(rest);if(z<1)return null;
   const dec=x=>ver===1?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
-  const name=cleanTxt(dec(rest.subarray(0,z)),16),title=cleanTxt(dec(rest.subarray(z+1)),18);if(!name)return null;
-  return{rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],floor,won,pct,form:human?'human':'slime',name,title,drg:['','f','s'][dg]};
+  const name=cleanTxt(dec(rest.subarray(0,z)),16),title=cleanTxt(dec(z2<0?rest.subarray(z+1):rest.subarray(z+1,z2)),18);if(!name)return null;
+  return{rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],floor,won,pct,form:human?'human':'slime',name,title,drg:['','f','s'][dg],sw:!!(f&1),exG:!!(f&2)};
  }catch(e){return null;}}
 // birth link (v2.3): [ver 3 packed / 4 UTF-8, rank<<3|cls, human, gen 1-255, odds u32 big-endian, ...name, 0, ...village, fnv8]
 // old clients only accept ver 1/2, so they just ignore these codes. Village (then name) is dropped if the code gets past 120 chars.
@@ -82,7 +89,9 @@ function encodeBirth(d){
  for(;;){let n=packThai(name),v=packThai(vil),ver=3;
   if(!n||!v){const te=new TextEncoder();n=[...te.encode(name)];v=[...te.encode(vil)];ver=4;}
   if(cls>7)ver+=4;
-  const b=[ver,rank*8+(cls&7),d.form==='human'?1:0,gen,(odds>>>24)&255,(odds>>>16)&255,(odds>>>8)&255,odds&255,...n,0,...v];b.push(fnv8(b));const c=b64u(b);
+  const b=[ver,rank*8+(cls&7),d.form==='human'?1:0,gen,(odds>>>24)&255,(odds>>>16)&255,(odds>>>8)&255,odds&255,...n,0,...v];
+  if(d.sw){const t=[...b,0,1];t.push(fnv8(t));const ct=b64u(t);if(ct.length<=120)return ct;} // sword tail first, dropped before the village
+  b.push(fnv8(b));const c=b64u(b);
   if(c.length<=120||(!vil&&graphemes(name).length<=1))return c;
   if(vil)vil='';else name=clip(name,graphemes(name).length-1).trim()||'?';}}
 function shareUrl(d){return ORIGIN+'/s/'+(d&&d.birth?encodeBirth(d):encode(d));}
@@ -95,14 +104,14 @@ function norm(d){d=Object.assign({},d||{});d.name=str(d.name)||'นักผจ�
  if(!(d.rankIdx>=0))d.rankIdx=Math.max(0,RANK_K.indexOf(d.rankK));
  d.drg=['n','f','s','x'].includes(d.drg)?d.drg:'';d.drgC=['k','s','g'].includes(d.drgC)?d.drgC:'';
  d.drgW=d.won&&(d.drg==='f'||d.drg==='s'); // won the secret dragon floor
- d.secret=d.drgW||d.drg==='x';
+ d.secret=d.drgW||d.drg==='x';d.sw=!!d.sw;d.exG=d.sw&&!!d.exG;
  d.pat=d.pat&&typeof d.pat==='object'&&str(d.pat.code)&&Array.isArray(d.pat.v)&&d.pat.v.length===4?{code:str(d.pat.code),n:str(d.pat.n),v:d.pat.v.map(x=>clampN(+x||0,-100,100))}:null;return d;}
 // birth card data: d = {name, village, rankK, rankIdx, rankCol, clsId, clsN, odds, clsOdds, look, form, lookName, omenN, omenK, dayN, gen, house, date}
 function normB(d){d=Object.assign({},d||{});d.birth=true;d.name=str(d.name)||'นักผจญภัยนิรนาม';d.village=str(d.village);
  d.rankIdx=d.rankIdx>=0&&d.rankIdx<=7?d.rankIdx|0:Math.max(0,RANK_K.indexOf(str(d.rankK)));d.rankK=str(d.rankK)||RANK_K[d.rankIdx];d.rankCol=d.rankCol||P.gold;
  const ci=CLS_IDS.indexOf(d.clsId);d.clsN=str(d.clsN)||(ci>=0?CLS_N[ci]:'');d.odds=Math.max(0,Math.round(+d.odds||0));d.clsOdds=Math.max(0,Math.round(+d.clsOdds||0));
  d.omenN=str(d.omenN);d.omenK=str(d.omenK);d.dayN=str(d.dayN);d.lookName=str(d.lookName);d.gen=Math.max(1,Math.round(+d.gen||1));d.house=str(d.house);
- d.note=cleanNote(d.note);d.date=d.date||Date.now();d.floor=1;d.won=false;d.pets=[];d.drg='';d.secret=false;return d;}
+ d.note=cleanNote(d.note);d.date=d.date||Date.now();d.floor=1;d.won=false;d.pets=[];d.drg='';d.secret=false;d.sw=!!d.sw;d.exG=false;return d;}
 // ลวดลายชะตา row: code + name on the left, four mini lean bars on the right. Codes travel as letters (บ/ร ห/ช ด/พ ☀/☾) and show as emoji.
 const PAT_E={'บ':'⚔️','ร':'🛡️','ห':'💰','ช':'🤝','ด':'🚶','พ':'👥','☀':'☀️','☾':'🌙'},patEmo=c=>Array.from(c||'').map(x=>PAT_E[x]||x).join('');
 const PAT_P=[['บุก','ระวังตัว'],['หาของ','ช่วยเหลือ'],['คนเดียว','มีเพื่อน'],['กรรมดี','กรรมชั่ว']];
@@ -188,8 +197,14 @@ function drawPortrait(ctx,d,X,Y,FW,FH){
  if(!drawn)line(ctx,d.won?'♛':'✦',X+FW/2,Y+FH/2,{size:120,align:'center',col:P.gold});
  ctx.restore();
  // floor tag
+ if(d.sw)drawSwTag(ctx,X+FW-10,Y+10);
  const tag=d.birth?'ชั้น 1':d.secret?'ชั้นลับ':d.won?'ยอดหอ':'ชั้น '+d.floor;setF(ctx,500,24);const tw=ctx.measureText(tag).width+24;rect(ctx,X+10,Y+10,tw,36,'rgba(11,18,21,.8)');line(ctx,tag,X+22,Y+37,{size:24,weight:500,col:P.gold,maxW:200});
 }
+// sword in the stone tag, top-right corner of the portrait (right edge at rx)
+function drawSwTag(ctx,rx,y){const A=window.ART,ic=A&&A.ICONS&&A.ICONS.sword,lab='ดาบในหิน';setF(ctx,500,24);const tw=ctx.measureText(lab).width,w=tw+(ic?62:24),x=rx-w;
+ rect(ctx,x,y,w,36,'rgba(11,18,21,.8)');rect(ctx,x,y+34,w,2,'#8fe0ff');
+ try{if(ic&&A.sprCanvas){ctx.imageSmoothingEnabled=false;ctx.drawImage(A.sprCanvas(ic,false,false,'cardsw'),x+10,y+4,28,28);}}catch(e){}
+ line(ctx,lab,rx-12,y+27,{size:24,weight:500,col:'#d8f6ff',align:'right',maxW:200});}
 function drawStamp(ctx,text,cx,cy,col){ctx.save();ctx.translate(cx,cy);ctx.rotate(-.16);setF(ctx,600,30);const w=ctx.measureText(text).width+40,h=60;
  ctx.globalAlpha=.82;ctx.strokeStyle=col;ctx.lineWidth=5;ctx.strokeRect(-w/2,-h/2,w,h);ctx.lineWidth=2;ctx.strokeRect(-w/2+7,-h/2+7,w-14,h-14);
  ctx.fillStyle=col;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,0,3);ctx.restore();}
@@ -226,7 +241,7 @@ async function renderRun(d){
  line(ctx,d.name,RX,340,{size:84,weight:600,col:P.ink,maxW:RW,min:40});
  line(ctx,d.secret?'ชั้น 1 → ชั้น 100 → ชั้นลับ':d.won?'ชั้น 1 → ชั้น 100 · ถึงยอดหอ':'ชั้น 1 → ชั้น '+d.floor+' · ไต่มา '+d.floor+' ชั้น',RX,398,{size:32,fam:fP,col:P.ink2,maxW:RW,min:22});
  line(ctx,[d.village?'ถิ่นกำเนิด '+d.village:'',d.odds?'เกิดมา 1 ใน '+nf(d.odds):''].filter(Boolean).join(' · '),RX,448,{size:28,col:P.ink2,maxW:RW,min:20});
- const deeds=[d.lv?'Lv '+d.lv:'',d.bosses?'ล้มบอส '+d.bosses+' ตัว':'',d.kills?'สังหาร '+nf(d.kills):''].filter(Boolean).join(' · ');
+ const deeds=[d.sw?(d.exG?'ถอนดาบในหินได้':'ถือดาบในหิน'):'',d.lv?'Lv '+d.lv:'',d.bosses?'ล้มบอส '+d.bosses+' ตัว':'',d.kills?'สังหาร '+nf(d.kills):''].filter(Boolean).join(' · ');
  line(ctx,deeds,RX,496,{size:26,col:P.ink3,maxW:RW,min:18});
  drawStamp(ctx,d.won?'พิชิตยอดหอ':'สิ้นชีพ ชั้น '+d.floor,PX+PW/2+18,PY+PH-34,d.won?P.gold2:P.red);
  // stat grid 2x3
@@ -286,6 +301,7 @@ async function renderBirth(d){
  let iy=406;if(d.village){line(ctx,'ถิ่นกำเนิด '+d.village,RX,iy,{size:30,col:P.ink2,maxW:RW,min:20});iy+=52;}
  line(ctx,'รุ่นที่ '+d.gen+' · สาย'+(d.house||d.name),RX,iy,{size:28,col:P.ink2,maxW:RW,min:20});
  line(ctx,d.lookName?'รูปลักษณ์ '+d.lookName:'',RX,iy+48,{size:24,col:P.ink3,maxW:RW,min:18});
+ if(d.sw)line(ctx,'เกิดมาพร้อมดาบศักดิ์สิทธิ์ในหิน',RX,iy+(d.lookName?92:48),{size:24,weight:500,col:P.stamp,maxW:RW,min:18});
  // three big tiles
  const TY=596,TH=260,TG=24,TW=(W-128-2*TG)/3;
  const tile=(i,lab)=>{const x=64+i*(TW+TG);rect(ctx,x,TY,TW,TH,P.card);ctx.strokeStyle=P.rule;ctx.lineWidth=3;ctx.strokeRect(x+1.5,TY+1.5,TW-3,TH-3);rect(ctx,x,TY,TW,6,P.gold2);
@@ -362,6 +378,7 @@ function hooks(d){const k=d.hk||{},out=[],seed=hashStr(d.name+'|'+d.floor+'|'+d.
  if(k.nearP>=.15&&k.nearF&&k.nearF<d.floor)add('near','near',5,`ชั้น ${k.nearF} โอกาสตายพุ่งถึง ${Math.round(k.nearP*100)}% แต่ก็รอดมาได้`,k.nearF);
  if(d.drg){const c={k:'ดำ',s:'เงิน',g:'ทอง'}[d.drgC]||'';
   add('drg','drg',d.drg==='n'?4.5:9,d.drg==='f'?`ขึ้นไปถึงชั้นลับเหนือยอดหอ ตีมังกร${c}จนยอมแพ้แล้วไว้ชีวิตมัน`:d.drg==='s'?`ขึ้นไปถึงชั้นลับเหนือยอดหอ แล้วฆ่ามังกร${c}ตาย`:d.drg==='x'?`ขึ้นไปถึงชั้นลับเหนือยอดหอ แต่ไปตายต่อหน้ามังกร${c}`:'เจอบันไดลับเหนือยอดหอ แต่ไม่ขึ้นไป',100);}
+ if(d.sw)add('sw','sw',d.exG?7.5:3,d.exG?'ถอนดาบศักดิ์สิทธิ์ออกจากหินได้ ชาติต่อไปของตระกูลจะเกิดมาพร้อมดาบเล่มนี้':'พกดาบศักดิ์สิทธิ์ที่บรรพบุรุษถอนออกจากหินติดตัวมาตั้งแต่เกิด',d.exG?50:1);
  if(d.lift)add('lift','lift',8.5,'ตระกูลล้มมังกรครบ 3 ตัว คำสาปนักล่ามังกรเลยหายไป',100.5);
  if(d.title)add('title','title',k.gold?6:3,`ได้ฉายา「${d.title}」`,96);
  if(k.crown)add('crown','crown',5.5,k.crown,95.5);
@@ -375,6 +392,7 @@ const CLOSE_B=['ฮีโร่คนนี้จะไปได้ถึงช�
 function textBirth(d,mode){d=normB(d);const isX=mode==='x',url=shareUrl(d),budget=isX?240:480,len=isX?xLen:(s=>Array.from(s).length);
  const L=[];if(d.note)L.push(d.note);
  L.push(`🐣 ${d.name} เพิ่งเกิดเป็น${d.clsN||'นักผจญภัย'}แรงค์ ${d.rankK}${d.village?' ที่'+d.village:''}${d.odds?` (1 ใน ${nf(d.odds)})`:''}`);
+ if(d.sw)L.push('🗡 เกิดมาพร้อมดาบศักดิ์สิทธิ์ในหิน');
  if(d.omenN)L.push('ดวงประจำชาติ: '+d.omenN);
  L.push(CLOSE_B[hashStr(d.name+'|'+d.clsId+'|'+d.rankK)%CLOSE_B.length]+' #หอคอยโชคชะตา');
  if(!isX)L.push(url);
@@ -574,8 +592,8 @@ function readFriend(){try{const L=location;let code=null,m=L.pathname.match(/\/s
 function showFriend(){if(!friend||friendEl||fShown)return;const main=document.querySelector('main.main')||document.querySelector('.wrap');if(!main)return;css();
  const f=friend;friendEl=el('div',{class:'tof-friend',role:'note'});
  const t=el('div',{class:'ft'});
- if(f.birth){t.append('มีคนส่งฮีโร่ที่เพิ่งเกิดมาให้ดู: ',el('b',null,f.name),` ${f.clsN}แรงค์ ${f.rankK}${f.odds>1?` (1 ใน ${nf(f.odds)})`:''} ทายสิว่าจะไปได้ถึงชั้นไหน หรือจะลองเกิดมาแข่งกันก็ได้`);}
- else{t.append('มีคนส่งชะตามาให้คุณ: ');const b=el('b',null,f.name);t.append(b,` ${f.clsN}แรงค์ ${f.rankK}${f.title?` 「${f.title}」`:''} `);
+ if(f.birth){t.append('มีคนส่งฮีโร่ที่เพิ่งเกิดมาให้ดู: ',el('b',null,f.name+(f.sw?' 🗡':'')),` ${f.clsN}แรงค์ ${f.rankK}${f.odds>1?` (1 ใน ${nf(f.odds)})`:''} ทายสิว่าจะไปได้ถึงชั้นไหน หรือจะลองเกิดมาแข่งกันก็ได้`);}
+ else{t.append('มีคนส่งชะตามาให้คุณ: ');const b=el('b',null,f.name+(f.sw?' 🗡':''));t.append(b,` ${f.clsN}แรงค์ ${f.rankK}${f.title?` 「${f.title}」`:''} `);
  t.append(f.drg==='f'?'พิชิตยอดหอคอย แล้วยังไว้ชีวิตมังกรบนชั้นลับด้วย คุณจะทำได้แบบนี้ไหม?':f.drg==='s'?'พิชิตยอดหอคอย แล้วยังล้มมังกรบนชั้นลับได้ด้วย คุณจะทำได้แบบนี้ไหม?':f.won?'พิชิตยอดหอคอยได้ คุณจะทำได้แบบเดียวกันไหม?':`ไปถึงชั้น ${f.floor} คุณจะไปได้ไกลกว่านี้ไหม?`);}
  const x=el('button',{type:'button','aria-label':'ปิดข้อความนี้'},'ปิด');x.onclick=hideFriend;
  friendEl.append(el('span',{class:'fi','aria-hidden':'true'},f.birth?'🐣':'📜'),t,x);main.parentNode.insertBefore(friendEl,main);fShown=true;}

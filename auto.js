@@ -2269,7 +2269,7 @@ function birthExtras(h){const d=unlivedLoad(),sh=!!(window.SHARE&&window.SHARE.o
  return(sh?`<div class="acts bshare"><button type="button" class="btn bsh" id="btnShareBirth">📤 แชร์ฮีโร่ตัวนี้</button></div>`:'')+u;}
 function birthShareData(h){const C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf(h),DT=dayOf(h),lk=look(h);
  return{name:h.name,village:h.village,rankK:Rk.k,rankIdx:h.rank,rankCol:Rk.col,clsId:C.id,clsN:C.n,odds:combOdds(h),clsOdds:h.odds,look:lk,form:lk.form,lookName:lookInfo(h).n,
-  omenN:O.n,omenK:O.k,dayN:DT?DT.n:'',gen:h.gen||1,house:h.house||h.name,date:Date.now()};}
+  omenN:O.n,omenK:O.k,dayN:DT?DT.n:'',gen:h.gen||1,house:h.house||h.name,sw:!!(h.ex&&h.ex.got),date:Date.now()};}
 // player-typed hero name: no control chars or HTML-ish characters, single spaces, at most NAME_MAX characters; empty = the rolled name
 const NAME_MAX=16;
 const cleanName=v=>Array.from(String(v||'').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e<>&"'`\\]/g,'').replace(/\s+/g,' ').trim()).slice(0,NAME_MAX).join('').trim();

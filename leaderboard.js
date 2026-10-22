@@ -136,6 +136,7 @@ function css(){if(document.getElementById('lb-css'))return;const st=document.cre
 .lb-who b{font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lb-who b i{font-style:normal;color:var(--gold,#f4bb4a);font-weight:400}
 .lb-who span{display:block;color:var(--muted,#a3b5ad);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-who b>span{display:inline}
 .lb-fl{text-align:right;font-family:'DotGothic16','Mitr',monospace;line-height:1.2}
 .lb-fl b{font-size:16px;color:var(--ink,#f1e7d0)}
 .lb-fl span{display:block;font-size:11px;color:var(--dim,#6f857e)}
@@ -200,10 +201,11 @@ function fdate(t){try{return new Date(t).toLocaleDateString('th-TH',{day:'numeri
 function row(e,i,me){const rk=RANKC[e.rankK]?e.rankK:'?';
  const cls0=CLSN[e.clsId]||esc(e.clsN)||'';
  const cls=['dsl','nec','ang'].includes(e.clsId)?`<span class="lb-hid"><em>อาชีพลับ</em>${cls0}</span>`:cls0;
+ const sw=(gearIn(e.gear)||[]).includes('excal')?'<span class="lb-drg ex" title="พกดาบศักดิ์สิทธิ์ในหิน ATK +10% ตีบอสแรงขึ้น 10%">🗡</span>':'';
  const drg=e.drg==='f'?'<span class="lb-drg f" title="ไว้ชีวิตมังกรบนชั้นลับ">🐉 สหายมังกร</span>':e.drg==='s'?'<span class="lb-drg s" title="ล้มมังกรบนชั้นลับ">⚔ นักล่ามังกร</span>':'';
  const sub=[cls+(e.form==='slime'?' (สไลม์)':''),e.village?'จาก'+esc(e.village):'','รุ่นที่ '+int(e.gen,1,9999),e.ach?`<span title="ความสำเร็จที่ปลดล็อกแล้ว ${int(e.ach,0,500)} อย่าง">🏅${int(e.ach,0,500)}</span>`:''].filter(Boolean).join(' · ');
  return `<li class="lb-row${me?' me':''}${e.won?' win':''}"><span class="no">${i==null?'':i+1}</span><span class="lb-rk" style="background:${RANKC[rk]||'#888'}">${esc(rk)}</span>
-<span class="lb-who"><b>${esc(e.name)}${drg}${e.title?` <i>“${esc(e.title)}”</i>`:''}${me?'<span class="lb-tag">คุณ</span>':''}${e.ok===0?'<span class="lb-drg" style="border:1px solid #6f857e;color:#a3b5ad" title="รอบนี้ไม่มีตั๋วจากเซิร์ฟเวอร์ หรือจบเร็วเกินกว่าที่เล่นได้จริง">ไม่นับอันดับ</span>':''}</b><span>${sub}</span></span>
+<span class="lb-who"><b>${esc(e.name)}${drg}${sw}${e.title?` <i>“${esc(e.title)}”</i>`:''}${me?'<span class="lb-tag">คุณ</span>':''}${e.ok===0?'<span class="lb-drg" style="border:1px solid #6f857e;color:#a3b5ad" title="รอบนี้ไม่มีตั๋วจากเซิร์ฟเวอร์ หรือจบเร็วเกินกว่าที่เล่นได้จริง">ไม่นับอันดับ</span>':''}</b><span>${sub}</span></span>
 <span class="lb-fl">${e.floor===101?'<b>🐉 101</b>':e.won?'<b>👑</b>':`<b>${int(e.floor,0,100)}</b>`}<span title="คะแนนชีวิต">${e.floor===101?'ชั้นลับ':e.won?'พิชิตยอด':'ชั้น'} · ${num(e.score).toLocaleString('en-US')} คะแนน</span></span></li>`;}
 
 // วิธีอ่านแถวในตาราง (แสดงใต้แท็บอันดับทั่วโลก/ล่าสุด)
