@@ -29,6 +29,9 @@ const linkOf=id=>ORIGIN+'/m/'+id;
 const patEmo=c=>Array.from(c||'').map(x=>PEMO[x]||x).join('');
 function el(tag,attrs,txt){const e=document.createElement(tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(txt!=null)e.textContent=txt;return e;}
 function cvs(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.imageSmoothingEnabled=false;return{c,x};}
+// scene canvases are 384x256 drawn in 192x128 coordinates (v2.7.2), so the 2x backgrounds from sprites.js show at full detail
+function hx(c){const x=c.getContext('2d');x.setTransform(2,0,0,2,0,0);x.imageSmoothingEnabled=false;return x;}
+function cvs2(){const c=document.createElement('canvas');c.width=384;c.height=256;return{c,x:hx(c)};}
 
 // ---------- storage of owner keys ----------
 function ownLoad(){try{const v=JSON.parse(localStorage.getItem(OWN_K)||'{}');return v&&typeof v==='object'&&!Array.isArray(v)?v:{};}catch(e){return{};}}
@@ -57,7 +60,7 @@ function drawVis(x,v,t,bob){if(!v)return;
  else if(v.t==='comp'){const s=v.c&&v.c.cls?compS(v.c):{s:A.heroSpr(v.cls||'war'),k:'c'+(v.cls||'war')};A.blit(x,s.s,128,84+bob,{flip:true,key:s.k});}}
 function mourners(d){const M=(d.cm||[]).map(c=>Object.assign(compS(c),{n:c.n}));(d.pets||[]).forEach(p=>{if(A.PSPR[p])M.push({s:A.PSPR[p],k:'p'+p,pet:1});});return M.slice(0,8);}
 const FUN_X=[68,108,52,124,36,140,20,156];
-function drawFun(x,d,t){const won=!!d.w,bob=t?Math.round(Math.sin(t/260)):0;x.drawImage(A.funeralBg(won),0,0);
+function drawFun(x,d,t){const won=!!d.w,bob=t?Math.round(Math.sin(t/260)):0;if(A.funeralDraw)A.funeralDraw(x,won);else x.drawImage(A.funeralBg(won),0,0);
  if(won){const hs=heroS(d);x.fillStyle='rgba(244,187,74,0.16)';x.fillRect(84,40,24,60);A.blit(x,hs,88,82+bob,{key:'h'+hs.id});}
  else{A.blit(x,A.STONE,90,86,{key:'stone',noShadow:true});x.fillStyle='#1a1418';x.fillRect(93,90,6,1);A.blit(x,A.WREATH,92,93,{key:'wreath',noShadow:true});
   [[80,94],[110,94],[84,97],[106,97]].forEach(([X,Y],i)=>A.drawCandle(x,X,Y,t,i));}
@@ -66,7 +69,7 @@ function drawFun(x,d,t){const won=!!d.w,bob=t?Math.round(Math.sin(t/260)):0;x.dr
   x.fillStyle='rgba(20,24,40,0.18)';x.fillRect(0,0,192,128);}}
 function drawFrame(x,fr,d,t){if(!fr)return;if(fr.k==='u'){drawFun(x,d,t);return;}
  const b=fr.k==='b'?0:biome(fr.f),hs=heroS(d),hk='h'+hs.id,bob=t?Math.round(Math.sin(t/260)):0;
- x.drawImage(A.bgImg(b),0,0);A.drawOverlay(x,b,t||0);
+ if(A.bgDraw)A.bgDraw(x,b);else x.drawImage(A.bgImg(b),0,0);A.drawOverlay(x,b,t||0);
  if(fr.k==='b'){x.fillStyle='rgba(244,187,74,0.14)';x.fillRect(84,0,24,100);x.fillStyle='#5a4a3a';x.fillRect(80,100,32,4);A.blit(x,hs,88,84+bob,{key:hk});return;}
  if(fr.k==='d'){A.blit(x,A.PROPS.grave,88,84);x.globalAlpha=.55;A.blit(x,A.heroSpr('ghost',d.lk),88,60+(t?Math.round(Math.sin(t/500)*3):0),{key:'ghost'});x.globalAlpha=1;drawVis(x,fr.v,t,bob);return;}
  if(fr.k==='w'){(d.cm||[]).forEach((c,i)=>{const v=compS(c);A.blit(x,v.s,62-i*16,84+bob,{key:v.k});});(d.pets||[]).forEach((p,i)=>{if(A.PSPR[p])A.blit(x,A.PSPR[p],112+i*14,91,{key:'p'+p});});
@@ -82,8 +85,8 @@ function waitFonts(){if(fontsP)return fontsP;const fs=document.fonts;if(!fs||!fs
  const L=Promise.all(['500 20px Mitr','600 20px Mitr'].map(f=>fs.load(f,'หอคอยโชคชะตา 0123').catch(()=>null)));
  return fontsP=Promise.race([L,new Promise(r=>setTimeout(r,2500))]).then(()=>{});}
 function fit(x,s,max){if(x.measureText(s).width<=max)return s;const g=Array.from(s);while(g.length>1&&x.measureText(g.join('')+'…').width>max)g.pop();return g.join('')+'…';}
-async function ogImage(d){await waitFonts();const W=1200,H=630,{c,x}=cvs(W,H),s=cvs(192,128);
- safeDraw(s.x,lastFr(d),d,0);x.imageSmoothingEnabled=false;x.drawImage(s.c,0,42,192,60,0,0,W,375);
+async function ogImage(d){await waitFonts();const W=1200,H=630,{c,x}=cvs(W,H),s=cvs2();
+ safeDraw(s.x,lastFr(d),d,0);x.imageSmoothingEnabled=false;x.drawImage(s.c,0,84,384,120,0,0,W,375);
  const g=x.createLinearGradient(0,300,0,375);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.35)');x.fillStyle=g;x.fillRect(0,300,W,75);
  x.fillStyle='#b9682f';x.fillRect(0,375,W,6);x.fillStyle='#f3e9d2';x.fillRect(0,381,W,H-381);
  x.fillStyle='#e6d6b4';for(let i=0;i<W;i+=24)x.fillRect(i,381,12,3);
@@ -229,7 +232,7 @@ function stripHTML(d){const fl=d.f>100?100:d.f,hp=d.hp||[],mp=d.mp||[];let s='';
  return s;}
 function render(){const o=V.el,M=V.m,d=M.d,fl=d.f>100?100:d.f,own=ownLoad()[M.id],cls=String(d.cn||'');
  o.setAttribute('aria-label',`อนุสรณ์ของ ${d.n}`);
- const head=`<section class="mmv-card"><div class="mmv-hd"><canvas class="mmv-cover" width="128" height="128" aria-hidden="true"></canvas><div style="min-width:0">
+ const head=`<section class="mmv-card"><div class="mmv-hd"><canvas class="mmv-cover" width="256" height="256" aria-hidden="true"></canvas><div style="min-width:0">
   <div class="mmv-nm">${esc(d.n)}</div><div class="mmv-sub">แรงค์ ${esc(RANK_K[d.rk]||'?')} · ${esc(cls)}${d.vl?` · จาก${esc(d.vl)}`:''}${d.g>1?` · รุ่นที่ ${d.g}`:''}</div>
   <div class="mmv-fl">${d.w?(d.f>100?'👑 ชั้น 100 + ชั้นลับ':'👑 ชั้น 100 / 100'):`ชั้น ${fl} / 100`}</div></div></div>
   ${d.ti?`<div class="mmv-ti">ฉายา <b>「${esc(d.ti)}」</b></div>`:''}<div class="mmv-ca">${esc(d.w?'พิชิตยอดหอคอย':d.ca)}</div>
@@ -263,21 +266,21 @@ function tab(t){V.tab=t;const o=V.el,M=V.m,d=M.d,p=o.querySelector('.mmv-pane');
  if(t==='alb'){const fl=d.f>100?100:d.f;p.innerHTML=BANDS.map(([a,b],bi)=>{const F=(d.fr||[]).map((f,i)=>({f,i})).filter(o=>o.f.f>=a&&o.f.f<=b);
    const h=`<h3>ชั้น ${a}–${b} · ${esc(BIOMES[biome(a)]||'')}${biome(b)!==biome(a)?' และ'+esc(BIOMES[biome(b)]||''):''}</h3>`;
    if(!F.length)return`<div class="mmv-band">${h}<p class="none">${fl<a?'ไปไม่ถึงช่วงนี้':'ช่วงนี้ไม่มีภาพที่เก็บไว้'}</p></div>`;
-   return`<div class="mmv-band">${h}<div class="mmv-pol">${F.map(o=>`<figure class="${o.f.r==='l'?'l':''}"><canvas width="192" height="128" data-i="${o.i}" aria-hidden="true"></canvas><figcaption><span class="f">ชั้น ${o.f.f}</span>${esc(o.f.c)}${o.f.s?`<span>${esc(o.f.s)}</span>`:''}</figcaption></figure>`).join('')}</div></div>`;}).join('');
-  p.querySelectorAll('canvas').forEach(c=>{const x=c.getContext('2d');x.imageSmoothingEnabled=false;safeDraw(x,d.fr[+c.dataset.i],d,0);});}
+   return`<div class="mmv-band">${h}<div class="mmv-pol">${F.map(o=>`<figure class="${o.f.r==='l'?'l':''}"><canvas width="384" height="256" data-i="${o.i}" aria-hidden="true"></canvas><figcaption><span class="f">ชั้น ${o.f.f}</span>${esc(o.f.c)}${o.f.s?`<span>${esc(o.f.s)}</span>`:''}</figcaption></figure>`).join('')}</div></div>`;}).join('');
+  p.querySelectorAll('canvas').forEach(c=>{const x=hx(c);safeDraw(x,d.fr[+c.dataset.i],d,0);});}
  else if(t==='gst'){const w=M.w||[0,0,0,0,0],mine=V.word[M.id],left=WORDS.map((s,i)=>({s,n:w[i]|0})).filter(o=>o.n);
   p.innerHTML=`<p style="margin:0;font-size:14px">ฝากคำสั้นๆ ไว้ให้${esc(d.n)} เลือกได้วันละหนึ่งคำ ไม่ต้องบอกชื่อ</p><div class="mmv-words">${WORDS.map((s,i)=>`<button type="button" data-w="${i}" aria-pressed="${mine===i?'true':'false'}"${mine!=null?' disabled':''}>${esc(s)}</button>`).join('')}</div>
    ${left.length?`<ul class="mmv-left">${left.map(o=>`<li>${esc(o.s)}<span>${nf(o.n)} ครั้ง</span></li>`).join('')}</ul>`:'<p class="none" style="font-size:13px;color:#8b7a62;margin:0">ยังไม่มีใครฝากคำไว้</p>'}`;
   p.querySelectorAll('.mmv-words button').forEach(b=>b.onclick=()=>word(+b.dataset.w));}
  else{const fl=d.f>100?100:d.f,M2=mourners(d),np=M2.filter(m=>!m.pet).length,pp=M2.filter(m=>m.pet).length;
   const who=[np?`เพื่อนร่วมทาง ${np} คน`:'',pp?`สัตว์เลี้ยง ${pp} ตัว`:''].filter(Boolean).join(' กับ');
-  p.innerHTML=`<canvas class="mmv-fun" width="192" height="128" aria-hidden="true"></canvas>
+  p.innerHTML=`<canvas class="mmv-fun" width="384" height="256" aria-hidden="true"></canvas>
    <div class="mmv-ep"><div><b>${esc(d.w?`คนที่${d.vl||'บ้านเกิด'}จุดพลุรอรับ${d.n}กลับบ้าน`:`ร่างของ${d.n}ถูกฝังไว้ที่เชิงหอคอย`)}</b></div>
    <div>${esc(who?`${who} มายืนส่งเป็นครั้งสุดท้าย`:'ไม่มีใครมาส่ง มีแค่ลมที่พัดลงมาจากหอคอย')}</div>
    <div>${esc(d.w?`เกิดที่${d.vl} และได้ยืนบนยอดหอคอย`:`เกิดที่${d.vl} และหลับลงที่${BIOMES[biome(fl)]||''} ชั้น ${fl}`)}</div>
    ${d.pt?`<div>ลวดลายชะตา ${esc(patEmo(d.pt.c))} · ${esc(d.pt.n)}</div>`:''}${d.jd?`<div style="color:#7a6553">${esc(d.jd)}</div>`:''}</div>
    <button type="button" class="mmv-btn rep" style="width:100%">▶ ดูช่วงเวลาสุดท้ายด้วยกัน</button>`;
-  const x=p.querySelector('.mmv-fun').getContext('2d');x.imageSmoothingEnabled=false;V.anim.push({x,fr:{k:'u'}});safeDraw(x,{k:'u'},d,0);
+  const x=hx(p.querySelector('.mmv-fun'));V.anim.push({x,fr:{k:'u'}});safeDraw(x,{k:'u'},d,0);
   p.querySelector('.rep').onclick=()=>replay(d);}}
 async function word(i){const M=V.m;if(!M||V.word[M.id]!=null)return;V.word[M.id]=i;tab('gst');
  const r=await api('/api/memorial',{a:'word',id:M.id,w:i});if(V.m!==M)return;
@@ -293,7 +296,7 @@ async function randomOne(){const M=V.m;const r=await api('/api/memorial?random=1
 function loopStart(){loopStop();if(RM){drawStill();return;}const f=t=>{V.raf=requestAnimationFrame(f);if(document.hidden||t-V.lt<110)return;V.lt=t;drawLive(t);};V.raf=requestAnimationFrame(f);}
 function loopStop(){cancelAnimationFrame(V.raf);V.raf=0;}
 function drawStill(){drawLive(0);}
-function drawLive(t){if(!V.m)return;const d=V.m.d;try{if(V.cover){const x=V.cover.x,s=drawLive.s||(drawLive.s=cvs(192,128));safeDraw(s.x,V.cover.fr,d,t);x.clearRect(0,0,128,128);x.drawImage(s.c,32,0,128,128,0,0,128,128);}
+function drawLive(t){if(!V.m)return;const d=V.m.d;try{if(V.cover){const x=V.cover.x,s=drawLive.s||(drawLive.s=cvs2());safeDraw(s.x,V.cover.fr,d,t);x.clearRect(0,0,256,256);x.drawImage(s.c,64,0,256,256,0,0,256,256);}
  drawCandles(t);V.anim.forEach(a=>safeDraw(a.x,a.fr,d,t));}catch(e){}}
 function setUrl(id){try{const L=location,q=new URLSearchParams(L.search);if(/\/m\/[a-z2-9]{9}\/?$/.test(L.pathname))history.replaceState(history.state,'',L.pathname.replace(/\/m\/[a-z2-9]{9}\/?$/,'/m/'+id)+L.search+L.hash);
  else{q.set('m',id);history.replaceState(history.state,'',L.pathname+'?'+q.toString()+L.hash);}}catch(e){}}
@@ -315,10 +318,10 @@ function rpSteps(d){const fl=d.f>100?100:d.f,S=[],hold=(c,u)=>Math.min(3200,2100
 function replay(d){if(RP.on)return;RP.d=d;RP.steps=rpSteps(d);RP.i=-1;RP.cur=0;RP.lit=0;RP.fr=[null,null];RP.arm=0;RP.on=true;
  const fl=d.f>100?100:d.f,el=document.createElement('div');el.className='cine';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label',`ช่วงเวลาสุดท้ายของ ${d.n}`);
  el.innerHTML=`<button type="button" class="cskip">ข้าม ⏭</button><div class="cstage"><div class="ct" aria-live="polite"><div class="cta"></div><div class="ctb"></div></div>
-  <div class="cm"><div class="cfr"><canvas width="192" height="128"></canvas><canvas width="192" height="128"></canvas></div><div class="cfl px"></div><div class="ccap" aria-live="polite"></div><div class="csub"></div>
+  <div class="cm"><div class="cfr"><canvas width="384" height="256"></canvas><canvas width="384" height="256"></canvas></div><div class="cfl px"></div><div class="ccap" aria-live="polite"></div><div class="csub"></div>
   <div class="cstrip" aria-hidden="true">${Array.from({length:100},(_,i)=>`<i${(i+1)%10===0?' class="b"':''}></i>`).join('')}</div></div>
   <div class="ce"><div class="cen">${esc(d.n)}</div><div class="cey px">ชั้น 1 – ชั้น ${fl}</div><div class="cel"></div><div class="cec"></div><button type="button" class="btn pri cgo">กลับไปที่อนุสรณ์</button></div></div>`;
- document.body.appendChild(el);RP.el=el;RP.cv=[...el.querySelectorAll('.cfr canvas')].map(c=>{const x=c.getContext('2d');x.imageSmoothingEnabled=false;return{c,x};});
+ document.body.appendChild(el);RP.el=el;RP.cv=[...el.querySelectorAll('.cfr canvas')].map(c=>({c,x:hx(c)}));
  el.querySelector('.cskip').onclick=e=>{e.stopPropagation();rpSkip();};el.querySelector('.cgo').onclick=e=>{e.stopPropagation();rpClose();};
  el.addEventListener('click',e=>{if(e.target.closest('button'))return;rpTap();});
  el.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'||e.key==='Esc'){e.preventDefault();rpClose();}else if((e.key===' '||e.key==='ArrowRight')&&!RM){e.preventDefault();rpTap();}});
@@ -346,9 +349,9 @@ function rpSkip(){const b=RP.el&&RP.el.querySelector('.cskip');if(!b)return;if(R
  clearTimeout(RP.armT);RP.armT=setTimeout(()=>{RP.arm=0;b.textContent='ข้าม ⏭';b.classList.remove('arm');},3000);}
 function rpStatic(){const el=RP.el;el.dataset.mode='s';el.classList.add('static');const st=el.querySelector('.cstage'),S=RP.steps,T=S.filter(x=>x.k==='t'),F=S.filter(x=>x.k==='m'),E=S.find(x=>x.k==='e');
  const list=document.createElement('div');list.className='cslist';
- list.innerHTML=T.map(x=>`<div class="cst"><b>${esc(x.a)}</b>${x.b?`<span>${esc(x.b)}</span>`:''}</div>`).join('')+F.map((x,i)=>`<figure class="csf"><canvas width="192" height="128" data-i="${i}"></canvas><figcaption><span class="px">${x.fr.k==='u'?(RP.d.w?'ยอดหอคอย':'เชิงหอคอย'):'ชั้น '+x.fr.f}</span><b>${esc(x.fr.c||'')}</b><span>${esc(x.fr.s||'')}</span></figcaption></figure>`).join('');
+ list.innerHTML=T.map(x=>`<div class="cst"><b>${esc(x.a)}</b>${x.b?`<span>${esc(x.b)}</span>`:''}</div>`).join('')+F.map((x,i)=>`<figure class="csf"><canvas width="384" height="256" data-i="${i}"></canvas><figcaption><span class="px">${x.fr.k==='u'?(RP.d.w?'ยอดหอคอย':'เชิงหอคอย'):'ชั้น '+x.fr.f}</span><b>${esc(x.fr.c||'')}</b><span>${esc(x.fr.s||'')}</span></figcaption></figure>`).join('');
  st.querySelector('.ct').remove();st.querySelector('.cm').remove();st.insertBefore(list,st.firstChild);
- list.querySelectorAll('canvas').forEach(c=>{const x=c.getContext('2d');x.imageSmoothingEnabled=false;safeDraw(x,F[+c.dataset.i].fr,RP.d,0);});
+ list.querySelectorAll('canvas').forEach(c=>{const x=hx(c);safeDraw(x,F[+c.dataset.i].fr,RP.d,0);});
  el.querySelector('.cel').innerHTML=E.lines.map(t=>`<div class="vis">${esc(t)}</div>`).join('');const cc=el.querySelector('.cec');cc.textContent=E.close;cc.classList.add('vis');el.querySelector('.cgo').classList.add('vis');}
 function rpClose(){if(!RP.on)return;RP.on=false;clearTimeout(RP.tm);clearTimeout(RP.armT);RP.epT.forEach(clearTimeout);RP.epT=[];cancelAnimationFrame(RP.raf);
  const el=RP.el;RP.el=null;if(el){el.classList.remove('open');el.classList.add('closing');setTimeout(()=>el.remove(),RM?0:320);}
