@@ -29,7 +29,15 @@ const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));
 const MARK=/[ัิ-ฺ็-๎]/;
 function graphemes(s){const out=[];for(const ch of Array.from(str(s))){if(out.length&&MARK.test(ch))out[out.length-1]+=ch;else out.push(ch);}return out;}
 function clip(s,n){const g=graphemes(s);return g.length>n?g.slice(0,n).join(''):g.join('');}
-function cleanNote(s){return clip(str(s).replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g,' ').replace(/\s+/g,' ').trim(),120);}
+function cleanNote(s){const n=clip(str(s).replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g,' ').replace(/\s+/g,' ').trim(),120);return crisis(n)?'':n;}
+// crisis check (v2.7, keep identical to functions/api/posts.js): wanting to die or hurting oneself. Negations ("ไม่อยากตาย", "don't want to die") are dropped first.
+// A line that hits is never put on the card, in the share text or on the wall; the player sees CARE (hotline 1323) instead
+const CR_SQ=/[\s\-_.,!?*~'"()[\]{}|/\\:;ๆ]+/g,CR_NEG_TH=/ไม่(ได้|เคย)?อยาก(ไป)?ตาย/g,CR_NEG_EN=/\b(do\s*n[o']?t|never|not|no)\s*(want|wanna)\s*(to\s*)?die\b/g;
+const CR_TH=['อยากตาย','อยากไปตาย','ฆ่าตัวตาย','ฆ่าตัวเอง','ทำร้ายตัวเอง','กรีดข้อมือ','กรีดแขน','กรีดตัวเอง','ไม่อยากมีชีวิต','ไม่อยากอยู่แล้ว','ไม่อยากอยู่บนโลก','ไม่อยากอยู่ในโลก',
+ 'ไม่อยากตื่นอีก','ไม่อยากตื่นขึ้นมาอีก','อยากหายไปจากโลก','จบชีวิตตัวเอง','ปลิดชีพตัวเอง','ปลิดชีวิตตัวเอง','กินยาตาย','กินยาฆ่าตัว','โดดตึกตาย','กระโดดตึก','ผูกคอตาย'];
+const CR_EN=/\b(kill(ing)?\s*my\s*self|want(ed)?\s*to\s*die|wanna\s*die|suicid(e|al)|end(ing)?\s*my\s*life|end\s*it\s*all|self[\s-]*harm(ing)?|cut(ting)?\s*my\s*self|kms)\b/;
+function crisis(t){const low=String(t||'').toLowerCase(),th=low.replace(CR_SQ,'').replace(CR_NEG_TH,'');return CR_TH.some(w=>th.includes(w))||CR_EN.test(low.replace(CR_NEG_EN,' '));}
+const CARE='บรรทัดนี้จะยังไม่ขึ้นการ์ดและข้อความแชร์ ถ้าช่วงนี้คุณรู้สึกหนักจนอยากหายไป ลองโทรคุยกับสายด่วนสุขภาพจิต 1323 ดูนะ เปิดตลอด 24 ชั่วโมง ไม่เสียค่าโทร มีคนพร้อมฟังคุณอยู่';
 
 // ---------- share code (identical copy in functions/s/[[path]].js) ----------
 // bytes: [ver, drg<<6|rank<<3|cls, floor|won<<7, pct|human<<7, ...name, 0, ...title, fnv8]  drg 0 none / 1 spared the dragon / 2 killed it (v2.1, only with won;
@@ -310,8 +318,10 @@ async function renderBirth(d){
 // ---------- share text ----------
 const CLOSE=['คุณจะไปได้ถึงชั้นไหน?','ถ้าเป็นคุณ จะไปได้ไกลกว่านี้ไหม?','ลองเกิดดูสักชาติไหม เผื่อได้แรงค์ดีกว่านี้','ชาติหน้าของคุณจะไปถึงชั้นไหน?'];
 function xLen(s){let n=0;for(const ch of s){const c=ch.codePointAt(0);n+=(c<=4351||(c>=8192&&c<=8205)||(c>=8208&&c<=8223)||(c>=8242&&c<=8247))?1:2;}return n;}
+// skip list (v2.7): heavy moments never get bragged about in the share text, even if a legend title or a name carries them (auto.js sens() filters at the source too)
+const SKIP=/(เครื่องเซ่น|เรียกค่าไถ่|ป้อนหอคอย|ฆ่าตัว|ทำร้ายตัวเอง|ร่างโปร่งแสงของเด็ก)/;
 function hooks(d){const k=d.hk||{},out=[],seed=hashStr(d.name+'|'+d.floor+'|'+d.clsId+'|'+d.rankK);
- const add=(id,g,s,t,f)=>{if(t)out.push({id,g,t,f:f||0,s:s+(hashStr(seed+':'+id)%1000)/400});};
+ const add=(id,g,s,t,f)=>{if(t&&!SKIP.test(t)&&!crisis(t))out.push({id,g,t,f:f||0,s:s+(hashStr(seed+':'+id)%1000)/400});};
  (k.legs||[]).slice(0,2).forEach((x,i)=>add('leg'+i,'leg',7-i,`ชั้น ${x.f} เจอเรื่องระดับตำนาน “${x.t}”`,x.f));
  if(k.betray&&k.betray.length){const b=k.betray[0];add('betray','betray',8,`ชั้น ${b.f} ${b.n}ทรยศ ขโมยทองแล้วหนีไป`,b.f);}
  if(d.bosses>=1&&k.bossLast)add('boss','boss',3.5+Math.min(4,d.bosses),d.bosses>1?`ล้มบอสได้ ${d.bosses} ตัว ตัวสุดท้ายอยู่ชั้น ${k.bossLast}`:`ล้มบอสชั้น ${k.bossLast} ได้`,k.bossLast);
@@ -359,7 +369,7 @@ const SK='tof-share-stat-v1',SHK=['img','line','x','threads','copy','native','sa
 const cntV=v=>{v=Math.floor(+v);return isFinite(v)&&v>0?Math.min(v,1e9):0;};
 function stats(){let o=null;try{o=JSON.parse(localStorage.getItem(SK)||'null');}catch(e){}o=o&&typeof o==='object'?o:{};const sh=o.sh&&typeof o.sh==='object'?o.sh:{};
  const r={v:1,ao:cntV(o.ao),mo:cntV(o.mo),bo:cntV(o.bo),sh:{},note:cntV(o.note)};SHK.forEach(k=>{r.sh[k]=cntV(sh[k]);});return r;}
-function statPut(o){try{localStorage.setItem(SK,JSON.stringify(o));}catch(e){}}
+function statPut(o){try{localStorage.setItem(SK,JSON.stringify(o));}catch(e){}try{if(window.LB&&window.LB.ssSoon)window.LB.ssSoon();}catch(e){}}
 function statBump(k){try{const o=stats();o[k]++;statPut(o);}catch(e){}}
 // kind = one of SHK; withNote = the shared text/card includes the note line
 function track(kind,withNote){try{const o=stats();o.sh[kind]++;if(withNote&&state&&state.d&&state.d.note)o.note++;statPut(o);}catch(e){}}
@@ -383,6 +393,7 @@ const CSS=`
 .shs textarea{width:100%;box-sizing:border-box;min-height:64px;resize:vertical;background:#0f1a1f;color:#f1e7d0;border:2px solid #3d5a66;border-radius:6px;padding:9px 11px;font:400 15px/1.5 ${fT}}
 .shs textarea:focus{outline:2px solid #f4bb4a;outline-offset:1px;border-color:#b97a22}
 .shs-hint{font-size:12px;color:#6f857e;margin:-4px 0 0}
+.shs-care{font-size:13.5px;line-height:1.6;color:#f1e7d0;background:#1d2f2a;border:1px solid #4f8a72;border-radius:6px;padding:9px 11px;margin:0}
 .shs-pri{display:flex;flex-direction:column;align-items:center;gap:3px;line-height:1.3;width:100%;background:#e86a3a;color:#1a0b04;border:2px solid #000;border-radius:8px;padding:12px 10px;cursor:pointer;
  box-shadow:inset 0 -4px 0 #a8431c,inset 0 2px 0 #ffb08a;font:600 19px ${fT};min-height:60px}
 .shs-pri small{display:block;font:400 12.5px/1.4 ${fT};color:#3a1606}
@@ -437,6 +448,7 @@ function build(){
  const lab=el('label',{class:'shs-lab',for:'shs-note'});const labT=el('span');lab.append(labT);const cnt=el('span',{'aria-live':'off'},'0/120');lab.append(cnt);
  const ta=el('textarea',{id:'shs-note',maxlength:'120',rows:'2',autocomplete:'off'});
  const hint=el('p',{class:'shs-hint'},'ถ้าเขียนไว้ จะขึ้นเป็นบรรทัดแรกของโพสต์และอยู่บนการ์ดด้วย');
+ const care=el('p',{class:'shs-care',role:'status'},CARE);care.hidden=true;
  const inapp=el('p',{class:'shs-inapp'},'แอปที่เปิดเกมอยู่ตอนนี้ (เช่น LINE หรือ Facebook) แชร์รูปตรงๆ ไม่ได้ ให้กดคัดลอกข้อความกับลิงก์ไปวางแทน ส่วนรูปการ์ด กดค้างที่รูปด้านล่างแล้วเลือกบันทึก หรือแตะ ⋯ แล้วเลือกเปิดในเบราว์เซอร์');inapp.hidden=!INAPP;
  const pri=el('button',{type:'button',class:'shs-pri'});
  const grid=el('div',{class:'shs-grid'});
@@ -451,14 +463,14 @@ function build(){
  const hold=el('p',{class:'shs-note'},'กดค้างที่รูปเพื่อบันทึก');hold.hidden=!INAPP;
  const wrap=el('div');
  const foot=el('p',{class:'shs-note'},'ลิงก์ที่ส่งใน LINE, X และ Threads จะมีภาพตัวอย่างขึ้นเอง ถ้าอยากให้เพื่อนเห็นการ์ดใบนี้ด้วย ให้บันทึกรูปแล้วแนบไปกับโพสต์');
- box.append(hd,lead,lab,ta,hint,inapp,pri,grid,mini,msg,det,hold,wrap,foot);dlg.append(box);document.body.append(dlg);
- dlg._={ttl,labT,box,lead,ta,cnt,pri,bLine,bX,bTh,bCopy,bSave,bLink,msg,pre,wrap};
+ box.append(hd,lead,lab,ta,hint,care,inapp,pri,grid,mini,msg,det,hold,wrap,foot);dlg.append(box);document.body.append(dlg);
+ dlg._={ttl,labT,box,lead,ta,care,cnt,pri,bLine,bX,bTh,bCopy,bSave,bLink,msg,pre,wrap};
  x.onclick=close;
  dlg.addEventListener('cancel',e=>{e.preventDefault();close();});
  dlg.addEventListener('click',e=>{if(e.target!==dlg)return;const r=box.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)close();});
  dlg.addEventListener('keydown',e=>{if(e.key==='Tab'){const f=[...dlg.querySelectorAll('button:not([hidden]),textarea,summary')].filter(n=>n.offsetParent!==null);if(!f.length)return;const a=f[0],z=f[f.length-1];
   if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus();}else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus();}}});
- ta.addEventListener('input',()=>{if(!state)return;state.d.note=cleanNote(ta.value);cnt.textContent=Array.from(ta.value).length+'/120';refreshText();clearTimeout(state.rt);state.rt=setTimeout(()=>redraw(),450);
+ ta.addEventListener('input',()=>{if(!state)return;state.d.note=cleanNote(ta.value);care.hidden=!crisis(ta.value);cnt.textContent=Array.from(ta.value).length+'/120';refreshText();clearTimeout(state.rt);state.rt=setTimeout(()=>redraw(),450);
   try{if(state.onNote)state.onNote(state.d.note);}catch(e){}});
  pri.onclick=()=>{if(INAPP){track('copy',true);copy(true);}else{track('img',true);shareImage();}};
  bCopy.onclick=()=>{track('copy',true);copy(true);};bLink.onclick=()=>{track('copy',false);copy(false);};bSave.onclick=()=>{track('save',false);save();};
@@ -503,7 +515,7 @@ function openSheet(d,opt){
  D.ttl.textContent=d.birth?'แชร์ฮีโร่ที่เพิ่งเกิด':'แชร์ชีวิตนี้';
  D.labT.textContent=d.birth?'อยากฝากอะไรถึงฮีโร่คนนี้ไหม (ไม่ต้องเขียนก็ได้)':'ความรู้สึกหนึ่งบรรทัดหลังจบชีวิตนี้ (ไม่ต้องเขียนก็ได้)';
  D.lead.textContent=d.birth?'ฮีโร่คนนี้เพิ่งเกิด ส่งให้เพื่อนทายกันไหมว่าจะไปได้ถึงชั้นไหน?':opt.auto?(d.won?'ชีวิตนี้ขึ้นถึงยอดหอแล้ว เขียนอะไรถึงมันสักบรรทัด แล้วอวดเพื่อนไหม?':'ชีวิตนี้จบลงแล้ว ลองเขียนความรู้สึกสักบรรทัด แล้วส่งให้เพื่อนดูไหม?'):'อยากเขียนความรู้สึกก็เขียนสั้นๆ ไว้ได้ แล้วเลือกว่าจะแชร์ทางไหน';
- D.ta.value=d.note;D.cnt.textContent=Array.from(d.note).length+'/120';
+ D.ta.value=d.note;D.care.hidden=true;D.cnt.textContent=Array.from(d.note).length+'/120';
  const ph=placeholders(d);let pi=hashStr(d.name)%ph.length;D.ta.placeholder=ph[pi];s.ph=setInterval(()=>{if(document.activeElement===D.ta&&D.ta.value)return;pi=(pi+1)%ph.length;D.ta.placeholder=ph[pi];},3200);
  const canFiles=!INAPP&&!!(navigator.canShare&&(()=>{try{return navigator.canShare({files:[new File([''],'a.png',{type:'image/png'})]});}catch(e){return false;}})());
  D.pri.innerHTML='';D.pri.append(document.createTextNode(INAPP?'คัดลอกข้อความและลิงก์':'แชร์เป็นรูปภาพ'),el('small',null,INAPP?'แล้วไปวางในแชตหรือโพสต์ได้เลย':canFiles?'LINE · Facebook · Instagram · X และแอปอื่นๆ':'เครื่องนี้แชร์รูปตรงๆ ไม่ได้ จะบันทึกรูปการ์ดให้แทน'));
@@ -533,5 +545,5 @@ function onPhase(ph){if(friend&&!fShown)showFriend();if(friendEl&&lastPh==='birt
 readFriend();
 if(friend)setTimeout(showFriend,0); // auto.js normally shows it first through onPhase()
 
-window.SHARE={open,openBirth,stats,close,render,text,url:shareUrl,encode,decode,onPhase,get friend(){return friend;},get isOpen(){return!!(dlg&&dlg.open);}};
+window.SHARE={open,openBirth,stats,crisis,close,render,text,url:shareUrl,encode,decode,onPhase,get friend(){return friend;},get isOpen(){return!!(dlg&&dlg.open);}};
 })();

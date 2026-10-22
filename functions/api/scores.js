@@ -2,12 +2,14 @@
 // storage: store(env) = D1 TOF_DB or KV TOF_KV (keys: 'top' = top 100, 'recent' = last 50, 'rl:<ip>' rate limit, 'dup:<id>' dedupe)
 // GET  -> {top:[...], recent:[...]}  (Cache-Control: max-age=30)
 // POST -> body = entry JSON (see LEADERBOARD.md) -> {ok:true, id, rank, v, day, ss} | {error}
-//         optional 'ss' = share counters (v2.3), summed into live.d[day].ss; response ss:1 means they were counted
+//         optional 'ss' = share counters (v2.3), summed into live.d[day].ss; response ss:1 means they were counted (v2.7 clients send them to /api/live instead)
+//         optional 'dv' = device id (v2.7): at most DV_MAX posts per device per Thai day ('rd:<hash>'), on top of the per-IP limit
 
 import { store } from './store.js';
-import { readLive, prune, writeLive, okDay } from './live.js';
+import { readLive, prune, writeLive, okDay, okDv, thDay, shareStats, addShare } from './live.js';
 const TOP_N = 100, RECENT_N = 50;
 const RL_MAX = 10, RL_WIN = 600;          // 10 posts / 10 min / IP
+const DV_MAX = 150;                       // posts / Thai day / device (v2.7)
 const DUP_TTL = 86400;
 const MAX_BODY = 4096;
 const RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'];
@@ -59,23 +61,14 @@ export function validate(b, now = Date.now()) {
   e.clan = CLAN.includes(b.clan) ? b.clan : '';
   // v2.2 run ticket / presence id / daily theme (not stored, not part of canon)
   const x = { tk: typeof b.tk === 'string' && /^[a-f0-9]{20}$/.test(b.tk) ? b.tk : '', sid: typeof b.sid === 'string' && /^[a-z0-9]{6,24}$/.test(b.sid) ? b.sid : '',
-    day: okDay(b.day) ? b.day : '', dh: b.dh === 1 ? 1 : 0, ss: shareStats(b.ss) };
+    day: okDay(b.day) ? b.day : '', dh: b.dh === 1 ? 1 : 0, ss: shareStats(b.ss), dv: okDv(b.dv) ? b.dv : '' };
   if (typeof b.h !== 'string' || b.h !== fnv(SALT + '|' + canon(e))) return { err: 'integrity' };
   e.id = fnv(canon(e)) + e.date.toString(36).slice(-3);
   e.at = now;
   return { e, x };
 }
 
-// share analytics (v2.3): counters from share.js piggyback on a score post and are summed into live.d[day].ss (no extra KV write)
-export const SS_KEYS = ['ao', 'mo', 'bo', 'img', 'line', 'x', 'threads', 'copy', 'native', 'save', 'note'];
-const SS_CAP = 50;
-export function shareStats(v) {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
-  const o = {}; let any = 0;
-  for (const k of SS_KEYS) { const n = v[k]; if (isInt(n, 1, SS_CAP)) { o[k] = n; any = 1; } }
-  return any ? o : null;
-}
-const thDay = now => new Date(now + 7 * 3600e3).toISOString().slice(0, 10);
+// share analytics (v2.3): old clients piggyback share counters on a score post, summed into live.d[day].ss (shareStats/addShare live in live.js since v2.7)
 
 export const cmp = (a, b) => (b.won - a.won) || (b.floor - a.floor) || (b.score - a.score) || (a.date - b.date);
 
@@ -134,8 +127,17 @@ export async function onRequestPost({ request, env }) {
     const wait = Math.ceil((rl.t + RL_WIN * 1000 - now) / 1000);
     return json({ error: 'rate-limited', retryAfter: wait }, 429, { 'Retry-After': String(Math.max(1, wait)) });
   }
+  // per device per Thai day (v2.7); clients without dv only meet the IP limit
+  let rd = null, rdKey = '';
+  if (x.dv) {
+    rdKey = 'rd:' + fnv('tof-dv|' + x.dv);
+    try { rd = JSON.parse(await kv.get(rdKey) || 'null'); } catch { }
+    if (!rd || rd.d !== thDay(now)) rd = { d: thDay(now), c: 0 };
+    if (rd.c >= DV_MAX) return json({ error: 'rate-limited', scope: 'dev', retryAfter: 3600 }, 429, { 'Retry-After': '3600' });
+  }
   rl.c++;
   await kv.put(rlKey, JSON.stringify(rl), { expirationTtl: Math.max(60, Math.ceil((rl.t + RL_WIN * 1000 - now) / 1000)) });
+  if (rd) { rd.c++; await kv.put(rdKey, JSON.stringify(rd), { expirationTtl: 2 * 86400 }); }
 
   // dedupe identical submissions (one score per run ticket)
   const dupKey = x.tk ? 'dup:tk:' + x.tk : 'dup:' + e.id;
@@ -168,12 +170,7 @@ export async function onRequestPost({ request, env }) {
         const d = v.d[x.day] || (v.d[x.day] = { n: 0, h: 0, w: 0, f: 0 });
         d.n++; d.h += x.dh; d.w += e.won ? 1 : 0; d.f += e.floor; day = d;
       }
-      if (x.ss) {
-        const k = fresh ? x.day : thDay(now);
-        const d = v.d[k] || (v.d[k] = { n: 0, h: 0, w: 0, f: 0 });
-        const t = d.ss && typeof d.ss === 'object' ? d.ss : (d.ss = {});
-        for (const j in x.ss) t[j] = (Number.isInteger(t[j]) ? t[j] : 0) + x.ss[j];
-      }
+      if (x.ss) addShare(v, fresh ? x.day : thDay(now), x.ss);
       prune(v);
       await writeLive(kv, v);
       ss = x.ss ? 1 : 0;

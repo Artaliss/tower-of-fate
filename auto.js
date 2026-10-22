@@ -153,7 +153,13 @@ const hasTr=(R,id)=>R.comps.some(c=>c.tr===id);
 const omenOf=h=>RUN_OMENS.find(o=>o.id===h.omen)||RUN_OMENS[0];
 // daily theme (v2.2): h.day={d:'YYYY-MM-DD',t:id} is set at birth; the run keeps it even past midnight
 const dayOf=h=>h&&h.day&&DAYS.find(x=>x.id===h.day.t)||null;
-const dayW=(R,k)=>{const D=R.dayT&&DAYS.find(x=>x.id===R.dayT);return D&&D.sp[k]||1;};
+const dayW=(R,k)=>{const D=R.dayT&&DAYS.find(x=>x.id===R.dayT),w=D&&D.sp[k]||1,Z=w>1&&dayZone(R);return Z&&R.floor>=Z.a&&R.floor<=Z.b?w*2:w;};
+// day hazards (v2.7): a theme with zn hits one 10-floor band (same band for everyone born that day). Inside it the theme's SPECIAL boosts double
+// and zn.k joins R.hzT; heroes still below it hear the news once instead
+const dayZone=R=>{const D=R.dayT&&DAYS.find(x=>x.id===R.dayT),d=R.h&&R.h.day&&R.h.day.d;if(!D||!D.zn||!d)return null;const a=11+10*(shash('tof-dayz|'+d)%8);return{z:D.zn,a,b:a+9};};
+function dayTick(R,out){const Z=dayZone(R);if(!Z)return;const f=R.floor,u=R.dZ||(R.dZ={});
+ if(!u.nw&&f>=Math.max(2,Z.a-10)&&f<Z.a){u.nw=1;sayK(R,out,`📰 ได้ยินว่าชั้น ${Z.a}–${Z.b} ${Z.z.w}`,'info');}
+ if(!u.in&&f>=Z.a&&f<=Z.b){u.in=1;R.hzT.push({k:Z.z.k,until:Z.b,n:Z.z.n,ic:Z.z.ic});sayK(R,out,`${Z.z.ic} ${Z.z.in} (อันตราย +${Math.round((Z.z.k-1)*100)}% ถึงชั้น ${Z.b})`,'bad');}}
 const dayHit=R=>{const D=R.dayT&&DAYS.find(x=>x.id===R.dayT);return!!D&&(D.hit||Object.keys(D.sp)).some(k=>R.used['sp:'+k]);};
 const MD=(R,k,d)=>{const v=R.mod&&R.mod[k];return v===undefined?d:v;};
 const gMul=R=>MD(R,'gold',1)*(hasPet(R,'drg')?1.2:1);
@@ -436,7 +442,7 @@ function statFloor(R,out,hf0){const h=R.h,f=R.floor,s=scl(f),sn=R.sn||(R.sn={});
   ['solo',()=>R.soloN>=8,()=>say(R,out,'เดินคนเดียวมาหลายชั้นแล้ว ไม่มีใครคอยระวังหลังให้ ชั้นต่อๆ ไปเสี่ยงกว่าตอนมีเพื่อน (ไม่มีเพื่อนร่วมทาง)','info')]];
  for(const[k,when,run]of rules){if(f-(sn[k]===undefined?-99:sn[k])<STAT_CD||!when())continue;sn[k]=f;run();break;}}
 // ---- "the tower right now": named timed hazard modifiers (R.hzT) show under the scene and say when they wear off ----
-function towerTick(R,out){for(const t of R.hzT)if(t.n&&t.until<R.floor&&!t.gone){t.gone=1;say(R,out,`${t.n} หมดผลแล้ว`,'info');}}
+function towerTick(R,out){dayTick(R,out);for(const t of R.hzT)if(t.n&&t.until<R.floor&&!t.gone){t.gone=1;say(R,out,`${t.n} หมดผลแล้ว`,'info');}}
 function towerNow(R){if(!R||!R.alive)return'';const f=R.floor,L=R.hzT.filter(t=>t.n&&t.until>=f).map(t=>`${t.ic||'•'} ${t.n} (อันตราย ${t.k<1?'−':'+'}${Math.round(Math.abs(1-t.k)*100)}% อีก ${t.until-f+1} ชั้น)`);
  if(R.cursed)L.push(`☠ ติดคำสาป ${R.cursed} ครั้ง (อันตราย +${Math.round((Math.pow(1.3,R.cursed)-1)*100)}%)`);
  const D=R.dayT&&DAYS.find(x=>x.id===R.dayT);if(D)L.push(`📅 ${D.n}`);
@@ -1735,7 +1741,11 @@ function runTitle(R){const h=R.h,fl=R.won?100:R.floor,leg=R.hist.filter(x=>x.rar
  if(R.keys>3&&R.timeouts>=R.keys)T.push([4,'คนที่ปล่อยให้ฟ้าลิขิต']);if(R.keys>5&&R.timeouts===0)T.push([3,'ผู้เลือกทางเดินเอง']);
  if(h.gold>=400*scl(fl)/2)T.push([3,'เศรษฐีในหลุมศพ']);if(R.kills>=fl*.9)T.push([2,'นักล่าไม่รู้เหนื่อย']);if(R.comps.some(c=>c.legend))T.push([4,'นายจ้างของตำนาน']);
  T.push([1,'นักผจญภัยธรรมดาคนหนึ่ง']);T.sort((a,b)=>b[0]-a[0]);return{t:T[0][1],gold:!!T[0][2]};}
-function montage(R){const H=R.hist;if(!H.length)return[];const n=Math.min(8,Math.max(2,2+Math.floor((R.won?100:R.floor)/14)),H.length),out=[];
+// sensitive moments (v2.7): never picked for the end montage or bragged about in the share text (legend hooks)
+// SENS_TID = the lost child's ghost (the hero walked past her); SENS_CH = choices that hurt someone helpless or sacrifice a pet
+const SENS_TID=/^arc:child:1:0$/,SENS_CH=['ทำเป็นไม่เห็น','จับไปเรียกค่าไถ่','เข้าร่วมพิธี','ถวายสัตว์เลี้ยง','ถวายเลือดตัวเอง','แทงลงไป'];
+const sens=m=>!!m&&(SENS_TID.test(String(m.tid||''))||SENS_CH.includes(m.c));
+function montage(R){const H=R.hist.filter(m=>!sens(m));if(!H.length)return[];const n=Math.min(8,Math.max(2,2+Math.floor((R.won?100:R.floor)/14)),H.length),out=[];
  for(let k=0;k<n;k++){const a=Math.floor(k*H.length/n),b=Math.floor((k+1)*H.length/n);const seg=H.slice(a,Math.max(a+1,b));seg.sort((x,y)=>(y.rar==='l')-(x.rar==='l')||(y.rar==='r')-(x.rar==='r'));out.push(seg[0]);}
  return out;}
 // memorial: entries are never deleted. Near the storage quota only bulky optional fields of the oldest entries are dropped.
@@ -2226,7 +2236,7 @@ function shareData(R,sum,x){const h=R.h,cnt={};for(const c of R.stH||'')cnt[c]=(
  let bossLast=0;R.map.forEach((m,i)=>{if(m==='boss')bossLast=i+1;});const lc=R.comps.find(c=>c.legend);
  return Object.assign({},sum,{pct:x.pct,med:x.med,lv:h.lv,house:h.house||h.name,petN:R.pets.map(p=>PETS[p]?PETS[p].n:'').filter(Boolean),comps:R.comps.map(c=>c.n),
   map:R.map.slice(),pat:S.pat?{code:S.pat.code,n:S.pat.n,d:S.pat.d,v:S.pat.v.slice()}:null,stance:sk&&n?`${STANCES[sk].n} · ${Math.round(cnt[top]/n*100)}% ของทาง`:'',note:S.shareNote||'',
-  hk:{legs:R.hist.filter(v=>v.rar==='l').map(v=>({f:v.f,t:v.t})),betray,bossLast,legComp:lc?lc.n:'',master:h.master||'',coh:x.coh.length,beat:x.beat,nearP:R.pMax||0,nearF:R.pMaxF||0,gold:!!(S.title&&S.title.gold)}});}
+  hk:{legs:R.hist.filter(v=>v.rar==='l'&&!sens(v)).map(v=>({f:v.f,t:v.t})),betray,bossLast,legComp:lc?lc.n:'',master:h.master||'',coh:x.coh.length,beat:x.beat,nearP:R.pMax||0,nearF:R.pMaxF||0,gold:!!(S.title&&S.title.gold)}});}
 function openShare(auto){if(!S||!S.shareD||!window.SHARE)return;try{window.SHARE.open(Object.assign({},S.shareD,{note:S.shareNote||'',date:Date.now()}),{auto,onNote:v=>{S.shareNote=v;}});}catch(e){}}
 let ebIO=null;
 function endBar(on){const b=$('endBar');if(!b)return;if(ebIO){ebIO.disconnect();ebIO=null;}
