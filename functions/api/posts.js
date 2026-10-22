@@ -1,5 +1,5 @@
 // Cloudflare Pages Function: /api/posts  — community wall "ชีวิตที่แบ่งปัน" (v2.3)
-// KV binding: TOF_KV, ONE key 'posts' holds everything so each accepted action costs exactly 1 write:
+// storage: store(env) (D1 TOF_DB, KV fallback), ONE key 'posts' holds everything so each accepted action costs exactly 1 write:
 //   {v:1,
 //    p:[{id, t, s:{n,r,c,o,f,w,d,ti,ca,g}, q, rm, rp, x?, k}],   newest first, max 200 (x=1 hidden by reports)
 //    qp:{<ipHash>:[ts..]},   post times per IP in the last hour (quota)
@@ -9,6 +9,8 @@
 // POST {a:'post', s:{...}, q} -> {ok, post} | {error:'filtered', why:'link'|'personal'|'abuse'} | {error:'len'} | 429 {error:'rate-limited'|'busy'} | 409 {error:'dup'}
 // POST {a:'react', id}        -> {ok, rm, dup?}     (repeat from the same IP: no write)
 // POST {a:'report', id}       -> {ok, dup?}         (hidden once rp >= REPORT_HIDE distinct IPs)
+
+import { store } from './store.js';
 
 const KEY = 'posts', MAX_POSTS = 200, GET_N = 50, MAX_BODY = 2048;
 const Q_MIN = 4, Q_MAX = 300;
@@ -103,7 +105,7 @@ function pruneQ(q, now) {
 const pub = p => ({ id: p.id, t: p.t, s: p.s, q: p.q, rm: p.rm | 0 });
 
 export async function onRequestGet({ request, env }) {
-  const kv = env && env.TOF_KV;
+  const kv = store(env);
   if (!kv) return json({ error: 'kv-not-configured' }, 503);
   const o = request.headers.get('Origin');
   if (o && o !== new URL(request.url).origin) return json({ error: 'forbidden' }, 403);
@@ -112,7 +114,7 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const kv = env && env.TOF_KV;
+  const kv = store(env);
   if (!kv) return json({ error: 'kv-not-configured' }, 503);
   if (!sameOrigin(request)) return json({ error: 'forbidden' }, 403);
   if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ error: 'content-type' }, 415);

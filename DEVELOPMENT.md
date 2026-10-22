@@ -86,13 +86,14 @@
 ## Cloudflare (ตารางอันดับ)
 
 - KV namespace: `tower-of-fate-scores` ผูกกับ Pages project `tower-of-fate` เป็นตัวแปร `TOF_KV` (Settings → Bindings, production) — ตั้งแล้ว 2026-10-21
+- D1 database: `tower-of-fate` ผูกเป็นตัวแปร `TOF_DB` (v2.4.1) ข้อมูลทั้งหมดอยู่ในตาราง `kv(k, v, exp)` ที่ functions/api/store.js สร้างเอง ถ้าไม่มี `TOF_DB` จะกลับไปใช้ KV; key ที่ยังไม่มีใน D1 จะอ่านจาก KV แทน เลยไม่ต้องย้ายข้อมูลเอง
 - Deploy hook ชื่อ `manual` (branch main) อยู่ใน Pages → Settings → Builds ใช้สั่ง deploy เองเมื่อ webhook ของ GitHub ล่าช้า (URL เป็นความลับ ห้ามใส่ใน repo นี้เพราะเป็น public)
 - API: `GET /api/scores` → `{top, recent}`, `POST /api/scores` ส่งผลรอบ มีตรวจค่า จำกัดจำนวนครั้งต่อ IP
 - กันโกง (v2.2): รอบที่จะเข้า `top` ต้องมีตั๋ว `tk` จาก `/api/live` start และเวลาเซิร์ฟเวอร์ตั้งแต่ออกตั๋วถึงส่ง ≥ ชั้น×250ms (`minMs`); ตั๋วหนึ่งใบส่งได้ครั้งเดียว (`dup:tk:<tk>`); ไม่ผ่าน → เก็บ `ok:0` ขึ้นแค่ `recent` พร้อมป้าย "ไม่นับอันดับ" (entry เก่าก่อน v2.2 ไม่มี field `ok` ไม่โชว์ป้าย) · ยังปลอมได้ถ้าตั้งใจจริง (ขอตั๋วแล้วรอ) แต่ยากขึ้นมาก; ลบแถวด้วย tools/lb-remove.js
 - POST จากนอกเว็บต้องมี header `Origin` เป็นโดเมนเดียวกัน ไม่งั้น 403
-- งบเขียน KV ต่อรอบโดยประมาณ: start 2 (live + tk) + heartbeat ~1–3 + ส่งคะแนน ~4–5 (rl, dup, top ถ้าติด, recent, live) ≈ 10 ครั้ง; KV แผนฟรีเขียนได้ 1,000 ครั้ง/วัน (≈100 รอบ/วัน) ถ้าเกินจะเขียนไม่ได้ทั้งตารางอันดับและตัวนับ → ถ้าคนเล่นเยอะให้อัปเป็น Workers Paid
+- งบเขียนต่อรอบโดยประมาณ: start 2 (live + tk) + heartbeat ~1–3 + ส่งคะแนน ~4–5 (rl, dup, top ถ้าติด, recent, live) ≈ 6–10 ครั้ง; KV แผนฟรีเขียนได้แค่ 1,000 ครั้ง/วัน และหมดจริงเมื่อ 2026-10-22 (164 รอบ) เลยย้ายไป D1 ที่แผนฟรีเขียนได้ 100,000 แถว/วัน (upsert ตารางที่มี primary key นับราว 2 แถว) ≈ 5,000 รอบ/วัน
 - ข้อจำกัด: เกมคำนวณฝั่งผู้เล่น
-- รายละเอียดเพิ่ม: `tools/LEADERBOARD.md` (ฟังก์ชัน fnv/clean/canon มีซ้ำใน leaderboard.js กับ scores.js ต้องแก้ให้ตรงกัน); ลบคะแนนโกงได้ที่ Workers KV → tower-of-fate-scores → key `top`
+- รายละเอียดเพิ่ม: `tools/LEADERBOARD.md` (ฟังก์ชัน fnv/clean/canon มีซ้ำใน leaderboard.js กับ scores.js ต้องแก้ให้ตรงกัน); ลบคะแนนโกงด้วย tools/lb-remove.js หรือ D1 → tower-of-fate → Console
 
 ## วิธีพัฒนาต่อ
 

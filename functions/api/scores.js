@@ -1,9 +1,10 @@
 // Cloudflare Pages Function: /api/scores
-// KV binding: TOF_KV  (keys: 'top' = top 100, 'recent' = last 50, 'rl:<ip>' rate limit, 'dup:<id>' dedupe)
+// storage: store(env) = D1 TOF_DB or KV TOF_KV (keys: 'top' = top 100, 'recent' = last 50, 'rl:<ip>' rate limit, 'dup:<id>' dedupe)
 // GET  -> {top:[...], recent:[...]}  (Cache-Control: max-age=30)
 // POST -> body = entry JSON (see LEADERBOARD.md) -> {ok:true, id, rank, v, day, ss} | {error}
 //         optional 'ss' = share counters (v2.3), summed into live.d[day].ss; response ss:1 means they were counted
 
+import { store } from './store.js';
 import { readLive, prune, writeLive, okDay } from './live.js';
 const TOP_N = 100, RECENT_N = 50;
 const RL_MAX = 10, RL_WIN = 600;          // 10 posts / 10 min / IP
@@ -101,7 +102,7 @@ function sameOrigin(request) {
 }
 
 export async function onRequestGet({ request, env }) {
-  const kv = env && env.TOF_KV;
+  const kv = store(env);
   if (!kv) return json({ error: 'kv-not-configured' }, 503);
   const o = request.headers.get('Origin');
   if (o && o !== new URL(request.url).origin) return json({ error: 'forbidden' }, 403);
@@ -110,7 +111,7 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const kv = env && env.TOF_KV;
+  const kv = store(env);
   if (!kv) return json({ error: 'kv-not-configured' }, 503);
   if (!sameOrigin(request)) return json({ error: 'forbidden' }, 403);
   const ct = request.headers.get('Content-Type') || '';

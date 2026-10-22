@@ -1,11 +1,13 @@
 // Cloudflare Pages Function: /api/live (v2.2)
-// KV binding: TOF_KV
+// storage: store(env) = D1 TOF_DB, falling back to KV TOF_KV (see store.js)
 //   'live'      = {u:{sid:[lastSeenMin, floor]}, d:{'YYYY-MM-DD':{n,h,w,f}}}  presence (10 min window) + per-day stats (last 3 days)
 //   'tk:<id>'   = {t0}  run ticket, issued at run start; /api/scores only lets ticketed, plausibly long runs into 'top'
 // GET  ?day=YYYY-MM-DD           -> {n, day:{n,h,w,f}|null}
 // POST {a:'start', sid}           -> {tk, n}
 // POST {a:'beat', sid, f}         -> {n}
 // Writes are kept low (KV free tier = 1,000 writes/day): a beat only writes when the sid was last written >= 5 min ago.
+
+import { store } from './store.js';
 
 const WIN_MIN = 10, BEAT_MIN = 5, TK_TTL = 3 * 86400;
 const SEC = { 'Content-Type': 'application/json; charset=utf-8', 'X-Content-Type-Options': 'nosniff', 'Vary': 'Origin' };
@@ -43,7 +45,7 @@ export const liveN = v => Object.keys(v.u).length;
 export const writeLive = (kv, v) => kv.put('live', JSON.stringify(v));
 
 export async function onRequestGet({ request, env }) {
-  const kv = env && env.TOF_KV;
+  const kv = store(env);
   if (!kv) return json({ error: 'kv-not-configured' }, 503);
   const o = request.headers.get('Origin');
   if (o && o !== new URL(request.url).origin) return json({ error: 'forbidden' }, 403);
@@ -53,7 +55,7 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const kv = env && env.TOF_KV;
+  const kv = store(env);
   if (!kv) return json({ error: 'kv-not-configured' }, 503);
   if (!sameOrigin(request)) return json({ error: 'forbidden' }, 403);
   const text = await request.text();
