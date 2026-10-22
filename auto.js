@@ -1342,7 +1342,7 @@ function secFight(R,way){const en=secEn(R),h=R.h,out=mkOut();R.sec.m0=clanM(R);R
  else{R.cause=`ถูก${en.n}ฆ่าบนชั้นลับเหนือยอดหอคอย`;h.hp=0;}
  return out;}
 /*SIM-END*/
-if(typeof document==='undefined'){window.AUTO_SIM={MFIT,secPrep,BFIT,DAYS,dayHit,secEn,secFight,secOpts,estimateWin,fight,SEC_K,DRG,rollHero,HZ,LX,pRoll,project,hzM,autoLife,newRun,planFloor,applyKey,mkKey,BAL,RUN_OMENS,STANCES};return;}
+if(typeof document==='undefined'){window.AUTO_SIM={SPECIAL,ARCS,DRAMA,MFIT,secPrep,BFIT,DAYS,dayHit,secEn,secFight,secOpts,estimateWin,fight,SEC_K,DRG,rollHero,HZ,LX,pRoll,project,hzM,autoLife,newRun,planFloor,applyKey,mkKey,BAL,RUN_OMENS,STANCES};return;}
 
 // ================= UI =================
 const {heroSpr,MSPR,BSPR,PSPR,PROPS,COIN,ICONS,sprCanvas,blit,bgImg,drawOverlay,drawProp,compSpr,compKey}=window.ART;
@@ -1353,11 +1353,11 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const fmt=n=>Math.round(n).toLocaleString('th-TH');
 const BASE_MS=5000; // one floor lasts 5 s at 1x (speed divides it: 16x = 0.31 s)
 const SPEEDS=[1,2,4,8,16];
-// key-moment countdown: 30 s (or 15 s, player option 'tof-dtime') of real time, not scaled by speed
-const DTK='tof-dtime';let dTime=(()=>{try{return +localStorage.getItem(DTK)===15?15:30;}catch(e){return 30;}})();
+// key-moment countdown: off by default (0 = no timer); player option 'tof-dtime2' turns on 30 s of real time, not scaled by speed
+const DTK='tof-dtime2';let dTime=(()=>{try{return +localStorage.getItem(DTK)===30?30:0;}catch(e){return 0;}})();
 const decMs=()=>dTime*1000;
-function setDTime(v){v=v===15?15:30;const old=dTime;dTime=v;try{localStorage.setItem(DTK,String(v));}catch(e){}
- if(S&&S.phase==='decide'&&S.decMs){S.left=Math.min(S.left*v/old,v*1000);S.decMs=v*1000;updCd();}renderCtl();}
+function setDTime(v){v=v===30?30:0;dTime=v;try{localStorage.setItem(DTK,String(v));}catch(e){}
+ if(S&&S.phase==='decide'){S.decMs=v*1000;S.left=S.decMs;S.cdLast=performance.now();updCd();}renderCtl();}
 let S=null;
 const VIS={hf:0,ef:0,nums:[],coins:[],shake:0,edead:false,walk0:0,show:null,dieAt:0};
 const THF='600 9px '+((getComputedStyle(document.documentElement).getPropertyValue('--fT')||'sans-serif').trim());
@@ -1723,7 +1723,7 @@ function render(){if(S.phase!=='decide')card.classList.remove('legend');$('formB
 function renderCtl(){const on=S.phase==='flow'||S.phase==='decide'||S.phase==='combat';$('ctl').hidden=!on;if(!on){renderStance();return;}
  const p=$('btnPause');p.textContent=S.paused?'▶ เดินต่อ':'⏸ หยุด';p.setAttribute('aria-pressed',S.paused?'true':'false');
  document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.speed===S.speed?'true':'false'));
- const dt=$('btnDT');if(dt){dt.textContent=`⏱ ${dTime} วิ`;}
+ const dt=$('btnDT');if(dt){dt.textContent=dTime?`⏱ ${dTime} วิ`:'⏱ ไม่จับเวลา';dt.setAttribute('aria-pressed',dTime?'true':'false');}
  $('ctlNote').textContent=S.R?`จุดเปลี่ยน ${S.R.keys} ครั้ง`:'';renderStance();}
 // stance toggle under the speed bar: always available while the run is going
 function renderStance(){const box=$('stanceBox');if(!box)return;const on=!!S.R&&['flow','decide','combat'].includes(S.phase);box.hidden=!on;if(!on)return;
@@ -1759,7 +1759,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  <div class="pas" style="margin-top:6px">นิสัย: <b>${esc(PERS[h.pers].n)}</b> · ${esc(PERS[h.pers].d)}</div>
  <div class="omenbox ${O.k==='พร'?'bless':O.k==='คำสาป'?'curse':'mix'}"><span class="ok">${O.k==='ผสม'?'พรปนคำสาป':O.k}ประจำชาตินี้</span> <b>${esc(O.n)}</b><br>${esc(O.d)}</div>${DT?`<div class="daybox" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${esc(DT.d)}</div>`:''}</div></div>
  <div class="livebox" id="liveBox"${S.liveHTML?'':' hidden'}>${S.liveHTML||''}</div>
- <p class="dim" style="font-size:13px;margin:10px 0 0">ในโหมดนี้ชีวิตเดินไปเอง คุณได้ตัดสินใจเฉพาะตอนสำคัญ มีเวลาคิด ${dTime} วินาที (เปลี่ยนได้ที่ปุ่ม ⏱ ข้างปุ่มความเร็ว) ถ้าไม่เลือก ฮีโร่จะเลือกเองตามนิสัย ทุกชั้นชะตาจะทอยว่าคุณรอดไหม โอกาสขึ้นอยู่กับ HP ที่เหลือ แผลเป็น กรรม คำสาป เพื่อนร่วมทาง และท่าทีที่คุณเลือก</p>
+ <p class="dim" style="font-size:13px;margin:10px 0 0">ในโหมดนี้ชีวิตเดินไปเอง คุณได้ตัดสินใจเฉพาะตอนสำคัญ ${dTime?`มีเวลาคิด ${dTime} วินาที ถ้าไม่เลือก ฮีโร่จะเลือกเองตามนิสัย (ปิดการจับเวลาได้ที่ปุ่ม ⏱ ข้างปุ่มความเร็ว)`:'คิดได้นานเท่าที่อยาก ถ้าอยากให้นับถอยหลัง 30 วินาทีแล้วฮีโร่เลือกเองเมื่อหมดเวลา กดปุ่ม ⏱ ข้างปุ่มความเร็ว'} ทุกชั้นชะตาจะทอยว่าคุณรอดไหม โอกาสขึ้นอยู่กับ HP ที่เหลือ แผลเป็น กรรม คำสาป เพื่อนร่วมทาง และท่าทีที่คุณเลือก</p>
  <div class="nmset"><label for="inName">ตั้งชื่อเอง</label><input id="inName" type="text" maxlength="${NAME_MAX}" autocomplete="off" spellcheck="false" placeholder="${esc(h.name0||h.name)}" value="${h.cname?esc(h.name):''}"><span class="hint">ปล่อยว่างไว้ก็ใช้ชื่อที่สุ่มมา</span></div>
  <div class="acts"><button class="btn" id="btnReroll" data-k="1" ${S.rerolled?'disabled':''}>สุ่มแรงค์/อาชีพใหม่ ${S.rerolled?'(ใช้ไปแล้ว)':'(เหลือ 1 ครั้ง)'}<span class="kb">[1]</span></button>
  <button class="btn" id="btnLook" data-k="3" type="button">🎲 สุ่มหน้าตาใหม่<span class="kb">[3]</span></button>
@@ -1905,9 +1905,9 @@ let cdI=null;
 function openKey(K){const R=S.R;S.K=K;S.phase='decide';S.decMs=decMs(K);S.left=S.decMs;VIS.show=K.vis;VIS.walk0=0;VIS.edead=false;
  music(biome(R.floor),R.floor);if(K.vis&&K.type!=='boss'&&K.vis.vr===undefined)K.vis.vr=shash(R.h.name+'|'+K.tid)%3;
  if(!sting(K.type==='boss'||K.rar==='l'?'boss':'key'))AUDIO.sfx(K.type==='boss'||K.rar==='l'?'boss':'levelup');render();
- // wall-clock countdown (a throttled background tab must not stretch the 30/15 s)
- clearInterval(cdI);S.cdLast=performance.now();cdI=setInterval(()=>{if(S.phase!=='decide'){clearInterval(cdI);return;}const now=performance.now(),dt=now-S.cdLast;S.cdLast=now;if(S.paused||tipPause>0)return;S.left-=dt;updCd();if(S.left<=0){clearInterval(cdI);choose(S.K.pick,true);}},100);}
-function updCd(){const b=$('cdBar'),t=$('cdTxt');if(!b)return;const p=clamp(S.left/S.decMs,0,1);b.style.width=(p*100)+'%';b.classList.toggle('low',S.left<=3000);
+ // wall-clock countdown (a throttled background tab must not stretch the 30 s); decMs 0 = no timer
+ clearInterval(cdI);S.cdLast=performance.now();cdI=setInterval(()=>{if(S.phase!=='decide'){clearInterval(cdI);return;}const now=performance.now(),dt=now-S.cdLast;S.cdLast=now;if(S.paused||tipPause>0||!S.decMs)return;S.left-=dt;updCd();if(S.left<=0){clearInterval(cdI);choose(S.K.pick,true);}},100);}
+function updCd(){const b=$('cdBar'),t=$('cdTxt');if(!b)return;if(!S.decMs){b.style.width='100%';b.classList.remove('low');t.textContent='ไม่จับเวลา คิดได้เต็มที่';return;}const p=clamp(S.left/S.decMs,0,1);b.style.width=(p*100)+'%';b.classList.toggle('low',S.left<=3000);
  t.textContent=S.paused?'หยุดเวลาไว้':`เหลือเวลา ${Math.ceil(S.left/1000)} วินาที`;}
 // why a choice is locked: a "(…)" red chip if there is one, and how much gold is missing when the cost shows as "−N ทอง"
 function disWhy(R,c){let w='',j=-1,cost=0;(c.P||[]).forEach((p,i)=>{if(j<0&&p.c==='b'&&/^\(.+\)$/.test(p.t)){j=i;w=p.t.slice(1,-1);}
@@ -2335,7 +2335,7 @@ function setSpeed(v){const k=S.speed/v;S.speed=v;try{localStorage.setItem('tof-a
 function togglePause(){if(!['flow','decide','combat'].includes(S.phase))return;S.paused=!S.paused;renderCtl();saveRun();
  if(S.phase==='flow'){if(S.paused){clearTimeout(S.tm);S.pauseLeft=S.tipHold?(S.tipLeft||0):Math.max(0,S.tmAt-performance.now());S.tipHold=0;renderFlow();revealArm();}else{renderFlow();const l=S.pauseLeft||250;S.pauseLeft=0;S.tmAt=performance.now()+l;clearTimeout(S.tm);S.tm=setTimeout(tick,l);tipHold();revealArm();}}else if(S.phase==='decide')updCd();}
 $('btnPause').onclick=togglePause;
-{const b=$('btnDT');if(b)b.onclick=()=>setDTime(dTime===30?15:30);}
+{const b=$('btnDT');if(b)b.onclick=()=>setDTime(dTime?0:30);}
 document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.speed));
 document.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;if(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return;const k=e.key;
  if(/^[1-4]$/.test(k)){const b=card.querySelector(`button[data-k="${k}"]`);if(b&&!b.disabled){e.preventDefault();b.click();}}
