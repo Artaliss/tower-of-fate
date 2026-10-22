@@ -164,7 +164,7 @@ const dayHit=R=>{const D=R.dayT&&DAYS.find(x=>x.id===R.dayT);return!!D&&(D.hit||
 const MD=(R,k,d)=>{const v=R.mod&&R.mod[k];return v===undefined?d:v;};
 const gMul=R=>MD(R,'gold',1)*(hasPet(R,'drg')?1.2:1)*hzF(R,'g');
 const keyGap=R=>ri(4,8)+(R?MD(R,'kg',0):0);
-function newRun(h){const R={h:JSON.parse(JSON.stringify(h)),floor:1,pets:[],comps:[],potions:1,warps:0,map:Array(100).fill(''),farmed:Array(100).fill(0),farmN:0,retreats:0,kills:0,bosses:0,alive:true,won:false,cause:'',maxFloor:1,buys:{},seen:[],log:[],
+function newRun(h){const R={h:JSON.parse(JSON.stringify(h)),floor:1,pets:[],comps:[],potions:h.ss?2:1,warps:0,map:Array(100).fill(''),farmed:Array(100).fill(0),farmN:0,retreats:0,kills:0,bosses:0,alive:true,won:false,cause:'',maxFloor:1,buys:{},seen:[],log:[],
  rolled:0,hzP:1,hzT:[],fateShift:0,mLog:0,mN:0,pMax:0,pMaxF:0,pPrev:[],lastP:0,omens:0,lastOmen:-9,scars:0,lethal:false,quiet:false,sinceKey:0,keyGap:5,egg:null,farmLeft:0,pend:null,keys:0,timeouts:0,reveal:null,cursed:0,lastSp:'',death:'',kt:{},
  way:{},sameN:0,plainN:0,ledger:[],kctx:'',lastKOmen:-9,
  mod:Object.assign({},omenOf(h).mod),used:{},omenX:[],arcs:{},quietN:0,drama:0,lastQuiet:0,lastDrama:0,lastDramaId:'',hist:[],xseen:null,
@@ -2231,6 +2231,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  const cAct=[cGot.length>1?`<label class="csel">ชื่อตระกูล <select id="selClanM">${cGot.map(x=>cOpt(x,CLAN_T[x],x===CL.m)).join('')}</select></label>`:'',
   cp?`<label class="csel">สัตว์ประจำตระกูล <select id="selClanPet">${cPets.map(p=>cOpt(p,esc(PETS[p].n),!h.petHome&&p===CL.pet)).join('')}${cOpt('home','ฝากไว้ที่บ้าน',!!h.petHome)}</select></label>`:''].join('');
  const clanH=CL.m||cp||C.id==='dsl'?`<div class="inhbox clanbox rv"${D(5)}>${CL.m?`<span data-tip="clan"><b>${CLAN_T[CL.m]}</b></span> · ${esc(clanLine(CL.m,CL.n))}`:''}${cp?`${CL.m?'<br>':''}<span data-tip="clanpet">${CF?`ไข่มังกร${esc(DRG[CF]?DRG[CF].n.replace('มังกร',''):'')}ที่คนในตระกูลเก็บกลับมาฟักแล้ว ได้${esc(cp.n)}เป็นสัตว์ประจำตระกูล`:h.petHome?`${esc(cp.n)} สัตว์ประจำตระกูล ชาตินี้ฝากไว้ที่บ้าน`:`${esc(cp.n)} สัตว์ประจำตระกูล เดินตามมาด้วย`} (${esc(cp.d)})</span>`:''}${C.id==='dsl'?`${CL.m||cp?'<br>':''}<span data-tip="dsl">เกิดมาเป็นนักล่ามังกร อาชีพลับที่เกิดได้เฉพาะในตระกูลที่เคยฆ่ามังกร</span>`:''}${cAct.trim()?`<div class="clanacts">${cAct}</div>`:''}</div>`:'';
+ const ssH=h.ss?`<div class="inhbox clanbox rv"${D(5)}><b>✨ ของขวัญจากดวงดาว</b> · เกิดมาแรงค์ SS ได้ทอง +${SS_GOLD} กับยาฟื้นฟูอีก 1 ขวด</div>`:'';
  const excH=h.ex&&h.ex.got?`<div class="inhbox clanbox rv"${D(5)}><span data-tip="excal"><b>🗡 ดาบศักดิ์สิทธิ์ในหิน</b></span> · ติดตัวมาตั้งแต่เกิด (ATK +10% · ตีบอสแรงขึ้น 10%)</div>`:'';
  card.innerHTML=`<div class="cert${an?' anim':''}"><div class="hd">✦ ใบประกาศนักผจญภัย ✦</div><div class="nm">${esc(h.name)}</div><div class="vil">ถิ่นกำเนิด: ${esc(h.village)}</div>${lin}
  <div class="tiles"><div class="tile rv"${D(0)}><span class="tl">แรงค์</span><span class="rk" style="background:${Rk.col}">RANK ${Rk.k}</span><span class="tp px">${Rk.w}%</span></div>
@@ -2240,7 +2241,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  <div class="pas rv"${D(1)}>สกิลติดตัว <b>${C.p}</b> · ${C.pd}</div>
  <div class="cstats rv"${D(3)}><div>HP<b>${Math.round(h.mhp)}</b></div><div>ATK<b>${Math.round(h.atk)}</b></div><div>DEF<b>${Math.round(h.def)}</b></div><div>LUK<b>${Math.round(h.luk)}</b></div><div>MP<b>${Math.round(h.mmp)}</b></div><div>ทอง<b>${fmt(h.gold)}</b></div></div>
  <div class="odds big rv"${D(4)} data-tip="combo">ฮีโร่แบบคุณ: <b>1 ใน ${fmt(combOdds(h))}</b><span class="sm">แรงค์กับอาชีพ 1 ใน ${fmt(h.odds)} · หน้าตา 1 ใน ${fmt(1/LI.p)}</span></div>
- ${inh}${clanH}${excH}<div class="rv"${D(5)}><div class="fatebox">ดวงชะตา: <b>${esc(HINTS[h.hint])}</b></div>
+ ${inh}${ssH}${clanH}${excH}<div class="rv"${D(5)}><div class="fatebox">ดวงชะตา: <b>${esc(HINTS[h.hint])}</b></div>
  <div class="pas" style="margin-top:6px">นิสัย: <b>${esc(PERS[h.pers].n)}</b> · ${esc(PERS[h.pers].d)}</div>
  <div class="omenbox ${O.k==='พร'?'bless':O.k==='คำสาป'?'curse':'mix'}"><span class="ok">${O.k==='ผสม'?'พรปนคำสาป':O.k}ประจำชาตินี้</span> <b>${esc(O.n)}</b><br>${esc(O.d)}</div>${DT?`<div class="daybox" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${esc(DT.d)}</div>`:''}</div></div>
  <div class="livebox" id="liveBox"${S.liveHTML?'':' hidden'}>${S.liveHTML||''}</div>
@@ -2295,11 +2296,14 @@ function setName(h,v){const n=cleanName(v);if(!h.name0)h.name0=h.name;const own=
 // a new hero: fresh line (gen 1), apprentice of a finished life (bo.heir), or a rebirth whose past karma tilts the rank roll (bo.kShift)
 // sword in the stone: what this player's line has done so far (tries, pulled), copied onto the hero at birth
 function excBirth(){const v=excLoad()||{};return{n:Math.max(0,Math.floor(+v.n||0)),got:v.got?1:0};}
+const SS_GOLD=300;
 function rollBirth(bo){let h;const C=clanBirth();
  if(bo&&isObj(bo.heir)){const P=bo.heir;h=rollHero({dsl:C.cls,unl:loadUnl()});h.village=P.village||h.village;h.gen=(P.gen||1)+1;h.lin=P.lin;h.house=P.house||P.name;h.master=P.name;
   const k=clamp(Math.round((P.karma||0)*.25),-6,6),g=Math.min(600,Math.round((P.gold||0)*.3));h.inh={gold:g,pet:P.pet&&PETS[P.pet]?P.pet:null,k,from:P.name};h.gold+=g;if(k>=2)h.luk+=2;
   h.m0=birthM(h);h.proj=project(1,h.m0).med;h.hint=fuzzHint(h.proj);}
  else{h=rollHero({kShift:bo?bo.kShift:0,dsl:C.cls,unl:loadUnl()});h.gen=1;h.lin=newLinId();h.house=h.name;if(bo&&isObj(bo.prev))h.prev=bo.prev;}
+ // star-born gift for the rare SS roll: gold now, an extra potion when the run starts (newRun)
+ if(RANKS[h.rank]&&RANKS[h.rank].k==='SS'){h.ss=1;h.gold+=SS_GOLD;}
  h.clan=clanOf(C);h.ex=excBirth();{const d=dayKey(),D=dayPick(d);if(D)h.day={d,t:D.id};}return h;}
 function startRun(){clearTimeout(S.rvT);VIS.star=0;if(!S.hero.ex)S.hero.ex=excBirth();S.R=newRun(S.hero);const R=S.R;R.xseen=loadSeen();S.runId=Date.now();S.t0=Date.now();snap=null;
  S.themeId=heroTheme(S.hero)||S.themeId||'';R.theme=S.themeId;
