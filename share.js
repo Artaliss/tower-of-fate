@@ -81,7 +81,7 @@ function shareUrl(d){return ORIGIN+'/s/'+(d&&d.birth?encodeBirth(d):encode(d));}
 
 // ---------- data ----------
 function norm(d){d=Object.assign({},d||{});d.name=str(d.name)||'นักผจญภัยนิรนาม';d.village=str(d.village);d.rankK=str(d.rankK)||'?';d.rankCol=d.rankCol||P.gold;
- d.clsN=str(d.clsN);d.won=!!d.won;d.floor=d.won?100:Math.max(1,Math.round(+d.floor||1));d.title=str(d.title);d.cause=str(d.cause);
+ d.clsN=str(d.clsN);d.won=!!d.won;d.floor=d.won?100:Math.max(1,Math.round(+d.floor||1));d.title=str(d.title);d.arch=str(d.arch);d.cause=str(d.cause);
  d.karma=+d.karma||0;d.score=+d.score||0;d.date=d.date||Date.now();d.pets=Array.isArray(d.pets)?d.pets:[];d.petN=Array.isArray(d.petN)?d.petN:[];d.comps=Array.isArray(d.comps)?d.comps:[];
  d.map=Array.isArray(d.map)&&d.map.length===100?d.map:Array(100).fill('');d.hk=d.hk&&typeof d.hk==='object'?d.hk:{};d.note=cleanNote(d.note);d.gen=d.gen||1;
  if(!(d.rankIdx>=0))d.rankIdx=Math.max(0,RANK_K.indexOf(d.rankK));
@@ -226,7 +226,7 @@ async function renderRun(d){
  const party=[...d.petN,...d.comps].filter(Boolean);
  const cells=[
   [d.won?'ผลลัพธ์':'สาเหตุการตาย',d.drgW?(d.drg==='f'?'สหายมังกร · ชั้นลับ':'นักล่ามังกร · ชั้นลับ'):d.won?'พิชิตยอดหอคอย':(d.cause.replace(/\s*\(ชั้น \d+\)\s*$/,'')||'ชะตาขาด'),d.won?P.gold2:P.red],
-  ['ฉายา',d.title?'「'+d.title+'」':'—',P.ink],
+  ['ฉายา',(d.title?'「'+d.title+'」':'—')+(d.arch&&d.arch!==d.title?' · '+d.arch:''),P.ink],
   ['กรรม',(d.karma>0?'+':'')+d.karma+' · '+verdict(d.karma),d.karma>=6?P.stamp:d.karma<=-6?P.red:P.ink],
   ['สัตว์เลี้ยง / เพื่อนร่วมทาง',party.length?party.slice(0,3).join(', ')+(party.length>3?' +'+(party.length-3):''):'เดินทางคนเดียว',P.ink],
   ['รุ่น / สายตระกูล','รุ่นที่ '+d.gen+' · สาย'+(d.house||d.name),P.ink],
@@ -326,6 +326,7 @@ function hooks(d){const k=d.hk||{},out=[],seed=hashStr(d.name+'|'+d.floor+'|'+d.
   add('drg','drg',d.drg==='n'?4.5:9,d.drg==='f'?`ขึ้นไปถึงชั้นลับเหนือยอดหอ ตีมังกร${c}จนยอมแพ้แล้วไว้ชีวิตมัน`:d.drg==='s'?`ขึ้นไปถึงชั้นลับเหนือยอดหอ แล้วฆ่ามังกร${c}ตาย`:d.drg==='x'?`ขึ้นไปถึงชั้นลับเหนือยอดหอ แต่ไปตายต่อหน้ามังกร${c}`:'เจอบันไดลับเหนือยอดหอ แต่ไม่ขึ้นไป',100);}
  if(d.lift)add('lift','lift',8.5,'ตระกูลล้มมังกรครบ 3 ตัว คำสาปนักล่ามังกรเลยหายไป',100.5);
  if(d.title)add('title','title',k.gold?6:3,`ได้ฉายา「${d.title}」`,96);
+ if(k.crown)add('crown','crown',5.5,k.crown,95.5);
  if(d.pat)add('pat','pat',4.2,`ลวดลายชะตาคือ ${patEmo(d.pat.code)} 「${d.pat.n}」`,96.5);
  if(Math.abs(d.karma)>=15)add('karma','karma',4,d.karma>0?`ทำบุญไว้จนกรรมดีถึง +${d.karma}`:`สะสมกรรมชั่วไว้ถึง ${d.karma}`,95);
  if(d.scars>=3)add('scar','scar',3,`มีแผลเป็น ${d.scars} แผล แต่ก็ยังเดินต่อ`,94);
