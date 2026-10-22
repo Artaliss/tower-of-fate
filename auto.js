@@ -156,7 +156,7 @@ const dayOf=h=>h&&h.day&&DAYS.find(x=>x.id===h.day.t)||null;
 const dayW=(R,k)=>{const D=R.dayT&&DAYS.find(x=>x.id===R.dayT);return D&&D.sp[k]||1;};
 const dayHit=R=>{const D=R.dayT&&DAYS.find(x=>x.id===R.dayT);return!!D&&(D.hit||Object.keys(D.sp)).some(k=>R.used['sp:'+k]);};
 const MD=(R,k,d)=>{const v=R.mod&&R.mod[k];return v===undefined?d:v;};
-const gMul=R=>MD(R,'gold',1)*(hasPet(R,'drg')?1.2:1);
+const gMul=R=>MD(R,'gold',1)*(hasPet(R,'drg')?1.2:1)*hzF(R,'g');
 const keyGap=R=>ri(4,8)+(R?MD(R,'kg',0):0);
 function newRun(h){const R={h:JSON.parse(JSON.stringify(h)),floor:1,pets:[],comps:[],potions:1,warps:0,map:Array(100).fill(''),farmed:Array(100).fill(0),farmN:0,retreats:0,kills:0,bosses:0,alive:true,won:false,cause:'',maxFloor:1,buys:{},seen:[],log:[],
  rolled:0,hzP:1,hzT:[],fateShift:0,mLog:0,mN:0,pMax:0,pMaxF:0,pPrev:[],lastP:0,omens:0,lastOmen:-9,scars:0,lethal:false,quiet:false,sinceKey:0,keyGap:5,egg:null,farmLeft:0,pend:null,keys:0,timeouts:0,reveal:null,cursed:0,lastSp:'',death:'',kt:{},
@@ -189,7 +189,7 @@ function rollFloor(R){if(R.floor<=R.rolled||R.floor>=100)return false;R.rolled=R
  return rnd()<p;}
 // "fate shifts" from events: d floors of extra life ~ hazard x e^{-g d} (Gompertz slope)
 function shiftFate(R,d){R.hzP*=Math.exp(-HZ.g*d);R.fateShift+=d;return d;}
-const eAtk=R=>R.h.atk*(hasPet(R,'fox')?1.12:1)*(hasPet(R,'drk')?1.1:1)*stOf(R).a;
+const eAtk=R=>R.h.atk*(hasPet(R,'fox')?1.12:1)*(hasPet(R,'drk')?1.1:1)*stOf(R).a*hzF(R,'a');
 const eDef=R=>R.h.def*(hasPet(R,'wolf')?1.12:1)*(hasPet(R,'drs')?1.1:1)*(hasTr(R,'shield')?1.1:1)*stOf(R).df;
 const eLuk=R=>(R.h.luk+(hasPet(R,'owl')?6:0)+(hasPet(R,'drg')?3:0)+(hasTr(R,'lucky')?4:0))*(cid(R)==='far'?1.5:1);
 const riskAdj=(R,p)=>clamp(p*clamp(1-(eLuk(R)-8)*.012,.45,1.25)*(cid(R)==='arc'?1-.05*pathTier(R):cid(R)==='ang'&&pathTier(R)>=3?.85:1),.02,.95);
@@ -436,8 +436,8 @@ function statFloor(R,out,hf0){const h=R.h,f=R.floor,s=scl(f),sn=R.sn||(R.sn={});
   ['solo',()=>R.soloN>=8,()=>say(R,out,'เดินคนเดียวมาหลายชั้นแล้ว ไม่มีใครคอยระวังหลังให้ ชั้นต่อๆ ไปเสี่ยงกว่าตอนมีเพื่อน (ไม่มีเพื่อนร่วมทาง)','info')]];
  for(const[k,when,run]of rules){if(f-(sn[k]===undefined?-99:sn[k])<STAT_CD||!when())continue;sn[k]=f;run();break;}}
 // ---- "the tower right now": named timed hazard modifiers (R.hzT) show under the scene and say when they wear off ----
-function towerTick(R,out){for(const t of R.hzT)if(t.n&&t.until<R.floor&&!t.gone){t.gone=1;say(R,out,`${t.n} หมดผลแล้ว`,'info');}}
-function towerNow(R){if(!R||!R.alive)return'';const f=R.floor,L=R.hzT.filter(t=>t.n&&t.until>=f).map(t=>`${t.ic||'•'} ${t.n} (อันตราย ${t.k<1?'−':'+'}${Math.round(Math.abs(1-t.k)*100)}% อีก ${t.until-f+1} ชั้น)`);
+function towerTick(R,out){for(const t of R.hzT)if(t.n&&t.until<R.floor&&!t.gone){t.gone=1;say(R,out,t.e||`${t.n} หมดผลแล้ว`,'info');}laterTick(R,out);}
+function towerNow(R){if(!R||!R.alive)return'';const f=R.floor,L=R.hzT.filter(t=>t.n&&t.until>=f).map(t=>`${t.ic||'•'} ${t.n} (${modTxt(t)||'ไม่กระทบคุณ'} อีก ${t.until-f+1} ชั้น)`);L.push(...laterNow(R));
  if(R.cursed)L.push(`☠ ติดคำสาป ${R.cursed} ครั้ง (อันตราย +${Math.round((Math.pow(1.3,R.cursed)-1)*100)}%)`);
  const D=R.dayT&&DAYS.find(x=>x.id===R.dayT);if(D)L.push(`📅 ${D.n}`);
  return L.length?'หอตอนนี้: '+L.join(' · '):'';}
@@ -460,6 +460,7 @@ function shopList(R){const f=R.floor,h=R.h,b=R.buys,s=scl(f),inc=k=>Math.pow(1.3
  {id:'luk',n:'เครื่องรางนำโชค',d:'LUK +3',cost:Math.round(22*s*inc('luk'))}];
  if(h.rank<RANKS.length-1)L.push({id:'rank',n:`เลื่อนแรงค์ ${RANKS[h.rank].k}→${RANKS[h.rank+1].k}`,d:'พลังพื้นฐานทุกอย่างเพิ่มตามแรงค์',cost:Math.round((220+180*h.rank)*s*inc('rank'))});
  if(cid(R)==='far'&&pathTier(R))L.forEach(x=>x.cost=Math.round(x.cost*(1-.08*pathTier(R))));
+ {const pk=hzF(R,'p');if(pk!==1)L.forEach(x=>x.cost=Math.round(x.cost*pk));} // v2.7 tower mods: shop prices
  return L.map(x=>Object.assign(x,{dis:h.gold<x.cost||(x.id==='heal'&&h.hp>=h.mhp-.5&&h.mp>=h.mmp-.5)}));}
 function buy(R,id){const it=shopList(R).find(x=>x.id===id);if(!it||it.dis)return false;const h=R.h,f=R.floor;h.gold-=it.cost;R.buys[id]=(R.buys[id]||0)+1;
  if(id==='heal'){h.hp=h.mhp;h.mp=h.mmp;R.buys.heal=0;}else if(id==='pot'){R.potions++;R.buys.pot=0;}else if(id==='warp'){R.warps++;R.buys.warp=0;}
@@ -1418,6 +1419,7 @@ function planFloor0(R){
  if(R.farmLeft>0)return{type:'farm'};
  if(rollFloor(R))return{type:'death'};
  if(omenDue(R))return{type:'key',K:mkKey(R,'omen')};
+ {const tk=towerKey(R);if(tk)return{type:'key',K:mkKey(R,tk)};} // v2.7: faction vote / tower-wide event
  if(R.floor%10!==0){
   const aid=dueArc(R);if(aid&&R.sinceKey>=1)return{type:'key',K:mkKey(R,'arc',aid)};
   if(R.sinceKey>=1&&R.floor-R.lastQuiet>=8&&R.floor>2&&rnd()<.09*MD(R,'quiet',1)){const n=quietLen(R);if(n>=3)return{type:'quiet',n};}
@@ -1470,6 +1472,148 @@ function secFight(R,way){const en=secEn(R),h=R.h,out=mkOut();R.sec.m0=clanM(R);R
  if(res.win){R.kills++;R.sec.g=Math.round((way?2600:1200)*(R.sec.c==='g'?1.2:1));h.gold+=R.sec.g;if(R.sec.m0==='s')drgFell(R,out);}
  else{R.cause=`ถูก${en.n}ฆ่าบนชั้นลับเหนือยอดหอคอย`;h.hp=0;}
  return out;}
+// ================= v2.7 set A: the tower changes over time (65m REA v3: world mods, world events, results later, factions) =================
+const TWE=window.CONTENT.TWE||[],FACS=window.CONTENT.FACS||[];
+// ---- tower mods on R.hzT: {k hazard, g gold, a ATK, p shop price, until, n, ic, e end line, src}; hzF multiplies one field over the live mods ----
+function hzF(R,x){let m=1;if(R&&R.hzT)for(const t of R.hzT)if(t.until>=R.floor&&t[x])m*=t[x];return m;}
+const MODK=[['k','อันตราย'],['g','ทอง'],['a','ATK'],['p','ราคาร้าน']];
+const modTxt=m=>MODK.filter(([x])=>m&&m[x]&&Math.abs(m[x]-1)>.001).map(([x,l])=>`${l} ${m[x]>1?'+':'−'}${Math.round(Math.abs(m[x]-1)*100)}%`).join(' · ');
+const modVal=(m,d)=>(d||1)*(-((m.k||1)-1)*1.2+((m.g||1)-1)*.5+((m.a||1)-1)*1.5-((m.p||1)-1)*.3);
+const twC=m=>{const v=modVal(m);return v>.001?'g':v<-.001?'b':'w';};
+function addMod(R,m,d,n,ic,src,e){const t={k:m.k||1,until:R.floor+d,n,ic,src:src||''};for(const x of ['g','a','p'])if(m[x]&&m[x]!==1)t[x]=m[x];if(e)t.e=e;R.hzT.push(t);return t;}
+// stat checks behind the odds shown on a choice (each is relative to what is normal for the floor)
+const TW_ST={luk:R=>eLuk(R)-10-R.floor*.15,kar:R=>R.karma,lv:R=>R.h.lv-R.floor*.33-2,hp:R=>(R.h.hp/R.h.mhp-.5)*100};
+const TW_SL={luk:R=>`LUK ${Math.round(eLuk(R))}`,kar:()=>'จากกรรมที่สะสมมา',lv:R=>`Lv.${R.h.lv}`,hp:R=>`HP ${Math.round(R.h.hp/R.h.mhp*100)}%`};
+const chkP=(R,c)=>c.s&&TW_ST[c.s]?clamp(c.b+c.k*TW_ST[c.s](R),.1,.92):1;
+const fxVal=(R,x)=>x?(x.hp||0)*3+(x.gold||0)*.03+(x.exp||0)*.02+(x.pot||0)*.6+(x.luk||0)*.25+(x.k||0)*.04*(1+kLean(R)):0;
+const pctC=p=>p>=60?'g':p>=35?'w':'b';
+// ---- laterAt: choose now, learn the result n floors on; entries are plain data {at,id,d,l} (handler id, no functions) so saves resume them ----
+const latS=R=>Array.isArray(R.later)?R.later:(R.later=[]);
+function laterAt(R,n,id,d,l){latS(R).push({at:R.floor+n,id,d:d||{},l:l||''});}
+function laterTick(R,out){const L=latS(R);if(!L.length||!R.alive)return;for(const x of L.filter(x=>x.at<=R.floor)){L.splice(L.indexOf(x),1);const fn=LATER[x.id];if(!fn)continue;const kc=R.kctx;R.kctx=x.l||'ผลจากเรื่องเก่า';fn(R,out,x.d||{});R.kctx=kc;}}
+const laterNow=R=>R&&R.later?latS(R).filter(x=>x.l&&x.at>R.floor).map(x=>`⏳ ${x.l} (อีก ${x.at-R.floor} ชั้น)`):[];
+const hurt=(R,k)=>{R.h.hp=Math.max(1,R.h.hp-R.h.mhp*k);};
+const LATER={
+ star(R,out){const a=1.5+R.floor*.08;R.h.atk+=a;sayK(R,out,`ตัวเลขในสมุดที่จดไว้คืนฝนดาวตกเรียงกันเป็นท่าฟันได้ท่าหนึ่ง (ATK +${a.toFixed(1)})`,'good');},
+ invest(R,out,d){if(rnd()<d.p){const g=coin(R,out,d.g||0);sayK(R,out,`พ่อค้าเร่ที่คุณร่วมหุ้นด้วยวิ่งขึ้นบันไดมาหา ยื่นถุงทอง ${g} ให้ กำไรมากกว่าที่สัญญาไว้`,'good');}
+  else sayK(R,out,'ข่าวลอยมาว่าคาราวานของพ่อค้าเร่ที่คุณร่วมหุ้นด้วยโดนปล้นกลางทาง เงินลงทุนหายหมด','bad');},
+ wound(R,out,d){if(rnd()<d.p){const x=d.d||1;R.h.def+=x;heal(R,.1);sayK(R,out,`แผลจากหนามเหล็กหายสนิท ผิวตรงนั้นหนาขึ้นกว่าเดิม (DEF +${x.toFixed(1)})`,'good');}
+  else{R.scars++;sayK(R,out,`แผลจากหนามเหล็กอักเสบจนกลายเป็นแผลเป็น (แผลเป็น ${R.scars})`,'bad');}},
+ seed(R,out,d){if(rnd()<d.p){R.potions+=2;R.h.mhp*=1.05;sayK(R,out,'ชาวไร่ปีนบันไดขึ้นมาตามหาคุณ ในตะกร้ามีผลไม้จากต้นที่คุณปลูกไว้ (+2 ยา · HP สูงสุด +5%)','good');}
+  else sayK(R,out,'ชาวไร่ฝากข่าวขึ้นมาว่านกจิกกินต้นอ่อนที่คุณปลูกไว้หมดแล้ว','info');},
+ letter(R,out){R.karma+=3;R.h.luk+=2;const g=coin(R,out,gG(R,20));sayK(R,out,`หญิงสาวคนหนึ่งรออยู่หน้าห้องม่านเหลือง เธออ่านจดหมายของพ่อจบแล้วร้องไห้ ก่อนยัดเหรียญ ${g} เหรียญใส่มือคุณ (LUK +2)`,'good');},
+ bounty(R,out,d){if(rnd()<d.p){sayK(R,out,'ไม่มีใครตามมาทวงเรื่องจดหมายฉบับนั้น ข่าวที่คุณขายไปคงไม่มีใครสนใจ','info');return;}
+  const g=Math.round(R.h.gold*.2);R.h.gold-=g;hurt(R,.25);sayK(R,out,`คนที่ซื้อข่าวไปส่งนักล่าค่าหัวมาปิดปากคุณ คุณหนีรอดมาได้ แต่เจ็บหนักและทองหายไป ${g}`,'bad');},
+ loan(R,out,d){const x=d.x||0;if(R.h.gold>=x){R.h.gold-=x;sayK(R,out,`ก็อบลินเจ้าหนี้มาทวงตรงเวลา คุณจ่ายคืนไป ${x} ทอง`,'info');return;}
+  R.h.gold=0;hurt(R,.3);sayK(R,out,'จ่ายหนี้ก็อบลินไม่ไหว พวกมันรุมทุบคุณแล้วกวาดทองไปหมดกระเป๋า','bad');},
+ cheat(R,out,d){if(rnd()<d.p){sayK(R,out,'ก็อบลินเจ้าหนี้ตามคุณขึ้นมาไม่ถึงชั้นนี้ หนี้ก้อนนั้นหายไปกับลม','info');return;}
+  const g=Math.min(Math.floor(R.h.gold),d.x||0);R.h.gold-=g;hurt(R,.25);sayK(R,out,`ก็อบลินเจ้าหนี้ตามมาเจอพร้อมพวกอีกโขลง ริบทองไป ${g} แล้วทิ้งรอยฟกช้ำไว้เต็มตัว`,'bad');},
+ train(R,out,d){const a=d.a||1;R.h.atk+=a;sayK(R,out,`ท่าที่ครูดาบสอนไว้เริ่มเข้ามือ ฟันได้เร็วขึ้นโดยไม่ต้องคิด (ATK +${a.toFixed(1)})`,'good');}};
+// ---- tower-wide events (TWE in events.js): once each per run, weighted by class and rank, choices show odds from stats ----
+const twS=R=>R.tw&&typeof R.tw==='object'?R.tw:(R.tw={at:-99});
+const twBase=(R,e)=>Object.assign({},e.m,(e.cm||{})[cid(R)]||{});
+const twW=(R,e)=>(e.w||1)*((e.cw||{})[cid(R)]||1)*Math.exp((e.rk||0)*(R.h.rank-2));
+const twPool=R=>TWE.filter(e=>!R.used['sp:tw_'+e.id]&&R.floor>=e.f[0]&&R.floor<=e.f[1]);
+function twMk(R,K,e){const f=R.floor,d=ri(e.d[0],e.d[1]),base=twBase(R,e),D=K.data={id:e.id,d,base,p:e.c.map(c=>chkP(R,c))};
+ K.tag=`ชั้น ${f} · เหตุการณ์ทั้งหอ`;K.title=`${e.ic} ${e.n}`;K.vis=npc(e.pr);K.text=e.x+(modTxt(base)?` (ถ้าไม่ทำอะไร ${d} ชั้นข้างหน้า: ${modTxt(base)})`:'');
+ const br=o=>{const m=Object.assign({},base,o.m||{}),mt=modTxt(m);return[...(mt?[{t:`${d} ชั้น: ${mt}`,c:twC(m)}]:[]),...fxParts(R,o.fx),...(o.lt?[{t:`อีก ${o.lt.n} ชั้นรู้ผล`,c:'w'}]:[])];};
+ K.ch=e.c.map((c,i)=>{const cost=c.c?gS(R,c.c):0,P=[];if(cost)P.push({t:`−${cost} ทอง`,c:'w'});
+  if(c.s){const pp=Math.round(D.p[i]*100);P.push({t:`${pp}% สำเร็จ (${TW_SL[c.s](R)})`,c:pctC(pp)},...br(c.y),{t:`/ ${100-pp}% พลาด`,c:'b'},...br(c.n||{}));}else P.push(...br(c.y));
+  if(!P.length)P.push({t:'ไม่มีอะไรเปลี่ยน',c:''});const dis=cost>0&&R.h.gold<cost;if(dis)P.push({t:'(ทองไม่พอ)',c:'b'});return Object.assign(CH(c.t,P,dis),{tg:c.tg||[]});});
+ let ai=0,bv=-1e9;e.c.forEach((c,i)=>{if(K.ch[i].dis)return;const p=D.p[i],v=o=>modVal(Object.assign({},base,o.m||{}),d)+fxVal(R,o.fx)+(o.lt?.5:0);
+  const s=p*v(c.y)+(1-p)*v(c.n||{})-(c.c?c.c*.03:0)+rnd()*.2;if(s>bv){bv=s;ai=i;}});K.ai=ai;}
+function twRes(R,K,i,out,e){const f=R.floor,c=e.c[i],D=K.data;if(!c||!D)return;if(c.c)R.h.gold-=gS(R,c.c);
+ const ok=!c.s||rnd()<D.p[i],o=ok?c.y:(c.n||{}),m=Object.assign({},D.base,o.m||{});
+ say(R,out,o.r||e.n,ok?'good':'bad');if(o.fx)applyFx(R,o.fx,out);
+ if(modTxt(m))addMod(R,m,D.d,e.n,e.ic,'tw',`${e.ic} ${e.n}ผ่านไปแล้ว หอกลับมาเป็นเหมือนเดิม`);
+ if(o.lt)laterAt(R,o.lt.n,o.lt.id,{},o.lt.l);
+ R.map[f-1]=!ok?'bad':o.fx&&o.fx.k<0?'evil':o.fx&&o.fx.k>0?'good':'calm';twS(R).at=f;}
+for(const e of TWE)SPECIAL['tw_'+e.id]={w:0,ok:()=>false,mk(R,K){twMk(R,K,e);},res(R,K,i,out){twRes(R,K,i,out,e);}};
+// ---- factions that rule the tower: every 20 floors back one of three; the winner's mod (good/bad per class) lasts 20 floors; a bribe costs karma ----
+const FAC=id=>FACS.find(F=>F.id===id)||FACS[0];
+const facS=R=>R.fac&&typeof R.fac==='object'?R.fac:(R.fac={nx:21,n:0});
+function facMod(R,F,me){const id=cid(R),m=Object.assign({},F.all),x=F.good.includes(id)?F.gm:F.bad.includes(id)?F.bm:null;if(x)for(const k in x)m[k]=(m[k]||1)*x[k];
+ if(me===1){m.g=(m.g||1)*1.05;m.k=(m.k||1)*.97;}else if(me===-1)m.k=(m.k||1)*1.04;return m;}
+const facSway=R=>clamp(.18+TW_ST.lv(R)*.01+TW_ST.luk(R)*.006+R.comps.length*.04,.08,.4);
+const facOdds=(s,i,sw)=>{const pi=s[i]+sw*(1-s[i]);return s.map((x,j)=>j===i?pi:x*(1-pi)/(1-s[i]));};
+SPECIAL.fac={w:0,ok:()=>false,mk(R,K){const f=R.floor,L=[...FACS],o=[];while(o.length<3&&L.length)o.push(L.splice(Math.floor(rnd()*L.length),1)[0].id);
+  const s0=o.map(()=>rr(.8,1.25)),ss=s0.reduce((a,b)=>a+b,0),s=s0.map(x=>x/ss),sw=facSway(R),bi=s.indexOf(Math.max(...s)),bribe=gG(R,35);
+  K.data={o,s,sw,bi,bribe};K.tag=`ชั้น ${f} · ภาคีที่ครองหอ`;K.title='ใครจะได้คุมหอ 20 ชั้นข้างหน้า';K.vis=npc('noble');
+  K.text=`ทุกยี่สิบชั้น ภาคีใหญ่ในหอจะชิงกันคุมบันได ฝ่ายที่ชนะคุมหอไปอีก 20 ชั้น ${o.map(id=>{const F=FAC(id);return`${F.ic} ${F.n}: ${F.x}`;}).join(' · ')} เสียงของคุณมีน้ำหนักราว ${Math.round(sw*100)}% (ขึ้นกับเลเวล โชค และเพื่อนร่วมทาง)`;
+  K.ch=o.map((id,i)=>{const F=FAC(id),pw=Math.round(facOdds(s,i,sw)[i]*100),my=facMod(R,F,1);
+   return Object.assign(CH(`หนุน${F.n}`,[{t:`${pw}% ได้ครองหอ`,c:pctC(pw)},{t:`ถ้าชนะ 20 ชั้น: ${modTxt(my)||'ไม่กระทบคุณ'}`,c:twC(my)},{t:'/ ถ้าแพ้ ฝ่ายที่ชนะจะเพ่งเล็งคุณ (อันตราย +4%)',c:'w'}]),{tg:[]});});
+  K.ch.push(Object.assign(CH(`รับสินบนจาก${FAC(o[bi]).n} แล้วไม่ช่วยใคร`,[{t:`+${bribe} ทอง`,c:'g'},kk(-3)]),{tg:['trade']}));
+  let ai=0,bv=-1e9;for(let i=0;i<=o.length;i++){const od=i<o.length?facOdds(s,i,sw):s;let v=0;o.forEach((id,j)=>{v+=od[j]*modVal(facMod(R,FAC(id),i>=o.length?0:i===j?1:-1),20);});
+   if(i===o.length)v+=35*.03-3*.15*(1-kLean(R));if(v>bv){bv=v;ai=i;}}K.ai=ai;},
+ res(R,K,i,out){const f=R.floor,D=K.data,F0=facS(R),br=i>=D.o.length,w=wIdx(br?D.s:facOdds(D.s,i,D.sw)),W=FAC(D.o[w]),me=br?0:i===w?1:-1;
+  if(br){R.karma-=3;coin(R,out,D.bribe);say(R,out,`คนของ${FAC(D.o[D.bi]).n}ยัดถุงทอง ${D.bribe} ใส่มือคุณ แล้วกระซิบว่าวันชิงตำแหน่งให้อยู่เฉยๆ`,'bad');}
+  R.hzT=R.hzT.filter(t=>t.src!=='fac');const m=facMod(R,W,me);addMod(R,m,20,`${W.n}ครองหอ`,W.ic,'fac',`${W.n}หมดวาระคุมหอแล้ว`);
+  say(R,out,`${W.ic} ${W.n}ได้ครองหอ${me===1?' ฝ่ายที่คุณหนุนชนะ พวกเขาจำหน้าคุณได้':me===-1?' ฝ่ายที่คุณหนุนแพ้ คนของฝ่ายที่ชนะจดชื่อคุณไว้แล้ว':''} (20 ชั้น: ${modTxt(m)||'ไม่กระทบคุณ'})`,me<0?'bad':'lv');
+  R.map[f-1]=br?'evil':me>0?'good':me<0?'bad':'calm';F0.nx=Math.floor((f-1)/20)*20+21;F0.n=(F0.n||0)+1;(F0.h||(F0.h=[])).push({f,w:W.id,me,b:br?1:0});}};
+// key moment due from the tower itself: the faction vote after each 20th floor, otherwise now and then a tower event in place of a special
+function towerKey(R){const f=R.floor;if(f%10===0||f>=98||!R.alive)return'';
+ if(FACS.length>=3&&f>=facS(R).nx&&R.sinceKey>=1)return'fac';
+ if(R.sinceKey>=R.keyGap&&f>=6&&f-twS(R).at>=10&&rnd()<.4){const L=twPool(R);if(L.length)return'tw_'+L[wIdx(L.map(e=>twW(R,e)))].id;}
+ return'';}
+for(const k of ['fac',...TWE.map(e=>'tw_'+e.id)]){NO_WAY[k]=1;TIER[k]='r';}
+// ---- key moments whose result comes some floors later (laterAt) ----
+Object.assign(SPECIAL,{
+ invest:{w:2,ok:R=>R.h.gold>=gS(R,20)&&R.floor<=90,mk(R,K){const f=R.floor,a=Math.max(gS(R,20),Math.round(R.h.gold*.35)),b=Math.max(1,Math.round(a/3)),p=clamp(.55+TW_ST.luk(R)*.01,.25,.85),p2=clamp(p+.1,.3,.92);
+   K.data={a,b,p,p2};K.tag=`ชั้น ${f} · ขอร่วมหุ้น`;K.title='พ่อค้าเร่ขอทุน';K.vis=npc('merchant');const L=`LUK ${Math.round(eLuk(R))}`;
+   K.text='ชายแบกลังไม้ใบใหญ่ยืนขวางทาง เขาบอกว่ารู้แหล่งผ้าไหมราคาถูกที่ชั้นล่าง ขาดทุนอีกนิดเดียว ถ้าร่วมหุ้นด้วย อีกแปดชั้นเขาจะขึ้นมาแบ่งกำไรให้';
+   K.ch=[CH(`ลงทุน ${a} ทอง`,[{t:`−${a} ทอง`,c:'w'},{t:`อีก 8 ชั้น ${Math.round(p*100)}% ได้คืน ${Math.round(a*2.2)} (${L})`,c:'g'},{t:`/ ${100-Math.round(p*100)}% เงินหาย`,c:'b'}],R.h.gold<a),
+    CH(`ลงพอเป็นน้ำใจ ${b} ทอง`,[{t:`−${b} ทอง`,c:'w'},{t:`อีก 8 ชั้น ${Math.round(p2*100)}% ได้คืน ${Math.round(b*1.8)} (${L})`,c:'g'},{t:`/ ${100-Math.round(p2*100)}% เงินหาย`,c:'b'}],R.h.gold<b),
+    CH('ไม่ลงทุน',[{t:'เดินผ่านไป',c:''}])];K.ch[0].tg=K.ch[1].tg=['trade','gamble'];K.ai=p>=.55?0:p2>=.5?1:2;},
+  res(R,K,i,out){const f=R.floor,D=K.data;R.map[f-1]='calm';if(i===2){say(R,out,'พ่อค้าเร่ถอนหายใจ แล้วแบกลังเดินลงบันไดไป','info');return;}
+   const a=i?D.b:D.a;R.h.gold-=a;laterAt(R,8,'invest',{g:Math.round(a*(i?1.8:2.2)),p:i?D.p2:D.p},'เงินที่ลงหุ้นกับพ่อค้าเร่');say(R,out,`พ่อค้าเร่นับเหรียญ ${a} เหรียญใส่ถุง จดชื่อคุณไว้ในสมุดเล่มเล็ก แล้วรีบลงบันไดไป`,'info');}},
+ thorn:{w:2,ok:R=>R.floor>=4&&R.floor<=92,mk(R,K){const f=R.floor,p=clamp(.55+TW_ST.hp(R)*.004+TW_ST.luk(R)*.006,.2,.9),d=1+f*.05;K.data={p,d};
+   K.tag=`ชั้น ${f} · แผลลึก`;K.title='หนามเหล็กใต้ใบไม้แห้ง';K.vis={t:'prop',pr:'healer',fb:'npc'};
+   K.text='หนามเหล็กที่ซ่อนอยู่ใต้กองใบไม้แห้งกรีดน่องคุณเป็นทางยาว เลือดไหลไม่ยอมหยุด ไม่มีใครรู้ว่าหนามนั้นทาอะไรไว้';
+   K.ch=[CH('ใช้ยาล้างแผลเดี๋ยวนี้',[{t:'−1 ยา',c:'w'},{t:'แผลหายสนิท',c:'g'}],R.potions<1),
+    CH('พันผ้าไว้แล้วเดินต่อ',[{t:'HP −8%',c:'b'},{t:`อีก 6 ชั้น ${Math.round(p*100)}% แผลหายแล้วผิวหนาขึ้น DEF +${d.toFixed(1)} (HP กับ LUK)`,c:'g'},{t:`/ ${100-Math.round(p*100)}% กลายเป็นแผลเป็น`,c:'b'}]),
+    CH('เผามีดจี้แผล',[{t:'HP −20%',c:'b'},{t:'แผลไม่กลับมาอีก',c:''}])];K.ai=R.potions>=2?0:p>=.6?1:2;},
+  res(R,K,i,out){const f=R.floor,D=K.data;R.map[f-1]='trap';
+   if(i===0){R.potions--;R.map[f-1]='calm';say(R,out,'น้ำยาแสบจนน้ำตาไหล แต่แผลหยุดเลือดทันที','good');}
+   else if(i===1){hurt(R,.08);laterAt(R,6,'wound',{p:D.p,d:D.d},'แผลจากหนามเหล็ก');say(R,out,'คุณฉีกชายเสื้อพันแผลไว้แน่น เดินกะเผลกต่อไป','info');}
+   else{hurt(R,.2);say(R,out,'กลิ่นเนื้อไหม้ลอยขึ้นมา คุณกัดฟันจนกรามชา แต่แผลปิดสนิท','info');}}},
+ seed:{w:2,ok:R=>R.floor<=88,mk(R,K){const f=R.floor,p=clamp(.6+R.karma*.01,.3,.9),g=gG(R,15);K.data={p,g};
+   K.tag=`ชั้น ${f} · เมล็ดพันธุ์`;K.title='เมล็ดสีทองของชาวไร่';K.vis=npc('farmer');
+   K.text='ชาวไร่แก่ๆ ยื่นเมล็ดสีทองให้กำมือหนึ่ง บอกว่าทั้งหอปลูกขึ้นที่เดียวคือขอบหน้าต่างชั้นนี้ แกจะรดน้ำให้ แล้วเอาผลขึ้นไปส่งเมื่อมันออกลูก';
+   K.ch=[CH('ฝังเมล็ดไว้ที่ขอบหน้าต่าง',[{t:`อีก 10 ชั้น ${Math.round(p*100)}% ได้ +2 ยา · HP สูงสุด +5% (${TW_SL.kar()})`,c:'g'}]),CH('กินเมล็ดเลย',[{t:'HP +20%',c:'g'}]),CH('ขายให้นักสะสม',[{t:`+${g} ทอง`,c:'g'}])];
+   K.ch[0].tg=['forage','tame'];K.ch[2].tg=['trade'];K.ai=0;},
+  res(R,K,i,out){const f=R.floor,D=K.data;R.map[f-1]='calm';
+   if(i===0){laterAt(R,10,'seed',{p:D.p},'ต้นไม้ที่ปลูกไว้');R.map[f-1]='good';say(R,out,'คุณกดเมล็ดลงดินที่ขอบหน้าต่าง ชาวไร่รดน้ำตามแล้วยิ้มจนเห็นเหงือก','good');}
+   else if(i===1){heal(R,.2);say(R,out,'เมล็ดมีรสหวานเหมือนน้ำผึ้ง ท้องอุ่นขึ้นมาทันที','good');}
+   else{coin(R,out,D.g);say(R,out,`นักสะสมให้ทอง ${D.g} แล้วเก็บเมล็ดใส่กล่องกำมะหยี่`,'info');}}},
+ letter:{w:2,ok:R=>R.floor<=92,mk(R,K){const f=R.floor,p=clamp(.5+TW_ST.luk(R)*.015,.2,.85),g=gG(R,15);K.data={p,g};
+   K.tag=`ชั้น ${f} · จดหมายที่ยังไม่ถึงมือ`;K.title='จดหมายของทหารนิรนาม';K.vis={t:'prop',pr:'grave'};
+   K.text='ทหารคนหนึ่งนอนตายพิงกำแพง มือยังกำซองจดหมายไว้แน่น หน้าซองเขียนว่า ถึงลูกสาว ชั้นบน ห้องที่แขวนม่านสีเหลือง';
+   K.ch=[CH('เก็บจดหมายไว้ส่งให้ลูกสาวเขา',[{t:'อีกราว 7 ชั้นจะได้เจอเธอ',c:'w'},{t:'+ทอง · LUK +2',c:'g'},kk(3)]),
+    CH('แกะอ่านแล้วขายข่าวในนั้น',[{t:`+${g} ทอง`,c:'g'},kk(-2),{t:`/ อีก 6 ชั้น ${100-Math.round(p*100)}% มีคนตามมาปิดปาก (LUK ${Math.round(eLuk(R))})`,c:'b'}]),
+    CH('ฝังจดหมายไว้กับเขา',[kk(1)])];K.ch[0].tg=['help'];K.ch[1].tg=['steal','trick'];K.ch[2].tg=['pray'];K.ai=0;},
+  res(R,K,i,out){const f=R.floor,D=K.data;
+   if(i===0){laterAt(R,7,'letter',{},'จดหมายถึงลูกสาวทหาร');R.map[f-1]='good';say(R,out,'คุณเหน็บซองจดหมายไว้ในเสื้อ ใกล้หัวใจ','good');}
+   else if(i===1){R.karma-=2;coin(R,out,D.g);laterAt(R,6,'bounty',{p:D.p},'ข่าวที่ขายไป');R.map[f-1]='evil';say(R,out,`ในจดหมายมีแผนที่คลังเสบียงของกองทัพ พ่อค้าข่าวจ่ายให้ ${D.g} ทองโดยไม่ต่อรองสักคำ`,'bad');}
+   else{R.karma+=1;R.map[f-1]='calm';say(R,out,'คุณขุดหลุมตื้นๆ วางจดหมายไว้บนอกเขาแล้วกลบดิน','info');}}},
+ loan:{w:2,ok:R=>R.floor<=90,mk(R,K){const f=R.floor,x=gS(R,40),pay=Math.round(x*1.5),p=clamp(.4+TW_ST.luk(R)*.015,.15,.8);K.data={x,pay,p};
+   K.tag=`ชั้น ${f} · เงินกู้นอกระบบ`;K.title='ก็อบลินแว่นตาเดียว';K.vis=npc('imp');
+   K.text='ก็อบลินใส่แว่นตาเดียวนั่งหลังโต๊ะไม้ผุ บนโต๊ะมีถุงทองวางเรียงกัน ป้ายเขียนว่า กู้ง่าย ไม่ต้องค้ำ คืนภายในแปดชั้น ดอกห้าสิบส่วนร้อย';
+   K.ch=[CH(`กู้ ${x} ทอง`,[{t:`+${x} ทอง`,c:'g'},{t:`อีก 8 ชั้นต้องคืน ${pay}`,c:'w'},{t:'/ ถ้าทองไม่พอ โดนรุมทุบ HP −30% เสียทองทั้งกระเป๋า',c:'b'}]),
+    CH('กู้แล้วเชิดหนี',[{t:`+${x} ทอง`,c:'g'},kk(-3),{t:`อีก 8 ชั้น ${Math.round(p*100)}% ตามไม่เจอ (LUK ${Math.round(eLuk(R))})`,c:'w'},{t:`/ ${100-Math.round(p*100)}% โดนตามเจอ HP −25% เสียทอง`,c:'b'}]),
+    CH('ไม่กู้',[{t:'เดินผ่านไป',c:''}])];K.ch[0].tg=['trade'];K.ch[1].tg=['trick','steal'];K.ai=2;},
+  res(R,K,i,out){const f=R.floor,D=K.data;R.map[f-1]='calm';if(i===2){say(R,out,'ก็อบลินเลื่อนแว่นแล้วจดอะไรบางอย่างลงสมุด','info');return;}
+   R.h.gold+=D.x;out.coins=D.x;if(i===0){laterAt(R,8,'loan',{x:D.pay},'หนี้ก็อบลิน');say(R,out,`ก็อบลินนับทอง ${D.x} ใส่มือคุณ แล้วชี้นิ้วที่ใต้ตาตัวเองว่าจะจับตาดูไว้`,'info');}
+   else{R.karma-=3;R.map[f-1]='evil';laterAt(R,8,'cheat',{p:D.p,x:D.pay},'ก็อบลินเจ้าหนี้ที่คุณเชิดมา');say(R,out,'คุณเซ็นชื่อปลอมลงสัญญา คว้าถุงทองแล้วรีบขึ้นบันได','bad');}}},
+ tutor:{w:2,ok:R=>R.floor<=92,mk(R,K){const f=R.floor,cost=gS(R,25),a=2+f*.12;K.data={cost,a};
+   K.tag=`ชั้น ${f} · ครูดาบพเนจร`;K.title='ชายแก่กับไม้เท้าเหล็ก';K.vis=npc('trainer');
+   K.text='ชายแก่ถือไม้เท้าเหล็กรำดาบอยู่กลางลาน ทุกท่าช้าแต่หาช่องโหว่ไม่เจอ เขาบอกว่ายังรับศิษย์ได้อีกคน แต่ท่าของเขาต้องใช้เวลาราวหกชั้นกว่าจะเข้ามือ';
+   K.ch=[CH('จ่ายค่าเรียน',[{t:`−${cost} ทอง`,c:'w'},{t:`อีก 6 ชั้น ATK +${a.toFixed(1)}`,c:'g'}],R.h.gold<cost),CH('ขอฝึกฟรี แลกกับแบกน้ำให้ครู',[{t:'HP −15%',c:'b'},{t:`อีก 6 ชั้น ATK +${(a/2).toFixed(1)}`,c:'g'}]),CH('ขอบคุณแล้วเดินต่อ',[{t:'เดินทางต่อ',c:''}])];
+   K.ch[0].tg=['study','fight'];K.ch[1].tg=['fight'];K.ai=R.h.gold>=cost+20?0:1;},
+  res(R,K,i,out){const f=R.floor,D=K.data;R.map[f-1]='calm';
+   if(i===0){R.h.gold-=D.cost;laterAt(R,6,'train',{a:D.a},'ท่าดาบของครูพเนจร');say(R,out,'ครูดาบรับเงินแล้วเริ่มสอนท่าแรกทันที เขาบอกว่าที่เหลือจะตามขึ้นไปสอนเอง','good');}
+   else if(i===1){hurt(R,.15);laterAt(R,6,'train',{a:D.a/2},'ท่าดาบของครูพเนจร');say(R,out,'คุณแบกถังน้ำขึ้นลงบันไดจนไหล่ระบม ครูพยักหน้าแล้วสอนให้ครึ่งท่า','info');}
+   else say(R,out,'เสียงไม้เท้าเหล็กกระทบพื้นดังตามหลังคุณขึ้นบันไดไป','info');}}});
+Object.assign(TIER,{invest:'c',thorn:'c',seed:'c',letter:'r',loan:'c',tutor:'c'});
 /*SIM-END*/
 if(typeof document==='undefined'){window.AUTO_SIM={SPECIAL,ARCS,DRAMA,PATHS,pathTier,MFIT,secPrep,BFIT,DAYS,dayHit,secEn,secFight,secOpts,estimateWin,fight,SEC_K,DRG,rollHero,HZ,LX,pRoll,project,hzM,autoLife,newRun,planFloor,applyKey,mkKey,BAL,RUN_OMENS,STANCES};return;}
 
