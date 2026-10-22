@@ -398,6 +398,28 @@ body.eb-on .helpbtn{bottom:calc(74px + env(safe-area-inset-bottom,0px))}
 .coh li.me>span:nth-child(2){color:var(--gold)}
 .coh .metag{font-size:11px;background:var(--gold);color:#1a1206;padding:0 4px;border-radius:2px}
 .cohend{font-size:13px;color:var(--muted);margin:4px 0 10px;padding:6px 8px;border-left:3px solid var(--line2);background:var(--bg2)}
+/* v2.7 after death: wishes on the end screen (auto.js gwMount), given days on a grave (memoGw), the scene after the epitaph (bxTry) */
+.gw{margin:14px 0 12px}
+.gwl{font-size:13px;color:var(--muted);margin:0 0 12px}
+.gws{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px 14px}
+.gwc{margin:0;background:#f6efdc;color:#2b2118;padding:8px 8px 10px;border-radius:2px;box-shadow:0 6px 14px #0008;transform:rotate(var(--r,0deg));display:flex;flex-direction:column;gap:6px;min-width:0}
+.gwp canvas{display:block;width:100%;aspect-ratio:3/2;image-rendering:pixelated;filter:sepia(.85) saturate(.6) brightness(.92) blur(.4px);transition:filter 1.8s ease}
+.gwc:hover .gwp canvas,.gwc.on .gwp canvas{filter:none}
+.gwc figcaption{display:flex;flex-direction:column;gap:3px;font-size:12.5px;line-height:1.45}
+.gwc figcaption b{font-size:14px;font-weight:600}
+.gwc figcaption span{color:#5c4b39}
+.gwh{font-style:italic;color:#2c3c6c;font-size:13.5px}
+.gwb{flex:none;margin-top:auto;font-size:14px;min-height:40px;width:100%}
+.gwc.on .gwb{border-color:var(--ember);color:#ffb08a}
+.gwmsg{font-size:12.5px;color:var(--good);min-height:1.2em;margin:10px 0 0}
+.mgwb{display:inline-block;margin-top:3px;background:none;border:1px dashed var(--line2);color:var(--gold);font-size:11.5px;border-radius:3px;padding:1px 7px;cursor:pointer;min-height:24px}
+.mgw{display:flex;gap:8px;flex-wrap:wrap;padding:6px 0 8px;border-bottom:1px dashed #2a3e46}
+.mgw figure{margin:0;width:104px;font-size:11px;color:var(--muted);line-height:1.35}
+.mgw canvas{display:block;width:104px;aspect-ratio:3/2;image-rendering:pixelated;border:2px solid #f6efdc;border-radius:2px;margin-bottom:3px}
+.cbx{display:none;text-align:center}.cine[data-mode=b] .cbx{display:block}
+.cbt{letter-spacing:.06em;color:var(--gold);font-size:13px;margin-bottom:14px}
+.cba,.cbb{opacity:0;transform:translateY(4px);transition:opacity .9s ease,transform .9s ease;line-height:1.5}
+.cba{margin-top:18px;font-size:clamp(16px,4.6vw,20px);font-weight:500;color:var(--parch)}.cbb{margin-top:8px;font-size:14px;color:var(--muted)}
 </style>
 </head>
 <body>

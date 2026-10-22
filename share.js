@@ -211,7 +211,7 @@ function drawMap(ctx,d,X,Y,cw,ch,gap){
 }
 
 // ---------- render ----------
-function render(d){return d&&d.birth?renderBirth(d):renderRun(d);}
+function render(d){return d&&d.gift?renderGift(d):d&&d.birth?renderBirth(d):renderRun(d);}
 async function renderRun(d){
  d=norm(d);await waitFonts();
  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
@@ -314,6 +314,34 @@ async function renderBirth(d){
  line(ctx,HOST,W-64,footY+70,{size:30,fam:fP,col:P.red,align:'right',maxW:360,min:20});
  return cv;
 }
+// wish card (v2.7): a day the hero never had, given after the run ended. d = run share data + d.gift
+// gift = {k, t: name of the day, m: what was missing, w: the handwritten line, + scene fields for ART.drawWish}
+function normG(d){d=norm(d);const g=d.gift&&typeof d.gift==='object'?d.gift:{};d.gift=Object.assign({},g,{k:str(g.k),t:str(g.t),m:str(g.m),w:str(g.w)});return d;}
+async function renderGift(d){
+ d=normG(d);await waitFonts();const g=d.gift,A=window.ART;
+ const cv=document.createElement('canvas');cv.width=W;cv.height=H;const ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
+ drawPaper(ctx,d);drawHeader(ctx,d);
+ line(ctx,'ความปรารถนาที่ค้างไว้',W/2,188,{size:28,weight:500,col:P.gold2,maxW:W-128,align:'center'});
+ let y=262;y+=para(ctx,g.t,W/2,y,{size:64,min:40,weight:600,col:P.ink,maxW:W-160,lines:2,lh:1.15,align:'center'})-64*1.15;
+ if(g.m){y+=58;y+=para(ctx,g.m,W/2,y,{size:30,min:22,col:P.ink2,maxW:W-200,lines:2,lh:1.3,align:'center'})-30*1.3;}
+ // the photo: a slightly tilted print with the handwritten line under the picture
+ const top=y+40,footY=1232,iH=Math.round(Math.min(512,footY-top-24-96-150)),iW=Math.round(iH*1.5),fw=iW+48,fh=iH+24+96,fx=(W-fw)/2;
+ const sc=document.createElement('canvas');sc.width=192;sc.height=128;const sx=sc.getContext('2d');sx.imageSmoothingEnabled=false;
+ let ok=false;try{if(A&&A.drawWish){A.drawWish(sx,g,0);ok=true;}}catch(e){}
+ ctx.save();ctx.translate(W/2,top+fh/2);ctx.rotate(-.022);
+ ctx.fillStyle='rgba(43,33,24,.22)';ctx.fillRect(-fw/2+8,-fh/2+12,fw,fh);
+ rect(ctx,-fw/2,-fh/2,fw,fh,'#fbf7ec');ctx.strokeStyle=P.rule;ctx.lineWidth=2;ctx.strokeRect(-fw/2+1,-fh/2+1,fw-2,fh-2);
+ ctx.imageSmoothingEnabled=false;if(ok)ctx.drawImage(sc,22,26,150,100,-iW/2,-fh/2+24,iW,iH);else rect(ctx,-iW/2,-fh/2+24,iW,iH,P.band);
+ if(g.w)line(ctx,g.w,0,fh/2-36,{size:34,min:22,weight:'italic 400',col:'#2c3c6c',maxW:fw-60,align:'center'});
+ ctx.restore();
+ const ny=top+fh+64;
+ line(ctx,d.name+(d.clsN?' · '+d.clsN:''),W/2,ny,{size:40,weight:600,col:P.ink,maxW:W-128,min:24,align:'center'});
+ line(ctx,(d.won?'ขึ้นถึงยอดหอคอยแล้ว':'ล้มลงที่ชั้น '+d.floor)+(d.village?' · จาก'+d.village:''),W/2,ny+44,{size:26,col:P.ink3,maxW:W-128,min:18,align:'center'});
+ rect(ctx,64,footY,W-128,3,P.ink);
+ line(ctx,'วันที่ไม่เคยมีในหอนี้',64,footY+72,{size:40,weight:600,col:P.ink,maxW:560,min:26});
+ line(ctx,HOST,W-64,footY+70,{size:30,fam:fP,col:P.red,align:'right',maxW:400,min:20});
+ return cv;
+}
 
 // ---------- share text ----------
 const CLOSE=['คุณจะไปได้ถึงชั้นไหน?','ถ้าเป็นคุณ จะไปได้ไกลกว่านี้ไหม?','ลองเกิดดูสักชาติไหม เผื่อได้แรงค์ดีกว่านี้','ชาติหน้าของคุณจะไปถึงชั้นไหน?'];
@@ -351,7 +379,14 @@ function textBirth(d,mode){d=normB(d);const isX=mode==='x',url=shareUrl(d),budge
  if(!isX)L.push(url);
  let s=L.join('\n');if(len(s)>budget&&d.note){const over=len(s)-budget;L[0]=clip(d.note,Math.max(10,graphemes(d.note).length-over-1))+'…';s=L.join('\n');}
  return s;}
-function text(d,mode){if(d&&d.birth)return textBirth(d,mode);d=norm(d);const {pick,seed}=hooks(d),isX=mode==='x',url=shareUrl(d),budget=isX?240:480,len=isX?xLen:(s=>Array.from(s).length);
+function textGift(d,mode){d=normG(d);const g=d.gift,isX=mode==='x',url=shareUrl(d),budget=isX?240:480,len=isX?xLen:(s=>Array.from(s).length);
+ const L=[];if(d.note)L.push(d.note);
+ L.push(`🕯 ${d.name}ไม่ทันได้มี「${g.t}」`);if(g.m)L.push(g.m);
+ L.push((d.won?'ชีวิตนี้ขึ้นถึงยอดหอแล้ว':`ชีวิตนี้จบที่ชั้น ${d.floor}`)+' เลยวาดวันนั้นให้แทน #หอคอยโชคชะตา');
+ if(!isX)L.push(url);
+ let s=L.join('\n');if(len(s)>budget&&d.note){const over=len(s)-budget;L[0]=clip(d.note,Math.max(10,graphemes(d.note).length-over-1))+'…';s=L.join('\n');}
+ return s;}
+function text(d,mode){if(d&&d.gift)return textGift(d,mode);if(d&&d.birth)return textBirth(d,mode);d=norm(d);const {pick,seed}=hooks(d),isX=mode==='x',url=shareUrl(d),budget=isX?240:480,len=isX?xLen:(s=>Array.from(s).length);
  const birth=`🗼 ${d.name} เกิดเป็น${d.turn||d.clsN||'นักผจญภัย'}แรงค์ ${d.rankK}${d.village?' ที่'+d.village:''}${d.odds?` (1 ใน ${nf(d.odds)})`:''}${d.turn?` แล้วกลายเป็น${d.clsN}กลางหอ`:''}${d.pathN?` ไต่ทางอาชีพจนได้เป็น${d.pathN}`:''}`;
  const death=d.won?'👑 ไต่ขึ้นถึงชั้น 100 และพิชิตยอดหอคอยได้':`💀 ล้มที่ชั้น ${d.floor}: ${d.cause.replace(/\s*\(ชั้น \d+\)\s*$/,'')||'ชะตาขาด'}`;
  const close=CLOSE[seed%CLOSE.length]+' #หอคอยโชคชะตา';
@@ -480,14 +515,14 @@ function build(){
  return dlg;}
 function go(u){const w=window.open(u,'_blank','noopener');if(!w)location.href=u;}
 function say(t,bad){if(!dlg)return;const m=dlg._.msg;m.style.color=bad?'#ef6b5e':'#86d67f';m.textContent=t;clearTimeout(say._t);say._t=setTimeout(()=>{m.textContent='';},2800);}
-function fname(d){return 'tower-of-fate-'+(str(d.name).trim().replace(/[\\/:*?"<>|\s]+/g,'-').slice(0,40)||'hero')+'-'+(d.birth?'birth':d.floor)+'.png';}
+function fname(d){return 'tower-of-fate-'+(str(d.name).trim().replace(/[\\/:*?"<>|\s]+/g,'-').slice(0,40)||'hero')+'-'+(d.gift?'wish-'+str(d.gift.k):d.birth?'birth':d.floor)+'.png';}
 function refreshText(){const s=state;if(!s)return;dlg._.pre.textContent=text(s.d,'full');}
 function redraw(){const s=state;if(!s)return;s.blob=null;const D=dlg._,v=++s.ver;
  if(!D.wrap.querySelector('img'))D.wrap.replaceChildren(el('div',{class:'shs-load'},'กำลังวาดการ์ด…'));
  s.cvP=render(s.d);
  s.cvP.then(cv=>{if(s!==state||v!==s.ver)return;let img=D.wrap.querySelector('img');
   if(!img){img=el('img',{class:'shs-img',width:'1080',height:'1350'});D.wrap.replaceChildren(img);}
-  img.alt=s.d.birth?'การ์ดแรกเกิดของ '+s.d.name+': '+s.d.clsN+'แรงค์ '+s.d.rankK:'การ์ดของ '+s.d.name+': '+(s.d.won?'พิชิตยอดหอคอย':'ไปถึงชั้น '+s.d.floor+' จาก 100');img.src=cv.toDataURL('image/png');
+  img.alt=s.d.gift?'การ์ดความปรารถนาของ '+s.d.name+': '+s.d.gift.t:s.d.birth?'การ์ดแรกเกิดของ '+s.d.name+': '+s.d.clsN+'แรงค์ '+s.d.rankK:'การ์ดของ '+s.d.name+': '+(s.d.won?'พิชิตยอดหอคอย':'ไปถึงชั้น '+s.d.floor+' จาก 100');img.src=cv.toDataURL('image/png');
   cv.toBlob(b=>{if(s===state&&v===s.ver)s.blob=b;},'image/png');}).catch(()=>{if(s===state)D.wrap.replaceChildren(el('div',{class:'shs-load'},'วาดการ์ดไม่สำเร็จ'));});
  return s.cvP;}
 function getBlob(){const s=state;if(!s)return Promise.resolve(null);if(s.blob)return Promise.resolve(s.blob);
@@ -507,6 +542,9 @@ function close(){if(!dlg)return;if(dlg.open){try{dlg.close();}catch(e){dlg.remov
  const f=lastFocus;lastFocus=null;if(f&&f.focus&&document.contains(f))try{f.focus({preventScroll:true});}catch(e){}}
 function open(d,opt){opt=opt||{};statBump(opt.auto?'ao':'mo');return openSheet(norm(d),opt);}
 function openBirth(d,opt){opt=opt||{};statBump('bo');return openSheet(normB(d),Object.assign({},opt,{auto:false}));}
+// wish card sheet: same sheet, its own title and lead
+function openGift(d,opt){opt=opt||{};statBump('mo');const p=openSheet(normG(d),Object.assign({},opt,{auto:false}));const D=dlg._;
+ D.ttl.textContent='แชร์วันที่มอบให้';D.labT.textContent='อยากเขียนอะไรถึงวันนี้ไหม (ไม่ต้องเขียนก็ได้)';D.lead.textContent=`วันที่${str(d.name)||'ฮีโร่'}ไม่ทันได้มี ส่งให้เพื่อนดูก็ได้`;return p;}
 function openSheet(d,opt){
  build();const D=dlg._;
  if(!dlg.open)lastFocus=document.activeElement;
@@ -545,5 +583,5 @@ function onPhase(ph){if(friend&&!fShown)showFriend();if(friendEl&&lastPh==='birt
 readFriend();
 if(friend)setTimeout(showFriend,0); // auto.js normally shows it first through onPhase()
 
-window.SHARE={open,openBirth,stats,crisis,close,render,text,url:shareUrl,encode,decode,onPhase,get friend(){return friend;},get isOpen(){return!!(dlg&&dlg.open);}};
+window.SHARE={open,openBirth,openGift,stats,crisis,close,render,text,url:shareUrl,encode,decode,onPhase,get friend(){return friend;},get isOpen(){return!!(dlg&&dlg.open);}};
 })();
