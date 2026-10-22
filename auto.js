@@ -2227,7 +2227,9 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  const inh=I?`<div class="inhbox rv"${D(5)} data-tip="lineage">มรดกจากอาจารย์${esc(I.from)}: ทอง +${fmt(I.gold)}${I.pet&&PETS[I.pet]?` · ${esc(PETS[I.pet].n)}ตามมาด้วย`:''}${I.k>=2?' · บุญของอาจารย์คุ้มครอง (LUK +2 ความเสี่ยงตายลดลงเล็กน้อย)':I.k<=-2?' · หนี้กรรมของอาจารย์ตามมาด้วย (ความเสี่ยงตายสูงขึ้นเล็กน้อย)':''}</div>`:'';
  const CL=h.clan||{},CC=loadClan(),CF=CC.fresh,cp=CL.pet&&PETS[CL.pet];
  // the family may go by any mark it has earned; the pet can stay home for this life
- const cAct=[...clanGot(CC).filter(x=>x!==CL.m).map(x=>`<button class="btn sm" type="button" data-clanm="${x}">ใช้ชื่อ${CLAN_T[x]}</button>`),...clanPets(CC).filter(p=>p!==CL.pet).map(p=>`<button class="btn sm" type="button" data-clanpet="${p}">พา${esc(PETS[p].n)}ไปแทน</button>`),cp?`<button class="btn sm" id="btnPetHome" type="button" aria-pressed="${!!h.petHome}">${h.petHome?'พาไปด้วย':'ฝากไว้ที่บ้าน'}</button>`:''].join(' ');
+ const cOpt=(v,t,on)=>`<option value="${v}"${on?' selected':''}>${t}</option>`,cGot=clanGot(CC),cPets=clanPets(CC);
+ const cAct=[cGot.length>1?`<label class="csel">ชื่อตระกูล <select id="selClanM">${cGot.map(x=>cOpt(x,CLAN_T[x],x===CL.m)).join('')}</select></label>`:'',
+  cp?`<label class="csel">สัตว์ประจำตระกูล <select id="selClanPet">${cPets.map(p=>cOpt(p,esc(PETS[p].n),!h.petHome&&p===CL.pet)).join('')}${cOpt('home','ฝากไว้ที่บ้าน',!!h.petHome)}</select></label>`:''].join('');
  const clanH=CL.m||cp||C.id==='dsl'?`<div class="inhbox clanbox rv"${D(5)}>${CL.m?`<span data-tip="clan"><b>${CLAN_T[CL.m]}</b></span> · ${esc(clanLine(CL.m,CL.n))}`:''}${cp?`${CL.m?'<br>':''}<span data-tip="clanpet">${CF?`ไข่มังกร${esc(DRG[CF]?DRG[CF].n.replace('มังกร',''):'')}ที่คนในตระกูลเก็บกลับมาฟักแล้ว ได้${esc(cp.n)}เป็นสัตว์ประจำตระกูล`:h.petHome?`${esc(cp.n)} สัตว์ประจำตระกูล ชาตินี้ฝากไว้ที่บ้าน`:`${esc(cp.n)} สัตว์ประจำตระกูล เดินตามมาด้วย`} (${esc(cp.d)})</span>`:''}${C.id==='dsl'?`${CL.m||cp?'<br>':''}<span data-tip="dsl">เกิดมาเป็นนักล่ามังกร อาชีพลับที่เกิดได้เฉพาะในตระกูลที่เคยฆ่ามังกร</span>`:''}${cAct.trim()?`<div class="clanacts">${cAct}</div>`:''}</div>`:'';
  const excH=h.ex&&h.ex.got?`<div class="inhbox clanbox rv"${D(5)}><span data-tip="excal"><b>🗡 ดาบศักดิ์สิทธิ์ในหิน</b></span> · ติดตัวมาตั้งแต่เกิด (ATK +10% · ตีบอสแรงขึ้น 10%)</div>`:'';
  card.innerHTML=`<div class="cert${an?' anim':''}"><div class="hd">✦ ใบประกาศนักผจญภัย ✦</div><div class="nm">${esc(h.name)}</div><div class="vil">ถิ่นกำเนิด: ${esc(h.village)}</div>${lin}
@@ -2261,9 +2263,9 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  inp.addEventListener('change',()=>{if(cleanName(inp.value)!==inp.value)inp.value=S.hero.cname?S.hero.name:'';});
  $('btnEnter').onclick=startRun;liveBox();
  // family pet stays home for this life only (lets the no-pet win stay reachable)
- card.querySelectorAll('[data-clanm]').forEach(b=>b.onclick=()=>{const C=loadClan(),m=b.dataset.clanm;if(!clanGot(C).includes(m))return;C.got=clanGot(C).join('');C.m=m;saveClan(C);S.hero.clan=clanOf(C);ach('clan',{m});render();saveRun();});
- card.querySelectorAll('[data-clanpet]').forEach(b=>b.onclick=()=>{const C=loadClan(),p=b.dataset.clanpet;if(!clanPets(C).includes(p))return;C.pg=clanPets(C).join(',');C.pet=p;saveClan(C);S.hero.clan=clanOf(C);ach('clanpet',{p});render();saveRun();});
- const ph=$('btnPetHome');if(ph)ph.onclick=()=>{const h2=S.hero;if(h2.petHome)delete h2.petHome;else h2.petHome=1;render();saveRun();};
+ const sm=$('selClanM');if(sm)sm.onchange=()=>{const C=loadClan(),m=sm.value;if(!clanGot(C).includes(m)||m===C.m)return;C.got=clanGot(C).join('');C.m=m;saveClan(C);S.hero.clan=clanOf(C);ach('clan',{m});render();saveRun();};
+ // pet picker: a hatched pet becomes the family pet for good; "home" leaves it behind for this life only
+ const sp=$('selClanPet');if(sp)sp.onchange=()=>{const h2=S.hero,p=sp.value;if(p==='home')h2.petHome=1;else{delete h2.petHome;const C=loadClan();if(clanPets(C).includes(p)&&p!==C.pet){C.pg=clanPets(C).join(',');C.pet=p;saveClan(C);h2.clan=clanOf(C);ach('clanpet',{p});}}render();saveRun();};
  const bu=$('btnUnl');if(bu)bu.onclick=()=>{S.unlOpen=!S.unlOpen;const pn=$('unlPanel');if(pn)pn.hidden=!S.unlOpen;bu.setAttribute('aria-expanded',S.unlOpen?'true':'false');};
  const bs=$('btnShareBirth');if(bs)bs.onclick=()=>{try{window.SHARE.openBirth(birthShareData(S.hero));}catch(e){}};}
 // ---- unlived lives (v2.3): heroes thrown away with the one-time re-roll; total count n only grows, list capped at 60 ----
