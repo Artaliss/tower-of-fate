@@ -333,8 +333,8 @@ function genEvent(R,np){const f=R.floor;if(f%10===0){const en=modMon(R,mkBoss(f)
  let r=rnd();if(r<.3)return{kind:'mon',en:genMonster(f,R)};r-=.3;
  const hk=R.st==='help'?1.3:1,pr=.05*MD(R,'pet',1)*hk;if(r<pr&&!np&&R.pets.length<2)return{kind:'pet',pet:pick(PETK)};r-=pr;
  if(r<.06*hk&&!np&&R.comps.length<2)return{kind:'comp',comp:genComp(f,R)};
- const b=biome(f);let pool=[];EVENTS.forEach((e,i)=>{if((e.b===b||e.b===-1)&&!R.seen.includes(i)&&evW(R,e)>0)pool.push(i);});
- if(!pool.length)EVENTS.forEach((e,i)=>{if((e.b===b||e.b===-1)&&evW(R,e)>0)pool.push(i);});
+ const b=biome(f),okE=(e,i)=>(e.b===b||e.b===-1)&&evW(R,e)>0&&!(np&&payEv(i));let pool=[];EVENTS.forEach((e,i)=>{if(okE(e,i)&&!R.seen.includes(i))pool.push(i);});
+ if(!pool.length)EVENTS.forEach((e,i)=>{if(okE(e,i))pool.push(i);});
  let x=rnd()*pool.reduce((a,i)=>a+evW(R,EVENTS[i]),0),ti=pool[pool.length-1];for(const i of pool){x-=evW(R,EVENTS[i]);if(x<0){ti=i;break;}}
  R.seen.push(ti);if(R.seen.length>6)R.seen.shift();if(EVENTS[ti].ok)(R.stE||(R.stE={}))[ti]=1;
  const pt=R.pets[0],c=R.comps;return{kind:'ev',ti,sub:{pet:pt&&PETS[pt]?PETS[pt].n:'',comp:c[0]?c[0].n:'',comp2:c[1]?c[1].n:''}};}
@@ -451,7 +451,7 @@ const STAT_CD=10;
 function statFloor(R,out,hf0){const h=R.h,f=R.floor,s=scl(f),sn=R.sn||(R.sn={});
  R.lowN=hf0<.35?(R.lowN||0)+1:0;R.fitN=hf0>=.9?(R.fitN||0)+1:0;R.soloN=R.comps.length+R.pets.length?0:(R.soloN||0)+1;
  const L=eLuk(R),rules=[
-  ['low',()=>R.lowN>=2,()=>{const c=Math.round(4*s);if(h.gold>=c){h.gold-=c;h.hp=Math.min(h.mhp,h.hp+h.mhp*.06);say(R,out,`ซื้อผ้าพันแผลจากคนเดินสวน −${c} ทอง HP +6% (HP ต่ำมาหลายชั้นแล้ว)`,'info');}
+  ['low',()=>R.lowN>=2&&!R.quiet&&!R.pend,()=>{if(h.gold>=Math.round(4*s))R.pend='bandage'; // spending gold is always the player's call
    else say(R,out,'แผลยังไม่หาย แต่ไม่มีเงินซื้อผ้าพันแผล ชั้นนี้เลยเสี่ยงกว่าปกติ (HP ต่ำ)','bad');}],
   ['fit',()=>R.fitN>=3,()=>{const x=Math.round(3+.4*f);gainExp(R,x,out);say(R,out,`ร่างกายพร้อม เดินเร็วจนเหลือเวลาซ้อมท่า +${x} EXP (HP เต็มมาหลายชั้น)`,'good');}],
   ['lucky',()=>L>=20+f*.15&&rnd()<.08,()=>{const g=Math.round(5*s*gMul(R));h.gold+=g;say(R,out,`เตะโดนถุงเงินที่ใครทำตกไว้ +${g} ทอง (LUK ${Math.round(L)})`,'good');}],
@@ -627,6 +627,13 @@ Object.assign(SPECIAL,{
    if(i===0){h.hp=h.mhp;const d=shiftFate(R,ri(-3,7));say(R,out,`น้ำเย็นจนฟันชา ${fateFeel(d)}`,d<0?'bad':'good');}
    else if(i===1){h.gold-=K.data.cost;h.luk+=4;say(R,out,'เหรียญจมลงไปโดยไม่มีเสียงกระทบพื้นเลยสักนิด','good');}
    else{R.potions+=2;say(R,out,'น้ำในขวดยังเรืองแสงจางๆ อยู่อีกหลายชั้น','good');}}},
+ // never rolled: offered by statFloor when HP has been low for a while (ok false keeps it out of genSpecial)
+ bandage:{w:0,ok:()=>false,mk(R,K){const f=R.floor,c=Math.round(4*scl(f));K.data={c};K.tag=`ชั้น ${f} · คนเดินสวน`;K.title='พ่อค้าผ้าพันแผล';K.vis=npc('merchant');
+   K.text='HP ต่ำมาหลายชั้นแล้ว คนเดินสวนชะโงกดูแผลคุณ แล้วชูม้วนผ้าพันแผลขึ้นมา "ม้วนละไม่กี่เหรียญ"';
+   K.ch=[CH('ซื้อผ้าพันแผล',[{t:`−${c} ทอง`,c:'w'},{t:'HP +6%',c:'g'}],R.h.gold<c),CH('ไม่ซื้อ',[{t:'เก็บทองไว้',c:''}])];K.ai=0;},
+  res(R,K,i,out){const h=R.h,f=R.floor;R.map[f-1]='calm';
+   if(i===0){h.gold-=K.data.c;h.hp=Math.min(h.mhp,h.hp+h.mhp*.06);say(R,out,`พันแผลเสร็จก็เดินได้คล่องขึ้น −${K.data.c} ทอง HP +6%`,'info');}
+   else say(R,out,'คุณส่ายหน้าแล้วเดินต่อ แผลยังปวดอยู่','info');}},
  starfall:{w:1,mk(R,K){const f=R.floor,a=4+f*.2,d=2+f*.1,g=gG(R,150);K.data={a,d,g};K.tag=`ชั้น ${f} · ดาวตก`;K.title='ดาวที่ตกลงมาในหอคอย';K.vis={t:'prop',pr:'star'};
    K.text='เพดานชั้นนี้เปิดโล่งเห็นฟ้า ดาวดวงหนึ่งตกลงมาห่างไปไม่กี่ก้าว พื้นหินรอบๆ ยังแดงร้อน ตำนานเล่าว่าคนแรกที่แตะดาวตกจะได้หนึ่งคำขอ';
    K.ch=[CH('ขอพลัง',[{t:`ATK +${a.toFixed(1)} · DEF +${d.toFixed(1)}`,c:'g'}]),CH('ขอชีวิต',[{t:'ชะตายืดออกไปมาก',c:'g'}]),CH('ขอทอง',[{t:`+${g} ทอง`,c:'g'}])];K.ai=1;},
@@ -1541,7 +1548,11 @@ const sigOf=K=>'cs:'+K.ch.map(c=>c.t).join('|');
 const isGood=p=>p.c==='g'||(p.c==='kk'&&p.t.includes('✦'));
 function dominant(K,en){const good=c=>c.P.some(isGood),clean=c=>c.P.every(p=>isGood(p)||p.c==='');
  const cand=en.filter(i=>good(K.ch[i])&&clean(K.ch[i]));if(cand.length!==1)return -1;const a=cand[0];return en.every(i=>i===a||!good(K.ch[i]))?a:-1;}
-function autoAns(R,K){if(K.type==='boss')return K.ev&&K.ev.est>=.97&&!K.ch[0].dis?{how:'plain',i:0}:null;
+// a choice that spends gold (price, bet, emergency purchase): only ever the player's own pick
+const payCh=c=>!!c&&c.P.some(p=>p.c==='w'&&/−\d+ ทอง|เดิมพัน/.test(p.t));
+const payEv=ti=>EVENTS[ti].c.some(c=>c.c);
+function autoAns(R,K){const a=autoAns0(R,K);return a&&payCh(K.ch[a.i])?null:a;}
+function autoAns0(R,K){if(K.type==='boss')return K.ev&&K.ev.est>=.97&&!K.ch[0].dis?{how:'plain',i:0}:null;
  if(NO_WAY[K.type])return null;const en=K.ch.map((c,i)=>c.dis?-1:i).filter(i=>i>=0);if(!en.length)return null;
  if(en.length===1)return{how:'plain',i:en[0]};
  let w=R.way[K.tid];if(w===undefined)w=R.way[sigOf(K)];if(w!==undefined&&K.ch[w]&&!K.ch[w].dis)return{how:'same',i:w};
@@ -1563,7 +1574,7 @@ function persPick(R,K){const ps=R.h.pers||'careful';
 function planFloor(R){const P=planFloor0(R);
  if(P.type==='key'){const a=autoAns(R,P.K);if(a)return{type:'autokey',K:P.K,i:a.i,how:a.how};}return P;}
 function planFloor0(R){
- if(R.pend){const p=R.pend;R.pend=null;return{type:p==='shop'?'autokey':'key',K:mkKey(R,p)};}
+ if(R.pend){const p=R.pend;R.pend=null;return{type:'key',K:mkKey(R,p)};}
  if(R.farmLeft>0)return{type:'farm'};
  if(rollFloor(R))return brinkOk(R)?{type:'key',K:mkKey(R,'brink')}:{type:'death'};
  if(omenDue(R))return{type:'key',K:mkKey(R,'omen')};
@@ -1574,10 +1585,12 @@ function planFloor0(R){
   if(R.sinceKey>=1&&R.floor-R.lastQuiet>=8&&R.floor>2&&rnd()<.09*MD(R,'quiet',1)){const n=quietLen(R);if(n>=3)return{type:'quiet',n};}
   if(R.floor>3&&R.floor-R.lastDrama>=7&&rnd()<.07)return{type:'drama',D:pick(DRAMA.filter(d=>d.id!==R.lastDramaId))};}
  let ev=genEvent(R);
- if(ev.kind==='boss'){const K=mkKey(R,'boss',ev);const again=R.bossAt===R.floor;R.bossAt=R.floor;if(again&&K.ai!==0){K.auto=1;return{type:'autokey',K};}return{type:'key',K};}
+ if(ev.kind==='boss'){const K=mkKey(R,'boss',ev);const again=R.bossAt===R.floor;R.bossAt=R.floor;if(again&&K.ai!==0&&!payCh(K.ch[K.ai])){K.auto=1;return{type:'autokey',K};}return{type:'key',K};}
  // a pet or companion only shows up when the player actually gets to choose; otherwise roll something else
  if(ev.kind==='pet'||ev.kind==='comp'){const t=ev.kind==='pet'?'pet:'+ev.pet:'comp:'+ev.comp.tr;
   if(!R.used[t]&&R.sinceKey>=2){const K=mkKey(R,ev.kind,ev);if(!autoAns(R,K))return{type:'key',K};}ev=genEvent(R,1);}
+ // same for events where a choice costs gold
+ if(ev.kind==='ev'&&payEv(ev.ti)){if(R.sinceKey>=1){const K=mkKey(R,'ev',ev);if(!autoAns(R,K))return{type:'key',K};}ev=genEvent(R,1);}
  const risky=ev.kind==='ev'&&EVENTS[ev.ti].c.some(c=>c.p);
  const tid=ev.kind==='ev'?'ev:'+ev.ti:'';
  if(tid&&R.way[tid]!==undefined&&rnd()<.6)return{type:'key',K:mkKey(R,ev.kind,ev)}; // repeat: answered the same way without pausing
