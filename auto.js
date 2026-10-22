@@ -269,6 +269,8 @@ function fight(R,en,o){o=o||{};const h=R.h,id=cid(R),T=pathTier(R),A=eAtk(R)*(id
 }
 // boss rubber band (v2.3): no farming loop any more, so a boss far above the hero eases off until the hero has about BFIT.t to win at full HP
 const BFIT={t:.3,lo:.55,st:.9};
+// late bosses hit harder (v2.7): reaching the top should cost something; the rubber band above still eases a boss that is hopeless
+const BLATE={80:1.15,90:1.25,100:1.05};
 function bossFit(R,en,t,o){const h=R.h,hp0=h.hp,mp0=h.mp;h.hp=h.mhp;h.mp=h.mmp;let k=1;
  while(k>BFIT.lo&&estimateWin(R,en,40,o)<t){k*=BFIT.st;en.hp*=BFIT.st;en.mhp=en.hp;en.atk*=BFIT.st;}
  h.hp=hp0;h.mp=mp0;if(k<1)en.fit=Math.round(k*100)/100;return en;}
@@ -324,7 +326,7 @@ function doFight(R,en,out,o){o=o||{};const h=R.h,f=R.floor;
   h.gold+=gd;say(R,out,`ปราบ${en.n}! +${Math.round(ex)} EXP · +${gd} ทอง`,'good');gainExp(R,ex,out);if(en.boss){out.coins=gd;bossPerks(R,gd,out);}if(clanM(R)==='s'&&isDrg(en)&&(en.boss||en.drg))drgFell(R,out);}
  else{out.cause=o.cause||`ถูก${en.n}สังหารที่ชั้น ${f}`;say(R,out,`พ่ายแพ้ต่อ${en.n}…`,'bad');}
  return res.win;}
-function genEvent(R){const f=R.floor;if(f%10===0)return{kind:'boss',en:bossFit(R,modMon(R,mkBoss(f),MD(R,'boss',1)),BFIT.t)};
+function genEvent(R){const f=R.floor;if(f%10===0){const en=modMon(R,mkBoss(f),MD(R,'boss',1)),k=BLATE[f]||1;en.hp*=k;en.mhp=en.hp;en.atk*=k;return{kind:'boss',en:bossFit(R,en,BFIT.t)};}
  let r=rnd();if(r<.3)return{kind:'mon',en:genMonster(f,R)};r-=.3;
  const hk=R.st==='help'?1.3:1,pr=.05*MD(R,'pet',1)*hk;if(r<pr&&R.pets.length<2)return{kind:'pet',pet:pick(PETK)};r-=pr;
  if(r<.06*hk&&R.comps.length<2)return{kind:'comp',comp:genComp(f,R)};
