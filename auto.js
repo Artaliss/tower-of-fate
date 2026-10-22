@@ -1044,8 +1044,8 @@ Object.assign(SPECIAL,{promo:{w:2,ok:promoOk,mk(R,K){const f=R.floor,id=cid(R),P
   R.promo={id:D.id,i};say(R,out,x.fight?c.rw:c.r,x.k<0?'bad':x.fight?'lv':'good');}}});
 TIER.promo='r';
 // v2.5: extreme karma turns the hero into a necromancer or an angel (once per life); finishing such a life unlocks the class at birth
-const NEC_K=-25,ANG_K=40;
-const turnOk=(R,id)=>!R.turned&&!['nec','ang','dsl'].includes(cid(R))&&R.floor>=12&&R.floor<=95&&(id==='nec'?R.karma<=NEC_K:R.karma>=ANG_K);
+const NEC_K=-50,ANG_K=55;
+const turnOk=(R,id)=>!R.turned&&!['nec','ang','dsl'].includes(cid(R))&&R.floor>=30&&R.floor<=95&&(id==='nec'?R.karma<=NEC_K:R.karma>=ANG_K);
 function turnClass(R,id,out){const h=R.h,i=CLASSES.findIndex(c=>c.id===id);if(i<0)return;R.turned={from:cid(R),f:R.floor};h.cls=i;R.path=0;R.pathHi=0;
  if(id==='nec'){h.atk*=1.08;h.mhp*=.92;h.hp=Math.min(h.hp,h.mhp);h.mmp+=20;h.mp=h.mmp;
   if(R.comps.length){say(R,out,`${R.comps.map(c=>c.n).join(' กับ ')}เห็นร่างคุณกลายเป็นกระดูกแล้ววิ่งหนีไป`,'bad');R.comps=[];}}
