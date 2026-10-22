@@ -54,7 +54,7 @@ const pathOf=R=>PATHS[cid(R)]||null;
 // necromancer minions (v2.5): skeletons fight in the companions' place
 const boneN=R=>2+(pathTier(R)>=1?1:0)+(pathTier(R)>=3?1:0);
 const bonePw=R=>(4+R.floor*.7)*1.3*(1+.12*pathTier(R));
-const pathTier=R=>{const v=R&&R.path||0;let t=0;for(const x of PATH_T)if(v>=x)t++;return t;};
+const pathTier=R=>{const v=R&&R.path||0;let t=0;for(const x of PATH_T)if(v>=x&&(x<PATH_T[2]||(R.pathHi||0)>=3))t++;return t;}; // v2.7: the last tier is won in a contest (crownWin)
 const pathName=R=>{const P=pathOf(R),t=pathTier(R);return P&&t?P.t[t-1]:'';};
 const pathPts=(R,tg)=>{if(!tg||!tg.length)return 0;const M=PATH_TG[cid(R)]||{};let s=0;for(const x of tg)s+=M[x]||0;return s;};
 // regex fallback for key moments without explicit tags (story arcs)
@@ -335,6 +335,21 @@ function genEvent(R){const f=R.floor;if(f%10===0)return{kind:'boss',en:bossFit(R
  const pt=R.pets[0],c=R.comps;return{kind:'ev',ti,sub:{pet:pt&&PETS[pt]?PETS[pt].n:'',comp:c[0]?c[0].n:'',comp2:c[1]?c[1].n:''}};}
 const evW=(R,e)=>e.ok&&!e.ok(R)?0:e.w?e.w(R):1;
 const evS=(ev,s)=>s&&ev&&ev.sub?String(s).replace(/\{(pet|comp|comp2)\}/g,(m,k)=>ev.sub[k]||m):s;
+// ---- v2.7 autoProp: an event without `pr` gets a scene prop from the words of its title (then its text);
+// nothing matches -> hash of the title picks from a neutral pool, so the same event always shows the same prop ----
+const PROP_NPC=new Set(['snail','dwarf','miner','witch','ghostkid','trainer','farmer','granny','fairkid','fairy','skeleton','phoenix','stargazer','whale','seer','gambler','masked','child','merchant','knight','bard','monk','thief','smith','cat','hunter','scholar','noble','cultist','imp','healer']);
+const PROP_RX=[[/อิมป์/,'imp'],[/นักล่า|พราน|ล่าสัตว์|รอยเท้า|หมาป่า/,'hunter'],[/นักบวช|พระ(?!อาทิตย์|จันทร์)|ธุดงค์/,'monk'],[/ลาวา|กำมะถัน|ซาลาแมนเดอร์|นักระบำไฟ/,'fire'],[/มิมิก|หีบ|สมบัติ|คลังทอง/,'chest'],[/ไข่/,'egg'],[/หลุมศพ|ป้ายหลุม|สุสาน/,'grave'],[/โครงกระดูก|กระดูก/,'skeleton'],[/หมอดู|ทำนาย/,'seer'],[/หน้ากาก|โรงละคร|หุ่นเชิด/,'masked'],
+ [/นกไฟ|นกเพลิง/,'phoenix'],[/วาฬ/,'whale'],[/หอยทาก/,'snail'],[/นางฟ้า|ภูต/,'fairy'],[/แม่มด|หม้อยา/,'witch'],[/ปีศาจ|ม้วนสัญญา/,'imp'],[/ลัทธิ/,'cultist'],[/ผี(?!เสื้อ)|วิญญาณ/,'ghostkid'],
+ [/พ่อค้า|ร้าน|ตลาด|คาราวาน/,'merchant'],[/โจร|ขโมย|ปล้น|ล้วง/,'thief'],[/อัศวิน|ทหาร|ยามเฝ้า|องครักษ์/,'knight'],[/หมอ(?!ก)|รักษา|ป่วย|โรค|สมุนไพร/,'healer'],
+ [/แมว/,'cat'],[/ยาย|คนแก่/,'granny'],[/เด็ก/,'child'],[/ช่าง|ทั่ง|ตีเหล็ก/,'smith'],[/นักกวี|พิณ|เพลง|ดนตรี/,'bard'],
+ [/ขุนนาง|เจ้าเมือง|ราชา|มงกุฎ/,'noble'],[/นักปราชญ์|ปริศนา/,'scholar'],[/คนแคระ/,'dwarf'],[/เหมือง|แร่|อุโมงค์/,'miner'],[/พนัน|เดิมพัน|ลูกเต๋า/,'gambler'],[/ชาวนา|ไร่|แปลงผัก|เก็บเกี่ยว/,'farmer'],
+ [/ครูฝึก|ลานฝึก/,'trainer'],[/ดูดาว|กล้องส่อง/,'stargazer'],[/แท่น|ต้องสาป|คำสาป|รูปปั้น/,'altar'],[/หนังสือ|ตำรา|คัมภีร์|ห้องสมุด/,'book'],[/คริสตัล|ผลึก|อัญมณี/,'crystal'],
+ [/ประตู|มิติ|วาร์ป|รอยแยก|กระจก/,'portal'],[/ศาล|วัด|สวด|ไหว้|เทพ/,'shrine'],[/ดาว|จันทร์|ท้องฟ้า|หิ่งห้อย/,'star'],[/บ่อ(?!ย)|น้ำพุ|ธาร|บึง|ทะเลสาบ|แม่น้ำ/,'well'],[/ไฟ|เทียน|โคม|เตา/,'fire']];
+const PROP_POOL=['npc','fire','well','star','crystal','shrine','book','portal'];
+function autoProp(t,x){const s=String(t||''),sx=String(x||'');for(const r of PROP_RX)if(r[0].test(s))return r[1];for(const r of PROP_RX)if(r[0].test(sx))return r[1];return PROP_POOL[shash(s)%PROP_POOL.length];}
+const autoVis=(t,x)=>{const pr=autoProp(t,x);return PROP_NPC.has(pr)?{t:'prop',pr,fb:'npc'}:{t:'prop',pr};};
+const evVis=(ev,T)=>T.pr?{t:'prop',pr:T.pr}:autoVis(evS(ev,T.t),evS(ev,T.x));
+const evPr=T=>T.pr||autoProp(T.t,T.x);
 const chRisk=(R,ch)=>riskAdj(R,ch.p)*(cid(R)==='mag'&&pathTier(R)>=3&&ch.tg&&ch.tg.includes('curse')?.5:1);
 function chDis(R,ch){const c=ch.c?Math.round(ch.c*scl(R.floor)):0;if(c&&R.h.gold<c)return`ทองไม่พอ ขาด ${Math.ceil(c-R.h.gold)}`;if(ch.req==='pot'&&R.potions<1)return'ไม่มียา';return'';}
 function estCached(R,ev,n){const k=Math.round(R.h.hp)+'|'+Math.round(R.h.atk)+'|'+R.comps.length+'|'+R.pets.join();if(ev.ek!==k){ev.ek=k;ev.est=estimateWin(R,ev.en,n);ev.sw=sneakWin(R,ev.en,n);}return ev.est;}
@@ -521,13 +536,13 @@ const SPECIAL={
    K.tag=`ชั้น ${f} · หีบปริศนา`;K.title='หีบสมบัติกลางทางเดิน';
    K.text='หีบไม้ขอบทองวางอยู่กลางทางเดินแบบไม่มีใครเฝ้า ฝุ่นรอบๆ สะอาดผิดปกติ '+(seen?(isM?'ดูดีๆ แล้วกล่องนี้แปลกๆ ฝาของมันขยับขึ้นลงช้าๆ เหมือนกำลังหายใจ':'คุณสังเกตอยู่นาน ก็เห็นแค่หีบเก่าที่บานพับขึ้นสนิม'):'ดูยังไงก็บอกไม่ได้ว่าเป็นหีบจริงหรือมิมิก');
    K.hint=seen;K.vis={t:'prop',pr:'chest'};const w=Math.round(K.data.w*100);
-   K.ch=[{t:'เปิดเลย',P:[{t:`ถ้าของจริง +${Math.round(70*s)} ทอง +1 ยา`,c:'g'},{t:'ถ้าเป็นมิมิก โดนงับก่อนแล้วต้องสู้',c:'b'}]},
-    {t:'เอาดาบเขี่ยดูก่อน',P:[{t:`ของจริง +${Math.round(55*s)} ทอง`,c:'g'},{t:`มิมิก = สู้แบบไม่โดนงับก่อน (~${w}%)`,c:'w'},{t:'ชนะได้ของดี',c:'g'}]},
+   K.ch=[{t:'เปิดเลย',P:[{t:`ถ้าของจริง +${mimG(R,70)} ทอง +1 ยา`,c:'g'},{t:'ถ้าเป็นมิมิก โดนงับก่อนแล้วต้องสู้',c:'b'}]},
+    {t:'เอาดาบเขี่ยดูก่อน',P:[{t:`ของจริง +${mimG(R,55)} ทอง`,c:'g'},{t:`มิมิก = สู้แบบไม่โดนงับก่อน (~${w}%)`,c:'w'},{t:'ชนะได้ของดี',c:'g'}]},
     {t:'ปล่อยมันไว้อย่างนั้น',P:[{t:'ไม่เสี่ยง',c:''}]}];
    K.ai=seen&&isM?(K.data.w>=.65?1:2):(R.h.hp/R.h.mhp>.5?1:2);},
   res(R,K,i,out){const f=R.floor,s=scl(f),h=R.h,{isM,en}=K.data;
    if(i===2){R.map[f-1]='calm';say(R,out,isM?'เดินผ่านไปได้ไม่กี่ก้าว ก็ได้ยินเสียงฟันกระทบกันดังกึกๆ ไล่หลังมา':'คุณเดินผ่านหีบไป ไม่มีวันได้รู้ว่าข้างในมีอะไร','info');return;}
-   if(!isM){const g=Math.round((i===0?70:55)*s*(cid(R)==='rog'?1.3:1)*MD(R,'loot',1)*gMul(R));h.gold+=g;if(i===0)R.potions++;out.coins=g;R.map[f-1]='treasure';out.chest=true;
+   if(!isM){const g=mimG(R,i===0?70:55);h.gold+=g;if(i===0)R.potions++;out.coins=g;R.map[f-1]='treasure';out.chest=true;
     say(R,out,`หีบของจริง! ได้ทอง ${g}${i===0?' กับยาอีกหนึ่งขวด':''}`,'good');return;}
    R.map[f-1]='fight';say(R,out,i===0?'ฝาหีบอ้าออก มีลิ้นยาวพุ่งออกมาพร้อมฟันซี่แหลม! มิมิกนี่เอง':'ปลายดาบแตะฝาหีบปุ๊บ มันก็แยกเขี้ยวใส่ทันที','bad');
    const win=doFight(R,en,out,{ambush:i===0,cause:`ถูกมิมิกงับ (ชั้น ${f})`});
@@ -606,7 +621,7 @@ Object.assign(SPECIAL,{
    if(i===0){h.hp=h.mhp;const d=shiftFate(R,ri(-3,7));say(R,out,`น้ำเย็นจนฟันชา ${fateFeel(d)}`,d<0?'bad':'good');}
    else if(i===1){h.gold-=K.data.cost;h.luk+=4;say(R,out,'เหรียญจมลงไปโดยไม่มีเสียงกระทบพื้นเลยสักนิด','good');}
    else{R.potions+=2;say(R,out,'น้ำในขวดยังเรืองแสงจางๆ อยู่อีกหลายชั้น','good');}}},
- starfall:{w:1,mk(R,K){const f=R.floor,a=4+f*.2,d=2+f*.1,g=Math.round(150*scl(f));K.data={a,d,g};K.tag=`ชั้น ${f} · ดาวตก`;K.title='ดาวที่ตกลงมาในหอคอย';K.vis={t:'prop',pr:'star'};
+ starfall:{w:1,mk(R,K){const f=R.floor,a=4+f*.2,d=2+f*.1,g=gG(R,150);K.data={a,d,g};K.tag=`ชั้น ${f} · ดาวตก`;K.title='ดาวที่ตกลงมาในหอคอย';K.vis={t:'prop',pr:'star'};
    K.text='เพดานชั้นนี้เปิดโล่งเห็นฟ้า ดาวดวงหนึ่งตกลงมาห่างไปไม่กี่ก้าว พื้นหินรอบๆ ยังแดงร้อน ตำนานเล่าว่าคนแรกที่แตะดาวตกจะได้หนึ่งคำขอ';
    K.ch=[CH('ขอพลัง',[{t:`ATK +${a.toFixed(1)} · DEF +${d.toFixed(1)}`,c:'g'}]),CH('ขอชีวิต',[{t:'ชะตายืดออกไปมาก',c:'g'}]),CH('ขอทอง',[{t:`+${g} ทอง`,c:'g'}])];K.ai=1;},
   res(R,K,i,out){const f=R.floor,h=R.h,{a,d,g}=K.data;R.map[f-1]='treasure';
@@ -614,7 +629,7 @@ Object.assign(SPECIAL,{
    else if(i===1){const dd=shiftFate(R,ri(5,9));say(R,out,`ดาวดับลงช้าๆ ในฝ่ามือ ${fateFeel(dd)}`,'lv');}
    else{h.gold+=g;out.coins=g;say(R,out,`ดาวแตกออกเป็นก้อนทองเล็กๆ ${g} ก้อน`,'lv');}}},
  dragon:{w:1,mk(R,K){const f=R.floor,s=scl(f),sp=clamp(.35+eLuk(R)*.012,.35,.8),en=drgMod(R,Object.assign(mkMon({hp:2.2,atk:1.5,def:1.4},f,1),{id:'sala',n:'มังกรเกล็ดเขียว',drg:1})),w=estimateWin(R,en,40);
-   K.data={sp,en,g:Math.round(180*s)};K.tag=`ชั้น ${f} · รังมังกร`;K.title='มังกรหลับ';K.vis={t:'en',en};
+   K.data={sp,en,g:gG(R,180)};K.tag=`ชั้น ${f} · รังมังกร`;K.title='มังกรหลับ';K.vis={t:'en',en};
    K.text='มังกรเกล็ดเขียวขดตัวหลับอยู่บนกองทอง ลมหายใจร้อนจนปลายผมคุณหยิก ทองกองที่ใกล้ที่สุดอยู่ห่างแค่สามก้าว';
    K.ch=[CH('ย่องไปหยิบทอง',[{t:`${Math.round(sp*100)}% ได้ ${K.data.g} ทอง`,c:'g'},{t:'พลาด = มันตื่น',c:'b'}]),CH('ปลุกมันขึ้นมาสู้',[{t:`โอกาสชนะ ~${Math.round(w*100)}%`,c:w>=.6?'g':'b'},{t:'ชนะได้ทองทั้งกอง',c:'g'}]),CH('ก้มหัวให้แล้วเดินผ่าน',[{t:'DEF +',c:'g'},kk(2)])];
    if(clanM(R)==='s')K.ch[1].P.push({t:'ชนะ = คำสาปตระกูลเบาลง',c:'g'});
@@ -642,6 +657,9 @@ const coin=(R,out,g)=>{if(cid(R)==='rog')g=Math.round(g*(1+.12*pathTier(R)));R.h
 const heal=(R,k)=>{R.h.hp=Math.min(R.h.mhp,R.h.hp+R.h.mhp*k);};
 const xp=(R,out,b,k)=>gainExp(R,b+k*R.floor,out);
 const skipN=(R,n)=>Math.max(0,Math.min(n,Math.ceil(R.floor/10)*10-1-R.floor));
+// v2.7: flat MP gifts grow with the floor like ATK/DEF gifts do (1+f/30); chest gold shown on the card = gold paid out
+const mpU=(R,b)=>Math.round(b*(1+R.floor/30));
+const mimG=(R,b)=>Math.round(b*scl(R.floor)*(cid(R)==='rog'?1.3:1)*MD(R,'loot',1)*gMul(R));
 Object.assign(SPECIAL,{
  smith:{w:2,mk(R,K){const f=R.floor,ca=gS(R,30),cd=gS(R,28),a=3+f*.14,d=2.2+f*.1;K.data={ca,cd,a,d};
    K.tag=`ชั้น ${f} · ช่างตีเหล็กพเนจร`;K.title='ช่างตีเหล็กกลางบันได';K.vis=npc('smith');
@@ -708,11 +726,11 @@ Object.assign(SPECIAL,{
  scholar:{w:2,mk(R,K){const f=R.floor,p=clamp(.45+eLuk(R)*.008+(cid(R)==='mag'?.2:0),.4,.85),c=gS(R,20);K.data={p,c};
    K.tag=`ชั้น ${f} · นักปราชญ์`;K.title='ปริศนาของนักปราชญ์';K.vis=npc('scholar');
    K.text='ชายแก่ใส่แว่นหนาเตอะนั่งอยู่บนกองหนังสือที่สูงกว่าตัวเขาอีก "ตอบปริศนาข้าได้ ข้าจะยกความรู้ให้ครึ่งหัว ตอบผิดก็แค่โดนหนังสือฟาดหัวสักเล่ม"';
-   K.ch=[CH('รับคำท้า',[{t:`${Math.round(p*100)}% EXP ก้อนใหญ่ · MP สูงสุด +10`,c:'g'},{t:`/ ${100-Math.round(p*100)}% โดนฟาด HP −15%`,c:'b'}]),
+   K.ch=[CH('รับคำท้า',[{t:`${Math.round(p*100)}% EXP ก้อนใหญ่ · MP สูงสุด +${mpU(R,10)}`,c:'g'},{t:`/ ${100-Math.round(p*100)}% โดนฟาด HP −15%`,c:'b'}]),
     CH('ซื้อตำราเล่มที่บางที่สุด',[{t:`−${c} ทอง`,c:'w'},{t:'+EXP',c:'g'},...ngP(R,c)],R.h.gold<c),
     CH('ช่วยแบกหนังสือขึ้นไปส่ง',[{t:'HP −10%',c:'b'},{t:'LUK +1',c:'g'},kk(1)])];K.ai=p>=.6?0:2;},
   res(R,K,i,out){const f=R.floor,h=R.h,{p,c}=K.data;
-   if(i===0){if(rnd()<p){xp(R,out,15,3);h.mmp+=10;h.mp+=10;R.map[f-1]='good';say(R,out,'คุณตอบได้ก่อนเขาถามจบ เขาเลยนั่งสอนจนคุณหัวตื้อไปทั้งคืน','good');}
+   if(i===0){if(rnd()<p){xp(R,out,15,3);const m=mpU(R,10);h.mmp+=m;h.mp+=m;R.map[f-1]='good';say(R,out,'คุณตอบได้ก่อนเขาถามจบ เขาเลยนั่งสอนจนคุณหัวตื้อไปทั้งคืน','good');}
     else{h.hp-=h.mhp*.15;R.map[f-1]='bad';say(R,out,'ตอบผิด หนังสือเล่มที่หนาที่สุดฟาดลงกลางกระหม่อม','bad');}}
    else if(i===1){h.gold-=c;xp(R,out,8,1.8);R.map[f-1]='calm';say(R,out,'ตำราบางนิดเดียว อ่านจบก่อนถึงชั้นถัดไป ข้างในมีแผนผังรังมอนสเตอร์ของชั้นแถวนี้','good');}
    else{h.hp-=h.mhp*.1;h.luk+=1;R.karma+=1;R.map[f-1]='good';say(R,out,'หนังสือหนักยิ่งกว่าหิน เขาบ่นตลอดทางว่าคุณเดินช้า แต่ก่อนแยกกันก็อวยพรให้','good');}}},
@@ -783,11 +801,11 @@ Object.assign(SPECIAL,{
    K.text='แท่งคริสตัลสูงท่วมหัวส่งเสียงหึ่งเป็นทำนองช้าๆ ยิ่งเดินเข้าใกล้ แผลบนตัวยิ่งเย็นลง';
    K.ch=[CH('นั่งฟังจนเพลงจบ',[{t:'HP เต็ม · MP เต็ม',c:'g'}]),
     CH('ทุบเอาเศษไปขาย',[{t:`+${g} ทอง`,c:'g'},kk(-1)]),
-    CH('แตะมันด้วยมือเปล่า',[{t:'HP −10%',c:'b'},{t:'MP สูงสุด +8',c:'g'},{t:'LUK +1',c:'g'}])];K.ai=R.h.hp/R.h.mhp<.6?0:1;},
+    CH('แตะมันด้วยมือเปล่า',[{t:'HP −10%',c:'b'},{t:`MP สูงสุด +${mpU(R,8)}`,c:'g'},{t:'LUK +1',c:'g'}])];K.ai=R.h.hp/R.h.mhp<.6?0:1;},
   res(R,K,i,out){const f=R.floor,h=R.h;
    if(i===0){h.hp=h.mhp;h.mp=h.mmp;R.map[f-1]='good';say(R,out,'เพลงจบตอนฟ้าสาง แผลทุกแผลบนตัวปิดสนิท','good');}
    else if(i===1){coin(R,out,K.data.g);R.karma-=1;R.map[f-1]='treasure';say(R,out,'เสียงเพลงขาดหายไปกลางท่อน เศษคริสตัลในถุงยังสั่นเบาๆ อยู่ทั้งวัน','info');}
-   else{h.hp-=h.mhp*.1;h.mmp+=8;h.mp+=8;h.luk+=1;R.map[f-1]='calm';say(R,out,'ความเย็นแล่นจากปลายนิ้วขึ้นไปถึงต้นคอ มือคุณเรืองแสงจางๆ อยู่หลายชั้น','good');}}},
+   else{h.hp-=h.mhp*.1;const m=mpU(R,8);h.mmp+=m;h.mp+=m;h.luk+=1;R.map[f-1]='calm';say(R,out,'ความเย็นแล่นจากปลายนิ้วขึ้นไปถึงต้นคอ มือคุณเรืองแสงจางๆ อยู่หลายชั้น','good');}}},
  book:{w:2,mk(R,K){const f=R.floor;K.tag=`ชั้น ${f} · ตำราต้องห้าม`;K.title='หนังสือที่พลิกหน้าเอง';K.vis={t:'prop',pr:'book'};
    K.text='หนังสือหนาเตอะลอยอยู่กลางอากาศ หน้ากระดาษพลิกไปมาเอง ตัวอักษรบางตัวคลานออกมาเดินเล่นบนขอบหน้า แล้วก็คลานกลับเข้าไป';
    K.ch=[CH('อ่านจนจบเล่ม',[{t:'EXP ก้อนใหญ่มาก',c:'g'},{t:'อายุขัยสั้นลงนิดหน่อย',c:'b'}]),
@@ -995,11 +1013,11 @@ Object.assign(SPECIAL,{
    K.text='บันไดแก้วเส้นหนึ่งทอดยาวออกไปนอกหน้าต่าง ปลายทางหายเข้าไปในกลุ่มดาว ลมที่พัดลงมาหอมเหมือนดอกไม้ตอนเช้ามืด';
    K.ch=[CH('เดินขึ้นไปจนสุดบันได',[...(sk>0?[{t:`ข้ามไป ${sk} ชั้น`,c:'g'}]:[]),{t:'HP เต็ม · MP เต็ม',c:'g'}]),
     CH('เก็บดาวที่ร่วงอยู่บนขั้นบันได',[{t:'LUK +5',c:'g'},{t:`+${g} ทอง`,c:'g'}]),
-    CH('นั่งดูดาวอยู่ที่ขั้นล่างสุด',[{t:'EXP ก้อนใหญ่มาก',c:'g'},{t:'MP สูงสุด +10',c:'g'}])];K.ai=sk>0?0:1;},
+    CH('นั่งดูดาวอยู่ที่ขั้นล่างสุด',[{t:'EXP ก้อนใหญ่มาก',c:'g'},{t:`MP สูงสุด +${mpU(R,10)}`,c:'g'}])];K.ai=sk>0?0:1;},
   res(R,K,i,out){const f=R.floor,h=R.h,{g,sk}=K.data;R.map[f-1]='good';
    if(i===0){h.hp=h.mhp;h.mp=h.mmp;say(R,out,'บันไดแก้วเย็นเฉียบใต้ฝ่าเท้า เดินไปเรื่อยๆ จนลมหายใจกลายเป็นไอ พอก้าวลงมาอีกทีก็อยู่สูงขึ้นไปแล้ว','lv');if(sk>0)applyFx(R,{skip:sk},out);}
    else if(i===1){h.luk+=5;coin(R,out,g);R.map[f-1]='treasure';say(R,out,`ดาวดวงเล็กๆ อุ่นอยู่ในมือ บางดวงแข็งตัวกลายเป็นทอง รวมได้ ${g} เหรียญ`,'lv');}
-   else{xp(R,out,25,4.5);h.mmp+=10;h.mp+=10;say(R,out,'คุณนั่งนับดาวจนลืมนับเวลา พอลุกขึ้นก็จำได้ว่าดาวแต่ละดวงอยู่ตรงหน้าต่างของชั้นไหน','lv');}}}});
+   else{xp(R,out,25,4.5);const m=mpU(R,10);h.mmp+=m;h.mp+=m;say(R,out,'คุณนั่งนับดาวจนลืมนับเวลา พอลุกขึ้นก็จำได้ว่าดาวแต่ละดวงอยู่ตรงหน้าต่างของชั้นไหน','lv');}}}});
 const TIER={merc:'l',mimic:'c',egg:'c',relic:'r',seer:'r',rpet:'r',gamble:'c',wounded:'c',door:'c',fountain:'r',starfall:'l',dragon:'l'};
 // class promotion (v2.3): once per life, floor 25-85, hero doing well; per-class text in CONTENT.PROMO
 const PROMO=window.CONTENT.PROMO||{};
@@ -1010,7 +1028,7 @@ Object.assign(SPECIAL,{promo:{w:2,ok:promoOk,mk(R,K){const f=R.floor,id=cid(R),P
   K.ch=P.c.map((c,i)=>{const x=c.fx,B=[],Q=[];const pre=t=>x.fight&&!B.length?'ชนะได้ '+t:t;
    if(cost[i])Q.push({t:`−${cost[i]} ทอง`,c:'w'});if(en[i])Q.push(wPart(w[i]));
    if(x.a)B.push({t:pre(`ATK +${(x.a*U).toFixed(1)}`),c:'g'});if(x.d)B.push({t:pre(`DEF +${(x.d*U).toFixed(1)}`),c:'g'});if(x.hp)B.push({t:pre(`HP สูงสุด +${Math.round(x.hp*100)}%`),c:'g'});
-   if(x.m)B.push({t:pre(`MP สูงสุด +${x.m}`),c:'g'});if(x.l)B.push({t:pre(`LUK +${x.l}`),c:'g'});if(x.pot)B.push({t:pre(`+${x.pot} ยา`),c:'g'});if(x.x)B.push({t:pre('+EXP'),c:'g'});if(g[i])B.push({t:pre(`+${g[i]} ทอง`),c:'g'});
+   if(x.m)B.push({t:pre(`MP สูงสุด +${mpU(R,x.m)}`),c:'g'});if(x.l)B.push({t:pre(`LUK +${x.l}`),c:'g'});if(x.pot)B.push({t:pre(`+${x.pot} ยา`),c:'g'});if(x.x)B.push({t:pre('+EXP'),c:'g'});if(g[i])B.push({t:pre(`+${g[i]} ทอง`),c:'g'});
    if(x.dmg)B.push({t:`HP −${Math.round(x.dmg*100)}%`,c:'b'});if(x.fight)B.push({t:'แพ้ = บาดเจ็บหนัก',c:'b'});
    if(x.k)B.push(x.k<=-3?{t:'✧ กรรมชั่วหนัก',c:'kk'}:kk(x.k));
    return CH(c.t,[...Q,...B],cost[i]>0&&R.h.gold<cost[i]);});
@@ -1018,7 +1036,7 @@ Object.assign(SPECIAL,{promo:{w:2,ok:promoOk,mk(R,K){const f=R.floor,id=cid(R),P
   K.ai=fi>=0&&w[fi]>=70?fi:R.h.gold<gS(R,25)&&g.some(Boolean)?g.indexOf(Math.max(...g)):ai;},
  res(R,K,i,out){const f=R.floor,h=R.h,D=K.data,P=PROMO[D.id],c=P&&P.c[i];if(!c)return;const x=c.fx,U=D.U||2+f*.1;R.map[f-1]=c.mk||'calm';
   if(x.fight){const en=D.en[i];R.map[f-1]='fight';if(!doFight(R,en,out,{rw:1.5,cause:`ล้มลงในงานแรกของตำแหน่ง${P.t} (ชั้น ${f})`})){say(R,out,c.rl,'bad');return;}}
-  if(D.cost[i])h.gold-=D.cost[i];if(x.a)h.atk+=x.a*U;if(x.d)h.def+=x.d*U;if(x.hp)h.mhp*=1+x.hp;if(x.m){h.mmp+=x.m;h.mp+=x.m;}if(x.l)h.luk+=x.l;if(x.pot)R.potions+=x.pot;
+  if(D.cost[i])h.gold-=D.cost[i];if(x.a)h.atk+=x.a*U;if(x.d)h.def+=x.d*U;if(x.hp)h.mhp*=1+x.hp;if(x.m){const m=mpU(R,x.m);h.mmp+=m;h.mp+=m;}if(x.l)h.luk+=x.l;if(x.pot)R.potions+=x.pot;
   if(x.x)xp(R,out,10*x.x,1.6*x.x);if(D.g[i])coin(R,out,D.g[i]);if(x.dmg)h.hp-=h.mhp*x.dmg;if(x.k)R.karma+=x.k;
   R.promo={id:D.id,i};say(R,out,x.fight?c.rw:c.r,x.k<0?'bad':x.fight?'lv':'good');}}});
 TIER.promo='r';
@@ -1050,6 +1068,95 @@ Object.assign(TIER,{smith:'c',bard:'c',thief:'c',monk:'c',cat:'c',hunter:'c',sch
 // tier shares per draw stay at the original mix (~70% common / 23% rare / 7% legendary) however many keys each tier holds
 const TIER_N=Object.values(TIER).reduce((a,t)=>(a[t]=(a[t]||0)+1,a),{});
 const tierW=(R,r)=>{const sh=r==='l'?.07:r==='r'?.23:.7;return 6*(sh/(TIER_N[r]||1))/(.7/(TIER_N.c||1))*(r==='l'?MD(R,'leg',1):1);};
+// ---- v2.7: the last path tier has to be won. Path 80 -> contest key moment "crown", one retry at 90.
+// Ways: fair / spend gold / a patron's backing (a favour collected a few floors later, key "favor") / cheat (may be caught).
+// R.cw={id,n tries,won,how,f,pat,caught,paid}; the tier itself is R.pathHi=3 (pathTier checks it). {r} = the rival's name.
+const CROWN_T=[80,90];
+const CROWN={
+ war:{t:'ชิงชื่อวีรชนแห่งหอ',v:'knight',p:'แม่ทัพเฒ่าแห่งกองรักษาหอ',x:'ลานประลองชั้นนี้มีคนมุงจนล้นบันได ชื่อวีรชนแห่งหอมีได้คนเดียว และคนที่ถือชื่อนี้อยู่ตอนนี้คือ{r} นักรบหนวดขาวที่ไม่แพ้ใครมาสิบปี เขาชี้ดาบมาที่คุณ "อยากได้ก็มาเอาไปสิ"',
+  h:'ประลองตัวต่อตัวตามกติกา',g:'จ้างครูดาบมาซ้อมให้ทั้งคืนก่อนลงสนาม',c:'แอบเลื่อยด้ามดาบของเขาไว้ครึ่งหนึ่ง',
+  w:'ดาบของ{r}หลุดจากมือเป็นครั้งแรกในรอบสิบปี เขาคุกเข่าแล้วยื่นผ้าคาดหัวสีแดงให้คุณ คนดูตะโกนชื่อคุณจนหอสั่น',l:'{r}ฟาดสันดาบลงที่ไหล่คุณจนทรุด "ยังไม่ถึงเวลาของเจ้า" แล้วเดินกลับไปนั่งที่เดิม'},
+ mag:{t:'สอบชิงตำแหน่งจอมปราชญ์',v:'scholar',p:'สภาจอมเวทชั้นบน',x:'หอสมุดลอยฟ้าเปิดสอบชิงตำแหน่งจอมปราชญ์สิบปีครั้ง ผู้คุมสอบคือ{r} ที่นั่งเก้าอี้นี้มานานจนเคราลากพื้น ข้อสอบมีข้อเดียว ให้เขียนรูนที่ยังไม่มีใครเขียนได้',
+  h:'เขียนรูนด้วยความรู้ของตัวเอง',g:'ซื้อตำราเก่าจากพ่อค้าใต้ดินมาอ่านก่อนสอบ',c:'แอบลอกรูนจากกระดาษของคนข้างๆ',
+  w:'รูนของคุณลอยขึ้นจากกระดาษแล้วลุกเป็นไฟสีน้ำเงิน {r}ลุกขึ้นยืนเป็นครั้งแรกในรอบหลายปี แล้วถอดแหวนประจำตำแหน่งวางไว้บนโต๊ะคุณ',l:'รูนของคุณระเบิดเป็นควันดำ {r}ส่ายหน้าช้าๆ แล้วขีดฆ่าชื่อคุณออกจากบัญชี'},
+ arc:{t:'ล่าชิงชื่อเงาแห่งยอดไม้',v:'hunter',p:'สมาคมพรานป่า',x:'พรานทั้งหอนัดกันที่ป่าในร่มชั้นนี้ ใครยิงกวางเขาเงินได้ก่อนจะได้ชื่อเงาแห่งยอดไม้ไปครอง คู่แข่งตัวจริงคือ{r} ที่ว่ากันว่ายิงแมลงวันตกได้จากอีกฝั่งหุบ',
+  h:'ตามรอยกวางด้วยตาของตัวเอง',g:'จ้างพรานท้องถิ่นพาไปที่ซ่อนของมัน',c:'ตัดสายธนูของ{r}ตอนเขาหลับ',
+  w:'ลูกศรของคุณปักเขากวางเงินติดต้นไม้โดยไม่ถูกตัวมันเลย {r}ปรบมือให้ช้าๆ แล้วหักลูกศรของตัวเองทิ้ง',l:'ลูกศรของ{r}ถึงตัวกวางก่อนคุณแค่ช่วงหายใจเดียว เขาพยักหน้าให้คุณเหมือนจะบอกว่าคราวหน้าค่อยว่ากันใหม่'},
+ pri:{t:'เลือกนักบุญแห่งหอ',v:'monk',p:'เจ้าอาวาสวัดใหญ่ชั้นล่าง',x:'ศาลาใหญ่ชั้นนี้กำลังเลือกนักบุญแห่งหอคนใหม่ อีกคนที่ถูกเสนอชื่อคือ{r} นักบวชที่คนทั้งหอรัก ชาวบ้านยืนรอฟังว่าใครจะได้ถือตะเกียงศักดิ์สิทธิ์ดวงนั้น',
+  h:'รักษาคนเจ็บที่มารอให้ครบทุกคน แล้วให้ชาวบ้านตัดสิน',g:'บริจาคทองตั้งโรงทานหน้าศาลา',c:'ปล่อยข่าวว่า{r}แอบรับเงินคนป่วย',
+  w:'ชาวบ้านยกมือให้คุณจนเต็มศาลา {r}เป็นคนแรกที่ก้มลงไหว้ แล้วส่งตะเกียงศักดิ์สิทธิ์ให้ด้วยมือตัวเอง',l:'มือที่ยกให้{r}มากกว่าของคุณอยู่แถวเดียว เขาเดินมาจับมือคุณ "ท่านช่วยข้าดูแลชั้นล่างได้ไหม"'},
+ rog:{t:'ชิงบัลลังก์เจ้าแห่งเงา',v:'thief',p:'เจ้าพ่อตลาดมืด',x:'กิลด์เงาเรียกประชุมใต้สะพานหิน เจ้าแห่งเงาคนเก่าตายไปแล้ว ใครขโมยมงกุฎแก้วจากห้องนอนเจ้าเมืองชั้นบนได้ก่อนจะได้นั่งบัลลังก์ คู่แข่งที่น่ากลัวที่สุดคือ{r}',
+  h:'ย่องเข้าไปเองด้วยฝีมือล้วนๆ',g:'ซื้อแผนผังห้องนอนจากคนรับใช้',c:'แจ้งยามว่า{r}จะเข้าไปคืนนี้',
+  w:'คุณวางมงกุฎแก้วลงกลางวงประชุมก่อนรุ่งสาง {r}มาถึงทีหลังด้วยมือเปล่า คนทั้งกิลด์ยกมือแตะหน้าผากให้คุณ',l:'{r}โยนมงกุฎแก้วเล่นอยู่กลางวง ตอนที่คุณเพิ่งปีนหน้าต่างห้องเจ้าเมืองได้ครึ่งทาง'},
+ far:{t:'ประกวดชิงชื่อเศรษฐีบ้านนา',v:'farmer',p:'กำนันประจำชั้น',x:'งานวัดชั้นนี้มีประกวดผลผลิตประจำปี คนชนะจะได้ชื่อเศรษฐีบ้านนาไปทั้งปี แผงข้างๆ คุณเป็นของ{r} ที่ชนะมาสามปีซ้อน ฟักทองของเขาใหญ่เท่าเกวียน',
+  h:'ส่งผักที่ปลูกเองเข้าประกวด',g:'ซื้อปุ๋ยชั้นดีจากพ่อค้าเร่มาเร่งผลผลิต',c:'แอบเจาะฟักทองของ{r}ให้แห้งข้างใน',
+  w:'กรรมการชิมผักของคุณแล้วนิ่งไปนาน ก่อนจะคล้องพวงมาลัยให้ {r}ยิ้มแห้งๆ แล้วขอเมล็ดพันธุ์ไปลองปลูกบ้าง',l:'ฟักทองของ{r}ได้ริบบิ้นทองไปอีกปี เขาตบไหล่คุณ "ปีหน้าลองใหม่นะ ดินของเจ้าดีอยู่แล้ว"'},
+ dra:{t:'พิธีชิงเลือดมังกรแท้',vis:{t:'prop',pr:'altar'},p:'ผู้เฒ่าตระกูลมังกร',x:'แท่นศิลาเก่าชั้นนี้ส่งเสียงคำราม คนที่มีเลือดมังกรถูกเรียกมาที่นี่ คนที่ได้เลือดแท้จะเป็นมังกรในร่างคน อีกคนที่ยืนบนแท่นคือ{r} ตาของเขาเป็นสีเหลืองเหมือนตาคุณ',
+  h:'ยืนต้านไฟจากแท่นด้วยตัวเอง',g:'ซื้อเกล็ดมังกรโบราณมากลืนก่อนพิธี',c:'ราดน้ำมนต์ลงบนแท่นฝั่งของ{r}',
+  w:'ไฟจากแท่นไหลเข้าตัวคุณจนเกล็ดขึ้นเต็มแขน {r}ทรุดลงคุกเข่า ไฟฝั่งของเขาดับไปแล้ว',l:'ไฟเลือก{r}แทน แรงไฟผลักคุณตกจากแท่น ผิวแขนยังไหม้อยู่'},
+ dsl:{t:'ล่าชิงชื่อผู้ปิดตำนาน',v:'hunter',p:'ประธานสมาคมนักล่ามังกร',x:'สมาคมนักล่ามังกรตั้งค่าหัวมังกรแก่ตัวสุดท้ายในหอ ใครได้เขี้ยวมันมาก่อนจะได้ชื่อผู้ปิดตำนาน {r}ออกล่าตัวเดียวกัน และออกจากเมืองก่อนคุณสองวัน',
+  h:'ตามรอยเกล็ดที่หลุดร่วงไปเอง',g:'ซื้อหอกเงินจากช่างตีเหล็กของสมาคม',c:'ย้ายรอยเกล็ดล่อให้{r}เดินผิดทาง',
+  w:'คุณกลับมาพร้อมเขี้ยวที่ยาวกว่าแขน ประธานสมาคมสลักชื่อคุณต่อท้ายรายชื่อบนกำแพง {r}ไม่พูดอะไร แต่ก็ยืนปรบมือ',l:'{r}โยนเขี้ยวมังกรลงบนโต๊ะสมาคมก่อนคุณกลับมาถึงครึ่งวัน'},
+ nec:{t:'ชิงบัลลังก์ราชันย์ไร้ชีพ',v:'skeleton',p:'วิญญาณราชาองค์ก่อน',x:'สุสานใต้ชั้นนี้ไม่มีเจ้าของมาร้อยปี บัลลังก์กระดูกรอคนที่ปลุกศพได้มากที่สุด {r} เนโครแมนเซอร์อีกคน นั่งรออยู่แล้วกับกองทัพโครงกระดูกของเขา',
+  h:'ปลุกศพทั้งสุสานด้วยพลังของตัวเอง',g:'ซื้อศพใหม่จากสัปเหร่อชั้นล่าง',c:'ขโมยคัมภีร์ของ{r}ไปเผาก่อนพิธี',
+  w:'กระดูกทั้งสุสานลุกขึ้นหันหน้ามาทางคุณ {r}ได้แต่มองโครงกระดูกของตัวเองเดินข้ามมาฝั่งคุณทีละตัว',l:'ศพในสุสานลุกไปยืนข้าง{r}มากกว่า บัลลังก์กระดูกสั่นแล้วหันไปทางเขา'},
+ ang:{t:'เลือกอัครทูต',vis:{t:'prop',pr:'shrine'},p:'อัครทูตองค์เก่า',x:'แสงจากเพดานรวมเป็นวงกลางห้อง ทูตสวรรค์ทั้งหอมาชุมนุมกันเพื่อเลือกอัครทูตองค์ใหม่ {r} ยืนอยู่ในวงแสงอีกฝั่ง ปีกของเธอขาวกว่าปีกคุณ',
+  h:'ยืนในวงแสงแล้วให้สวรรค์ตัดสิน',g:'ถวายทองบูรณะวิหารทั้งหลัง',c:'บอกที่ประชุมว่า{r}เคยปล่อยให้คนตายต่อหน้า',
+  w:'แสงทั้งวงไหลมาที่ปีกคุณจนห้องสว่างไปหมด {r}ยิ้มให้แล้วก้าวถอยออกจากวง',l:'แสงไหลไปที่ปีกของ{r} คุณยังยืนอยู่ในวง แต่รู้ตัวดีว่ารอบนี้ไม่ใช่คุณ'}};
+const crownN=R=>R.cw&&R.cw.id===cid(R)?R.cw.n:0;
+const crownDue=R=>{const id=cid(R);if(!R.alive||!pathOf(R)||!CROWN[id]||(R.pathHi||0)>=3)return false;const n=crownN(R);return n<CROWN_T.length&&(R.path||0)>=CROWN_T[n];};
+const crownKey=R=>R.favor&&R.floor>=R.favor.at?'favor':crownDue(R)?'crown':'';
+// base odds: level against the floor (promo's yardstick), karma (a necromancer counts dark karma), friends, and a little for trying again
+function crownP(R){const h=R.h,ks=cid(R)==='nec'?-R.karma:R.karma;
+ return clamp(.42+.015*(h.lv-(R.floor*.33+2))+clamp(ks*.004,-.1,.1)+.05*R.comps.length+.03*R.pets.length+(crownN(R)?.05:0),.15,.85);}
+const crownCh=(R,id)=>clamp(.3-(eLuk(R)-8)*.008-(id==='rog'||id==='nec'?.1:0),.08,.45);
+function crownWin(R,out){const P=pathOf(R);R.pathHi=3;if((R.path||0)<PATH_T[2])R.path=PATH_T[2];if(cid(R)==='mag'){R.h.mmp+=5;R.h.mp+=5;}
+ if(P){say(R,out,`${P.n}: ขึ้นขั้น "${P.t[2]}" (${P.b[2]})`,'lv');out.pathUp=3;}}
+const crownT=(C,r,s)=>String(s).replace(/\{r\}/g,r);
+Object.assign(SPECIAL,{
+ crown:{w:0,ok:crownDue,mk(R,K){const f=R.floor,id=cid(R),C=CROWN[id],P=pathOf(R),r=genName(),p0=crownP(R),cost=gS(R,60),pc=crownCh(R,id),n=crownN(R);
+   const w=[p0,p0+.18,p0+.22,Math.min(.95,p0+.3)].map(x=>clamp(x,.05,.95));K.data={id,r,w,cost,pc};
+   K.tag=`ชั้น ${f} · ชิงตำแหน่ง${n?' (ครั้งที่ 2)':''}`;K.title=C.t;K.vis=C.vis||npc(C.v);
+   K.text=crownT(C,r,C.x)+` ชนะแล้วจะได้ขั้น "${P.t[2]}" (${P.b[2]})${n?' นี่เป็นโอกาสสุดท้ายของชาตินี้':' ถ้าแพ้ แต้มทางถึง 90 เมื่อไหร่ยังลองได้อีกครั้ง'}`;
+   const wp=x=>{const v=Math.round(x*100);return{t:`โอกาสได้ตำแหน่ง ~${v}%`,c:v>=65?'g':v>=40?'w':'b'};};
+   K.ch=[CH(crownT(C,r,C.h),[wp(w[0]),{t:'ไม่ติดค้างใคร',c:''}]),
+    CH(crownT(C,r,C.g),[{t:`−${cost} ทอง`,c:'w'},wp(w[1]),...ngP(R,cost)],R.h.gold<cost),
+    CH(`ขอให้${C.p}หนุนหลัง`,[wp(w[2]),{t:'ติดหนี้บุญคุณ อีกไม่กี่ชั้นจะมาทวง',c:'b'}]),
+    CH(crownT(C,r,C.c),[wp(w[3]),{t:`${Math.round(pc*100)}% ถูกจับได้`,c:'b'},kk(-1)])];
+   K.ch[0].tg=[];K.ch[1].tg=['trade'];K.ch[2].tg=[];K.ch[3].tg=['trick'];
+   K.ai=(id==='rog'||id==='nec')&&pc<.2?3:R.h.gold>=cost+gS(R,20)?1:0;},
+  res(R,K,i,out){const f=R.floor,h=R.h,D=K.data,C=CROWN[D.id],r=D.r;
+   const cw=R.cw&&R.cw.id===D.id?R.cw:(R.cw={id:D.id,n:0,won:0});cw.n++;cw.f=f;cw.how=['fair','gold','pat','cheat'][i];
+   const lose=t=>{h.hp-=h.mhp*.1;out.cause=`บาดเจ็บหนักตอนชิงตำแหน่ง (ชั้น ${f})`;R.map[f-1]='bad';say(R,out,t,'bad');
+    say(R,out,cw.n<CROWN_T.length?'แต้มทางถึง 90 เมื่อไหร่ ยังมีสิทธิ์ชิงอีกครั้ง':'โอกาสชิงตำแหน่งนี้หมดแล้วสำหรับชาตินี้','info');};
+   if(i===1)h.gold-=D.cost;
+   if(i===2){R.favor={p:C.p,at:f+ri(5,9)};cw.pat=1;}
+   if(i===3){R.karma-=1;if(rnd()<D.pc){cw.caught=(cw.caught||0)+1;R.karma-=2;const fine=Math.round(h.gold*.25);h.gold-=fine;
+     lose(`มีคนเห็นตอนคุณลงมือ เรื่องแดงกลางที่ชุมนุม คุณถูกตัดสิทธิ์และโดนปรับไป ${fine} ทอง`);R.map[f-1]='evil';return;}}
+   if(rnd()<D.w[i]){cw.won=1;R.map[f-1]=i===3?'evil':'good';say(R,out,crownT(C,r,C.w),'lv');crownWin(R,out);}
+   else lose(crownT(C,r,C.l));}},
+ favor:{w:0,ok:R=>!!R.favor&&R.floor>=R.favor.at,mk(R,K){const f=R.floor,F=R.favor,cost=Math.max(gS(R,70),Math.round(R.h.gold*.3)),en=foe(R,'คู่อริของผู้มีอิทธิพล','war',1.15),w=estW(R,en),g=gG(R,40);
+   K.data={cost,en,g};K.tag=`ชั้น ${f} · ทวงบุญคุณ`;K.title=`คนของ${F.p}`;K.vis=npc('masked');
+   K.text=`ชายใส่หน้ากากยืนรอคุณอยู่หัวบันได "${F.p}ฝากมาถามว่ายังจำได้ไหม ตอนชิงตำแหน่งท่านช่วยเจ้าไว้ ถึงคราวเจ้าตอบแทนบ้างแล้ว"`;
+   K.ch=[CH('จ่ายคืนเป็นทอง',[{t:`−${cost} ทอง`,c:'w'},{t:'หมดหนี้กัน',c:'g'},...ngP(R,cost)],R.h.gold<cost),
+    CH('รับงานสกปรกให้หนึ่งงาน',[{t:'ต้องสู้!',c:'b'},wPart(w),{t:`ชนะได้ +${g} ทอง`,c:'g'},kk(-1)]),
+    CH('ปฏิเสธ',[{t:'LUK −2',c:'b'},{t:'6 ชั้นข้างหน้า โอกาสตายสูงขึ้น 25%',c:'b'}])];
+   K.ch[0].tg=['trade'];K.ch[1].tg=['fight'];K.ch[2].tg=[];K.ai=R.h.gold>=cost?0:w>=60?1:2;},
+  res(R,K,i,out){const f=R.floor,h=R.h,F=R.favor||{p:'ผู้มีอิทธิพล'},D=K.data;R.favor=null;if(R.cw)R.cw.paid=['gold','job','spurn'][i];
+   if(i===0){h.gold-=D.cost;R.map[f-1]='calm';say(R,out,`ชายหน้ากากนับเหรียญจนครบ "${F.p}จะจำไว้ว่าเจ้าไม่เบี้ยว"`,'info');}
+   else if(i===1){R.karma-=3;R.map[f-1]='fight';say(R,out,`งานที่ได้มาคือไปจัดการคนที่ขวางทาง${F.p}`,'bad');
+    if(doFight(R,D.en,out,{cause:`ล้มลงระหว่างทำงานให้${F.p} (ชั้น ${f})`})){coin(R,out,D.g);say(R,out,`งานเสร็จ ${F.p}ส่งทองมาให้ ${D.g} พร้อมข้อความสั้นๆ ว่าหายกันแล้ว`,'info');}}
+   else{h.luk=Math.max(0,h.luk-2);R.hzT.push({k:1.25,until:f+6,n:`${F.p}หันหลังให้`,ic:'🗡'});R.map[f-1]='bad';say(R,out,'ชายหน้ากากหัวเราะในคอ "ก็ได้ แต่ต่อจากนี้อย่าหวังว่าใครในหอจะช่วยเจ้า"','bad');}}}});
+Object.assign(TIER,{crown:'l',favor:'r'});
+// end-of-life archetype from the contest (feeds runTitle, the end screen and the share card)
+function crownArch(R){const c=R.cw;if(!c||!c.n||c.id!==cid(R))return null;const P=pathOf(R),t3=P?P.t[2]:'';
+ if(c.won){if(c.how==='cheat')return{p:7,t:'ผู้ไต่มาด้วยเล่ห์กล',d:`ได้ชื่อ${t3}มาเพราะโกงคู่แข่ง`};
+  if(c.how==='pat')return c.paid==='spurn'?{p:7,t:'ผู้เบี้ยวหนี้บุญคุณ',d:`ได้ชื่อ${t3}เพราะมีคนหนุน แล้วไม่ยอมตอบแทน`}:{p:6,t:'ผู้มีเส้นสาย',d:`ได้ชื่อ${t3}เพราะมีคนใหญ่คนโตหนุนหลัง`};
+  if(c.how==='gold')return{p:6,t:'ผู้ทุ่มทองชิงตำแหน่ง',d:`ทุ่มทองจนได้ชื่อ${t3}`};
+  return c.n>=2?{p:7,t:'ผู้ไม่ยอมแพ้',d:`แพ้ครั้งแรก แล้วกลับมาชนะเป็น${t3}`,g:1}:{p:7,t:t3,d:`ชนะการชิงตำแหน่ง${t3}ด้วยฝีมือตัวเอง`,g:1};}
+ if(c.caught)return{p:6,t:'คนโกงที่ถูกจับได้',d:`โกงตอนชิงชื่อ${t3}แล้วโดนจับได้กลางที่ชุมนุม`};
+ if(c.n>=CROWN_T.length)return{p:6,t:'ผู้ชิงที่ไม่เคยได้ตำแหน่ง',d:`ชิงชื่อ${t3}สองครั้ง แพ้ทั้งสองครั้ง`};
+ return{p:4,t:'ผู้ที่ยังไม่ได้แก้มือ',d:`แพ้การชิงชื่อ${t3} แล้วไม่ได้กลับมาแก้มือ`};}
 // ---- event chains: multi-part story arcs spanning floors; each stage is a key moment ----
 const ARCS={
  child:{n:'เด็กหลงทาง',st:[
@@ -1061,7 +1168,7 @@ const ARCS={
     if(i===0){h.hp-=h.mhp*.2;R.karma+=3;R.map[f-1]='good';say(R,out,'คุณอุ้มเธอลงไปหลายชั้นจนเจอพ่อ เขากอดลูกแน่นจนตุ๊กตาฟางแบน','good');}
     else if(i===1){h.gold-=A.v.c;R.karma+=1;R.map[f-1]='good';say(R,out,'เธอกัดขนมปังคำโต แล้วโบกมือลาก่อนวิ่งลงบันไดไป','good');}
     else{R.karma-=1;R.map[f-1]='evil';say(R,out,'เสียงร้องไห้เบาลงเรื่อยๆ ตามหลังคุณ จนเงียบไป','bad');}}},
-  {r:'r',mk(R,K,A){const help=A.v.help;K.title='เด็กคนนั้นกลับมา';K.vis=help===0?{t:'prop',pr:'grave'}:{t:'comp',cls:'pri',c:{n:'ฟาง',cls:'pri',tr:'loyal',legend:false}};
+  {r:'r',mk(R,K,A){const help=A.v.help;A.v.c=Math.max(A.v.c||0,gS(R,15));K.title='เด็กคนนั้นกลับมา';K.vis=help===0?{t:'prop',pr:'grave'}:{t:'comp',cls:'pri',c:{n:'ฟาง',cls:'pri',tr:'loyal',legend:false}};
     if(help===2){K.text='หญิงสาวในชุดนักบวชยืนรออยู่หัวบันได ที่เอวห้อยตุ๊กตาฟางตัวเดิม "จำหนูได้ไหมคะ หนูขึ้นมาตอบแทน"';
      K.ch=[CH('ชวนเธอเข้าทีม',[{t:'นักบวชภักดี พลังสูง',c:'g'},...(R.comps.length>=2?[{t:'(ปลดคนที่อ่อนสุดออก)',c:'w'}]:[])]),CH('ขอให้เธอสวดต่อชะตา',[{t:'ชะตายืดออก',c:'g'}]),CH('บอกให้เธอกลับบ้านไปหาพ่อ',[{t:'+2 ยา',c:'g'},kk(2)])];K.ai=1;}
     else if(help===1){K.text='ชายวัยกลางคนยื่นถุงผ้าให้ "ลูกสาวข้าเล่าว่าท่านให้ขนมปังกับบอกทาง ข้าเก็บเงินไว้คืนตั้งนาน"';
@@ -1081,11 +1188,11 @@ const ARCS={
   {mk(R,K,A){const f=R.floor;A.v.n=A.v.n||genName();A.v.cls=A.v.cls||pick(['war','mag','arc']);const n=A.v.n;K.title=`${n} คู่แข่งจากหมู่บ้านข้างๆ`;K.vis={t:'comp',cls:A.v.cls,c:{n,cls:A.v.cls,tr:'brave',legend:false}};
     const w=Math.round(estimateWin(R,Object.assign(mkMon({hp:1,atk:1,def:1},f,1),{n}),30)*100);
     K.text=`${n} นักผจญภัยรุ่นเดียวกับคุณยืนกอดอกรออยู่ "ได้ยินชื่อเจ้ามานานแล้ว มาดูกันว่าใครจะขึ้นไปได้สูงกว่า"`;
-    K.ch=[CH('ดวลกันตรงนี้เลย',[{t:`โอกาสชนะ ~${w}%`,c:w>=60?'g':'w'},{t:'+EXP +ทอง',c:'g'}]),CH('จับมือแล้วแลกแผนที่กัน',[{t:'LUK +2',c:'g'}]),CH('แอบตัดเชือกปีนของเขา',[{t:`+${Math.round(30*scl(f))} ทอง`,c:'g'},kk(-3)])];K.ai=w>=70?0:1;},
+    K.ch=[CH('ดวลกันตรงนี้เลย',[{t:`โอกาสชนะ ~${w}%`,c:w>=60?'g':'w'},{t:'+EXP +ทอง',c:'g'}]),CH('จับมือแล้วแลกแผนที่กัน',[{t:'LUK +2',c:'g'}]),CH('แอบตัดเชือกปีนของเขา',[{t:`+${gG(R,30)} ทอง`,c:'g'},kk(-3)])];K.ai=w>=70?0:1;},
    res(R,K,i,out,A){const f=R.floor,n=A.v.n;
     if(i===0){R.map[f-1]='fight';say(R,out,`ดวลกับ${n}!`,'info');const win=duel(R,out,n,A.v.cls,1,{});A.v.rel=win?'beaten':'beat';if(!win){R.h.hp=Math.max(R.h.hp,R.h.mhp*.15);say(R,out,`${n}เก็บดาบเข้าฝัก "อ่อนกว่าที่คิดนะ"`,'bad');}}
     else if(i===1){R.h.luk+=2;A.v.rel='friend';R.map[f-1]='good';say(R,out,`${n}วาดทางลับให้สองสามทาง แล้วแยกกันไปคนละทาง`,'good');}
-    else{R.h.gold+=Math.round(30*scl(f));R.karma-=3;A.v.rel='wronged';R.map[f-1]='evil';say(R,out,'ได้ยินเสียงร้องกับเสียงของหนักตกกระแทกดังมาจากด้านหลัง คุณไม่หันไปดู','bad');}}},
+    else{coin(R,out,gG(R,30));R.karma-=3;A.v.rel='wronged';R.map[f-1]='evil';say(R,out,'ได้ยินเสียงร้องกับเสียงของหนักตกกระแทกดังมาจากด้านหลัง คุณไม่หันไปดู','bad');}}},
   {r:'r',mk(R,K,A){const f=R.floor,n=A.v.n,rel=A.v.rel,c=Math.round(40*scl(f));A.v.c=c;K.title=`${n} อีกครั้ง`;K.vis={t:'comp',cls:A.v.cls,c:{n,cls:A.v.cls,tr:rel==='friend'?'loyal':'brave',legend:false}};
     if(rel==='friend'){K.text=`พื้นใต้เท้าคุณถล่ม ${n} คว้าแขนดึงขึ้นมาได้ทัน "บอกแล้วว่าเราจะได้เจอกันอีก"`;
      K.ch=[CH('ชวนมาร่วมทีม',[{t:'ได้เพื่อนร่วมทางฝีมือดี',c:'g'}],R.comps.length>=2),CH('แลกเสบียงกัน',[{t:'+2 ยา',c:'g'},{t:'HP +30%',c:'g'}])];K.ai=R.comps.length<2?0:1;}
@@ -1113,7 +1220,7 @@ const ARCS={
     if(A.v.ally){if(i===0){R.map[f-1]='good';const d=shiftFate(R,ri(6,10));say(R,out,`${n}หลับตาลงพร้อมรอยยิ้ม ${fateFeel(d)}`,'lv');}
      else if(i===1){h.hp-=h.mhp*.3;R.karma+=4;R.map[f-1]='good';say(R,out,`คุณแบก${n}ลงไปหกชั้นจนเจอหมอ เขารอด แต่คงไม่ได้ปีนหออีกแล้ว`,'good');}
      else{h.luk+=3;R.karma+=2;R.map[f-1]='calm';say(R,out,`${n}เล่าเรื่องหมู่บ้านจนหลับไป คุณฝังเขาไว้ใต้บันไดพร้อมดาบของเขา`,'info');}}
-    else{if(i===0){R.map[f-1]='fight';if(duel(R,out,n,A.v.cls,1.35,{})){const g=Math.round(120*scl(f));h.gold+=g;h.atk+=3+f*.1;out.coins=g;say(R,out,`${n}ร่วงลงเหวไปพร้อมเสียงหัวเราะ ทิ้งถุงทอง ${g} กับดาบไว้บนสะพาน`,'lv');}}
+    else{if(i===0){R.map[f-1]='fight';if(duel(R,out,n,A.v.cls,1.35,{})){const g=gG(R,120);h.gold+=g;h.atk+=3+f*.1;out.coins=g;say(R,out,`${n}ร่วงลงเหวไปพร้อมเสียงหัวเราะ ทิ้งถุงทอง ${g} กับดาบไว้บนสะพาน`,'lv');}}
      else{R.karma+=3;if(rnd()<.55){R.map[f-1]='good';const d=shiftFate(R,ri(2,4));say(R,out,`${n}จ้องมือคุณอยู่นาน แล้วจับมันไว้ "ข้าเหนื่อยแล้ว" ${fateFeel(d)}`,'good');}
       else{h.hp-=h.mhp*.3;R.map[f-1]='trap';out.cause=`ถูก${n}ผลักตกเหว (ชั้น ${f})`;say(R,out,`${n}กระชากคุณเข้าไปแล้วผลักลงเหว คุณเกาะขอบหินไว้ได้แบบเฉียดฉิว`,'bad');}}}}}]},
  blade:{n:'ดาบกระซิบ',st:[
@@ -1325,14 +1432,14 @@ function quietTick(R,n){const out=mkOut(),f0=R.floor,g0=R.h.gold,l0=R.h.lv,k0=R.
 function dramaTick(R,D){const out=mkOut();R.drama++;R.lastDrama=R.floor;D.run(R,out);if(R.alive&&R.h.hp<=0)mortal(R,out,out.cause);finishFloor(R,out);return out;}
 function hatch(R,out){R.egg=null;if(R.pets.length<2){const p=pick(PETK);R.pets.push(p);R.h.luk+=2;say(R,out,`ไข่ฟักแล้ว! ${PETS[p].n}ตัวน้อยมองคุณเป็นแม่ทันที (${PETS[p].d})`,'good');}
  else{R.h.luk+=4;say(R,out,'ไข่ฟักออกมาเป็นนกไฟตัวจิ๋ว มันบินวนรอบหัวคุณสามรอบแล้วหายไป ทิ้งโชคไว้ให้ (LUK +4)','good');}}
-function genSpecial(R){for(const k of ['nec','ang'])if(!R.used['sp:'+k]&&SPECIAL[k].ok(R))return R.lastSp=k;const ok=Object.keys(SPECIAL).filter(k=>!SPECIAL[k].ok||SPECIAL[k].ok(R));
+function genSpecial(R){const ck=crownKey(R);if(ck)return R.lastSp=ck;for(const k of ['nec','ang'])if(!R.used['sp:'+k]&&SPECIAL[k].ok(R))return R.lastSp=k;const ok=Object.keys(SPECIAL).filter(k=>!SPECIAL[k].ok||SPECIAL[k].ok(R));
  let pool=ok.filter(k=>!R.used['sp:'+k]||(k==='mimic'&&MD(R,'mimic',1)>1&&R.used['sp:mimic']<3));if(!pool.length)pool=ok.filter(k=>k!==R.lastSp);
  const fresh=k=>R.xseen&&!R.xseen['sp:'+k]?1.6:1;
  const sw=ST_SP[R.st]||{};const k=pool[wIdx(pool.map(x=>tierW(R,TIER[x])*(x==='mimic'?MD(R,'mimic',1):1)*(x==='dragon'&&clanM(R)==='s'?12:1)*(x==='promo'?10:1)*dayW(R,x)*fresh(x)*(sw[x]||1)))];R.lastSp=k;return k;}
 // build a decision card (key moment)
 function mkKey(R,type,ev){const f=R.floor,K={type,ev,tag:'',title:'',text:'',vis:null,ch:[],ai:0,rar:'c',tid:type};
  if(type==='boss'){K.tag=`ชั้น ${f} · ชั้นบอส`;K.title=ev.en.n;K.text=ev.en.x+(ev.en.fit?' มันมองคุณแล้วหัวเราะ เหมือนไม่คิดจะเอาจริง':'');K.vis={t:'en',en:ev.en};K.ch=choicesOf(R,ev);K.ai=aiBoss(R,ev);K.vs=true;}
- else if(type==='ev'){const T=EVENTS[ev.ti];K.tid='ev:'+ev.ti;K.tag=`ชั้น ${f} · เหตุการณ์เสี่ยง`;K.title=evS(ev,T.t);K.text=evS(ev,T.x);K.vis={t:'prop',pr:T.pr};K.ch=choicesOf(R,ev);K.ai=aiPick(R,ev);}
+ else if(type==='ev'){const T=EVENTS[ev.ti];K.tid='ev:'+ev.ti;K.tag=`ชั้น ${f} · เหตุการณ์เสี่ยง`;K.title=evS(ev,T.t);K.text=evS(ev,T.x);K.vis=evVis(ev,T);K.ch=choicesOf(R,ev);K.ai=aiPick(R,ev);}
  else if(type==='pet'){const P=PETS[ev.pet];K.tid='pet:'+ev.pet;K.tag=`ชั้น ${f} · สัตว์เลี้ยงหลงทาง`;K.title=P.n;K.text=P.x;K.vis={t:'pet',p:ev.pet};K.ch=choicesOf(R,ev);K.ai=aiPick(R,ev);}
  else if(type==='comp'){const c=ev.comp;K.tag=`ชั้น ${f} · นักผจญภัยพเนจร`;K.title=`${c.n} · ${clsName(c.cls)}`;
   const T=trOf(c);K.tid='comp:'+c.tr;K.text=`${R.karma<-8?'"ข้าได้ยินกิตติศัพท์ด้านไม่ดีของท่านมาบ้าง แต่ทองก็คือทอง" ':''}${c.line} นิสัย: ${T.n} (${T.d})${c.cls==='pri'?' นักบวชจะช่วยรักษาระหว่างต่อสู้':''}`;K.vis={t:'comp',cls:c.cls,c:visC(c)};K.ch=choicesOf(R,ev);K.ai=aiPick(R,ev);}
@@ -1351,6 +1458,7 @@ function mkKey(R,type,ev){const f=R.floor,K={type,ev,tag:'',title:'',text:'',vis
  else if(type==='arc')mkArcKey(R,K,ev);
  else{const S=SPECIAL[type];S.mk(R,K);K.tid='sp:'+type;K.rar=TIER[type]||'c';}
  if(cid(R)==='nec'&&type!=='shop')K.ch.forEach(c=>{if(!c.dis&&/จ้าง|ร่วมทีม|เข้าทีม|ตามมา|ตามไปด้วย/.test(c.t)){c.dis=true;c.P=[{t:'(เนโครแมนเซอร์จ้างใครไม่ได้)',c:'b'}];}});
+ if(!K.vis)K.vis=autoVis(K.title,K.text);
  {const KT=KEY_TG[type];K.ch.forEach((c,i)=>{if(!c.tg)c.tg=KT?KT[i]||[]:type==='arc'?tgOf(c.t):[];if(c.hide)return;
   if(c.cl)c.P.unshift({t:`✦ เฉพาะ${clsName(c.cl)}`,c:'pt'});else if(type!=='promo'&&pathPts(R,c.tg)>0)c.P.push({t:`✦ ${pathOf(R).n}`,c:'pt'});});}
  if(!K.ch[K.ai]||K.ch[K.ai].dis){const j=K.ch.findIndex(c=>!c.dis);K.ai=j<0?0:j;}
@@ -1426,6 +1534,7 @@ function planFloor0(R){
  if(omenDue(R))return{type:'key',K:mkKey(R,'omen')};
  if(R.floor%10!==0){
   const aid=dueArc(R);if(aid&&R.sinceKey>=1)return{type:'key',K:mkKey(R,'arc',aid)};
+  if(R.sinceKey>=1&&crownKey(R))return{type:'key',K:mkKey(R,genSpecial(R))}; // v2.7: a contest or a favour being called in does not wait for the usual key gap
   if(R.sinceKey>=1&&R.floor-R.lastQuiet>=8&&R.floor>2&&rnd()<.09*MD(R,'quiet',1)){const n=quietLen(R);if(n>=3)return{type:'quiet',n};}
   if(R.floor>3&&R.floor-R.lastDrama>=7&&rnd()<.07)return{type:'drama',D:pick(DRAMA.filter(d=>d.id!==R.lastDramaId))};}
  const ev=genEvent(R);
@@ -1704,7 +1813,7 @@ function renderHUD(){const R=S.R,h=R?R.h:S.hero,C=CLASSES[h.cls];let hp=h.hp;if(
  $('hName').textContent=h.name;$('hSub').textContent=`รุ่นที่ ${h.gen||1} · แรงค์ ${RANKS[h.rank].k} · ${C.n} · ${h.village}`;
  {const el=$('hPath'),P=R&&pathOf(R);if(el){if(!P)el.hidden=true;else{const v=R.path||0,t=pathTier(R),nx=PATH_T[t];el.hidden=false;
   el.innerHTML=`<span class="pt">✦ ${esc(P.n)}${t?' · '+esc(P.t[t-1]):''}</span> <span class="pbar"><i style="width:${clamp(v,0,100)}%"></i></span> <span class="px">${Math.floor(v)}${nx?'/'+nx:''}</span>`;
-  el.dataset.tipn=P.n;el.dataset.tipd=`ได้แต้มจาก: ${P.src}${nx?` · ครบ ${nx} แต้มเป็น "${P.t[t]}": ${P.b[t]}`:' · ขึ้นถึงขั้นสุดท้ายแล้ว'}${t?` · ตอนนี้ได้: ${P.b[t-1]}`:''}`;}}}
+  el.dataset.tipn=P.n;el.dataset.tipd=`ได้แต้มจาก: ${P.src}${nx?` · ครบ ${nx} แต้มเป็น "${P.t[t]}": ${P.b[t]}`:' · ขึ้นถึงขั้นสุดท้ายแล้ว'}${t?` · ตอนนี้ได้: ${P.b[t-1]}`:''}${t===2&&v>=PATH_T[2]?' · แต้มครบแล้ว ต้องชนะการชิงตำแหน่งก่อนจึงจะได้ขั้นสุดท้าย':''}`;}}}
  const f=R?R.floor:0;$('hFloor').textContent=f;
  $('v-hp').textContent=`${Math.ceil(hp)}/${Math.ceil(h.mhp)}`;$('b-hp').style.width=clamp(hp/h.mhp*100,0,100)+'%';
  const A=R?eAtk(R):h.atk,D=R?eDef(R):h.def,Lk=R?eLuk(R):h.luk;
@@ -1745,6 +1854,7 @@ function runTitle(R){const h=R.h,fl=R.won?100:R.floor,leg=R.hist.filter(x=>x.rar
  if(R.death==='boss')T.push([4,'ผู้ท้าทายเกินตัว']);if(R.pets.length>=2)T.push([3,'เจ้าของสวนสัตว์เคลื่อนที่']);
  if(R.keys>3&&R.timeouts>=R.keys)T.push([4,'คนที่ปล่อยให้ฟ้าลิขิต']);if(R.keys>5&&R.timeouts===0)T.push([3,'ผู้เลือกทางเดินเอง']);
  if(h.gold>=400*scl(fl)/2)T.push([3,'เศรษฐีในหลุมศพ']);if(R.kills>=fl*.9)T.push([2,'นักล่าไม่รู้เหนื่อย']);if(R.comps.some(c=>c.legend))T.push([4,'นายจ้างของตำนาน']);
+ {const a=crownArch(R);if(a)T.push([a.p,a.t,a.g]);}
  T.push([1,'นักผจญภัยธรรมดาคนหนึ่ง']);T.sort((a,b)=>b[0]-a[0]);return{t:T[0][1],gold:!!T[0][2]};}
 // sensitive moments (v2.7): never picked for the end montage or bragged about in the share text (legend hooks)
 // SENS_TID = the lost child's ghost (the hero walked past her); SENS_CH = choices that hurt someone helpless or sacrifice a pet
@@ -2022,7 +2132,7 @@ setInterval(updNext,100);
 let fxT=[];function clearFx(){fxT.forEach(clearTimeout);fxT=[];VIS.q=[];VIS.mv={};VIS.stop=0;}
 function evFrame(f,ev){const b=BIOMES[biome(f)];
  if(ev.kind==='mon')return{tag:`ชั้น ${f} · ${b} · มอนสเตอร์`,title:ev.en.n,text:'',vis:{t:'en',en:ev.en}};
- if(ev.kind==='ev'){const T=EVENTS[ev.ti];return{tag:`ชั้น ${f} · ${b} · เหตุการณ์`,title:evS(ev,T.t),text:evS(ev,T.x),vis:{t:'prop',pr:T.pr}};}
+ if(ev.kind==='ev'){const T=EVENTS[ev.ti];return{tag:`ชั้น ${f} · ${b} · เหตุการณ์`,title:evS(ev,T.t),text:evS(ev,T.x),vis:evVis(ev,T)};}
  if(ev.kind==='pet')return{tag:`ชั้น ${f} · ${b}`,title:PETS[ev.pet].n,text:PETS[ev.pet].x,vis:{t:'pet',p:ev.pet}};
  if(ev.kind==='comp')return{tag:`ชั้น ${f} · ${b}`,title:ev.comp.n,text:'',vis:{t:'comp',cls:ev.comp.cls,c:visC(ev.comp)}};
  return{tag:`ชั้น ${f}`,title:'',text:'',vis:null};}
@@ -2049,7 +2159,7 @@ function tick(){if(!S||S.phase!=='flow'||S.paused)return;const R=S.R,f=R.floor,g
  S.frame=Object.assign(fr,{f,msgs:out.msgs});VIS.show=fr.vis;VIS.walk0=performance.now();
  if(out.combat)animFight(out.combat,Math.min(floorMs()*.55,6000));
  const gd=R.h.gold-g0;if(gd>0&&!RM)setTimeout(()=>coinBurst(Math.max(3,Math.round(gd/8))),RM?0:420);
- if(P.ev&&P.ev.kind==='ev'&&EVENTS[P.ev.ti].pr==='chest')AUDIO.sfx('chest');if(R.floor>f+1)AUDIO.sfx('warp');
+ if(P.ev&&P.ev.kind==='ev'&&evPr(EVENTS[P.ev.ti])==='chest')AUDIO.sfx('chest');if(R.floor>f+1)AUDIO.sfx('warp');
  music(biome(R.floor),R.floor);if(out.mile)showMile(out.mile);render();
  if(!R.alive){goDying();return;}
  schedule(floorMs()*slow);}
@@ -2096,7 +2206,7 @@ function showOutcome(K,i,out,lead,g0,quick,f){const R=S.R;if(out.mile)showMile(o
  {const Hl=R.hist[R.hist.length-1];if(Hl&&Hl.f===f&&!Hl.v)Hl.v=visLite(out.combat&&out.combat.en?{t:'en',en:out.combat.en}:K.vis);} // scene for the end montage
  R.log.unshift({f,t:lead.t,c:lead.c});
  S.frame={f,tag:(quick?'↺ ':'')+K.tag,title:K.title,text:'',msgs:[lead,...out.msgs]};
- if(out.chest||(K.ev&&K.ev.kind==='ev'&&EVENTS[K.ev.ti].pr==='chest'))AUDIO.sfx('chest');if(K.type==='boss'&&i===1)AUDIO.sfx('warp');
+ if(out.chest||(K.ev&&K.ev.kind==='ev'&&evPr(EVENTS[K.ev.ti])==='chest'))AUDIO.sfx('chest');if(K.type==='boss'&&i===1)AUDIO.sfx('warp');
  S.pendCoins=Math.max(0,R.h.gold-g0);
  if(out.combat){S.cb={en:out.combat.en,ev:out.combat.ev,i:0,hp:out.combat.startHp,mhp:out.combat.mhp,ehp:out.combat.en.mhp,lines:[],win:out.combat.win};VIS.show={t:'en',en:out.combat.en};S.phase='combat';render();playCombat();}
  else afterKey();}
@@ -2305,7 +2415,7 @@ function visLite(v){if(!v)return null;if(v.t==='en'){const e=v.en||{};return{t:'
  if(v.t==='prop')return{t:'prop',pr:v.pr,fb:v.fb||''};if(v.t==='pet')return{t:'pet',p:v.p};if(v.t==='comp')return{t:'comp',cls:v.cls,c:v.c||null};return null;}
 function momVis(m){if(m.v)return m.v;const id=String(m.tid||''),f=m.f||1;
  if(id.startsWith('pet:')&&PSPR[id.slice(4)])return{t:'pet',p:id.slice(4)};if(id.startsWith('comp:'))return{t:'comp',cls:'war',c:{n:m.t||'',cls:'war',tr:id.slice(5)}};
- if(id.startsWith('ev:')){const E=EVENTS[+id.slice(3)];if(E&&E.pr)return{t:'prop',pr:E.pr};}
+ if(id.startsWith('ev:')){const E=EVENTS[+id.slice(3)];if(E)return evVis(null,E);}
  if(id==='boss')return{t:'en',en:{id:BOSSES[biome(f)].id,boss:true}};if(id==='omen')return{t:'prop',pr:'portal'};return{t:'prop',pr:'npc'};}
 function drawVis(x,v,t,bob){if(!v)return;
  if(v.t==='en'){const E=enSpr(v.en);if(!E)return;blit(x,E.spr,E.x,v.en.cls?84+bob:v.en.boss?70+bob:84,{flip:E.flip,key:E.key});}
@@ -2449,7 +2559,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  const dayH=DT?`<div class="daybox end" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${dHit?`ชีวิตนี้ได้เจอ${esc(DT.hn)}`:`ชีวิตนี้ไม่ได้เจอ${esc(DT.hn)}`}<span id="dayStat">${esc(S.dayStat||'')}</span></div>`:'';
  const share=!!(window.SHARE&&window.SHARE.open),lb=!!(window.LB&&window.LB.open);
  card.innerHTML=`<div class="epi"><div class="tag">${won?'ตำนานบทใหม่':'แผ่นจารึกหน้าหลุมศพ'}</div><div class="big">${won?'👑 ':'✝ '}${esc(h.name)}</div><div class="rtitle${S.title.gold?' gold':''}">ฉายา: ${esc(S.title.t)}</div>
- <dl class="kv"><dt>แรงค์/อาชีพ</dt><dd>${RANKS[h.rank].k} · ${R.turned?esc(clsName(R.turned.from)):C.n} (1 ใน ${fmt(h.odds)})</dd>${R.turned?`<dt>เปลี่ยนร่าง</dt><dd>จาก${esc(clsName(R.turned.from))}เป็น${esc(C.n)} ที่ชั้น ${R.turned.f}</dd>`:''}${R.unl?`<dt>ปลดล็อก</dt><dd>ชีวิตต่อไปมีโอกาสเกิดเป็น${esc(clsName(R.unl))}</dd>`:''}${pathOf(R)?`<dt>ทางของอาชีพ</dt><dd><span data-tip="path">${esc(pathOf(R).n)}</span> · ${R.pathHi?`ขั้นสูงสุด "${esc(pathHiName(R))}"`:'ยังไม่ถึงขั้นแรก'} · ${Math.floor(R.path||0)} แต้ม</dd>`:''}<dt>ชั้นที่ไปถึง</dt><dd class="px">${fl} / 100</dd><dt>เลเวล</dt><dd class="px">${h.lv}</dd>
+ <dl class="kv"><dt>แรงค์/อาชีพ</dt><dd>${RANKS[h.rank].k} · ${R.turned?esc(clsName(R.turned.from)):C.n} (1 ใน ${fmt(h.odds)})</dd>${R.turned?`<dt>เปลี่ยนร่าง</dt><dd>จาก${esc(clsName(R.turned.from))}เป็น${esc(C.n)} ที่ชั้น ${R.turned.f}</dd>`:''}${R.unl?`<dt>ปลดล็อก</dt><dd>ชีวิตต่อไปมีโอกาสเกิดเป็น${esc(clsName(R.unl))}</dd>`:''}${pathOf(R)?`<dt>ทางของอาชีพ</dt><dd><span data-tip="path">${esc(pathOf(R).n)}</span> · ${R.pathHi?`ขั้นสูงสุด "${esc(pathHiName(R))}"`:'ยังไม่ถึงขั้นแรก'} · ${Math.floor(R.path||0)} แต้ม</dd>`:''}${crownArch(R)?`<dt>ชิงตำแหน่ง</dt><dd>「${esc(crownArch(R).t)}」 ${esc(crownArch(R).d)}</dd>`:''}<dt>ชั้นที่ไปถึง</dt><dd class="px">${fl} / 100</dd><dt>เลเวล</dt><dd class="px">${h.lv}</dd>
  <dt>${won?'ผลลัพธ์':'สาเหตุการตาย'}</dt><dd>${esc(won?'พิชิตผู้กลืนดาราและยืนบนยอดหอคอย':R.cause)}</dd>${secSum(R)?`<dt>ชั้นลับ</dt><dd>${esc(secSum(R))}</dd>`:''}${CLAN_T[R.clanM]?`<dt>ตระกูล</dt><dd><span data-tip="clan">${CLAN_T[R.clanM]}</span>${R.clanM==='s'?` · ต้องล้มมังกรอีก ${3-(R.clanN|0)} ตัวคำสาปจึงจะคลาย`:''}</dd>`:''}<dt>ดวงชะตา</dt><dd>${esc(fateLine(R))}</dd>
  <dt>จุดเปลี่ยน</dt><dd>${R.keys} ครั้ง${R.timeouts?` · ปล่อยให้นิสัย${esc(PERS[h.pers].n)}เลือกแทน ${R.timeouts} ครั้ง`:''}${R.sameN+R.plainN?` · ตอบไปเองโดยไม่ต้องหยุด ${R.sameN+R.plainN} ครั้ง`:''}</dd><dt>ทองที่ทิ้งไว้</dt><dd class="px">${fmt(h.gold)}</dd>
  <dt>ปาร์ตี้</dt><dd>${[...R.pets.map(p=>PETS[p].n),...R.comps.map(c=>c.n+' ('+clsName(c.cls)+')')].join(', ')||'เดินทางคนเดียว'}</dd>
@@ -2482,6 +2592,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
   if(DT&&h.day&&window.LB&&window.LB.live){const run=S.runId;setTimeout(()=>window.LB.live.get(h.day.d).then(g=>{const d=g&&g.day;if(!d||!d.n||!S||S.runId!==run)return;
    S.dayStat=` · จาก ${fmt(d.n)} คนที่เข้าหอวันนี้ ${Math.round(d.h/d.n*100)}% ได้เจอเรื่องนี้ ${dHit?'ชีวิตนี้เป็นหนึ่งในนั้น':'ชีวิตนี้ไม่ได้อยู่ในกลุ่มนั้น'}`;const el=$('dayStat');if(el)el.textContent=S.dayStat;}),3500);}}
  S.shareD=shareData(R,sum,{pct,med,coh,beat});
+ {const a=crownArch(R);if(a){S.shareD.arch=a.t;S.shareD.hk.crown=a.d;}}
  const bs=$('btnShare');if(bs)bs.onclick=()=>openShare(false);
  endBar(share);
  // first visit to the end screen plays the cinematic over it; "ดูบันทึก" (or skip) re-renders this screen
