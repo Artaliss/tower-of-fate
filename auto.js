@@ -1760,8 +1760,8 @@ const newLinId=()=>'L'+Date.now().toString(36)+Math.floor(Math.random()*1e6).toS
 const UKEY='tof-unlock-v1';
 function loadUnl(){try{const v=JSON.parse(localStorage.getItem(UKEY)||'null');return v&&typeof v==='object'?v:{};}catch(e){return{};}}
 function unlApply(R){const U=loadUnl(),t=R.turned?cid(R):'';let ch=0;
- if((t==='nec'||R.karma<=NEC_K)&&!U.nec){U.nec=1;ch=1;R.unl='nec';}
- if((t==='ang'||R.karma>=ANG_K)&&!U.ang){U.ang=1;ch=1;R.unl=R.unl||'ang';}
+ if(t==='nec'&&!U.nec){U.nec=1;ch=1;R.unl='nec';}
+ if(t==='ang'&&!U.ang){U.ang=1;ch=1;R.unl=R.unl||'ang';}
  if(ch)try{localStorage.setItem(UKEY,JSON.stringify(U));}catch(e){}}
 const CKEY='tof-clan-v1',CLAN_T={f:'ตระกูลสหายมังกร',s:'ตระกูลนักล่ามังกร',d:'ตระกูลดยุกปราบมังกร'},EGGP={k:'drk',s:'drs',g:'drg'};
 const clan0=()=>({v:1,m:'',n:0,egg:'',pet:'',cls:0,fresh:'',log:[]});
