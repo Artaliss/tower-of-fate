@@ -48,6 +48,10 @@ box-shadow:0 0 0 2px #070c0e,inset 0 2px 0 #24383f;padding:8px 12px;border-radiu
 .who{min-width:0;flex:1 1 180px}
 .who .nm{font-weight:500;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .who .sub{font-size:12px;color:var(--muted)}
+.hpath{display:flex;align-items:center;gap:6px;cursor:help}.hpath .pt{color:var(--karma);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hpath .pbar{flex:0 0 64px;height:5px;border-radius:3px;background:var(--line,rgba(255,255,255,.12));overflow:hidden}.hpath .pbar i{display:block;height:100%;background:var(--karma)}
+.hpath .px{font-size:10px}.hpath.up{animation:pathUp 1.2s ease-out}@keyframes pathUp{0%{filter:brightness(2.2)}100%{filter:none}}
+.pt{color:var(--karma)}.ch.cl{border-color:var(--karma)}
 .flr{display:flex;align-items:baseline;gap:4px}
 .flr .lbl{font-size:13px;color:var(--muted)}
 .flr .big{font-size:26px;color:var(--gold)}
@@ -398,7 +402,7 @@ body.eb-on .helpbtn{bottom:calc(74px + env(safe-area-inset-bottom,0px))}
 <body>
 <div class="wrap">
  <header class="hud" aria-label="สถานะนักผจญภัย">
-  <div class="who"><div class="nm" id="hName">—</div><div class="sub" id="hSub"></div></div>
+  <div class="who"><div class="nm" id="hName">—</div><div class="sub" id="hSub"></div><div class="sub hpath" id="hPath" data-tip="path" hidden></div></div>
   <div class="flr"><span class="lbl">ชั้น</span><span class="px big" id="hFloor">0</span><span class="px dim">/100</span></div>
   <button class="hdbtn" id="btnLB" type="button" hidden>🏆 อันดับ & ความสำเร็จ</button>
   <button class="mute" id="btnMute" type="button" aria-label="เปิด/ปิดเสียง" aria-pressed="true" title="เปิด/ปิดเสียง">♪</button>

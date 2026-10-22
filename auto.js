@@ -8,7 +8,7 @@ let rnd=Math.random;
 const rr=(a,b)=>a+(b-a)*rnd(), pick=a=>a[Math.floor(rnd()*a.length)], clamp=(v,a,b)=>v<a?a:v>b?b:v, ri=(a,b)=>a+Math.floor(rnd()*(b-a+1));
 function wIdx(ws){let s=0;for(const w of ws)s+=w;let r=rnd()*s;for(let i=0;i<ws.length;i++){r-=ws[i];if(r<0)return i;}return ws.length-1;}
 function gauss(){let u=0,v=0;while(!u)u=rnd();while(!v)v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
-const BAL={mh0:38,mh1:4.2,mh2:0.03,ma0:9,ma1:0.62,ma2:0.0045,md0:3,md1:0.3,md2:0.002,bHp:1.6,bAtk:1.08,bDef:1.05,ex0:9,ex1:2.0,g0:4,g1:1.5,regen:0.03,gr:0.75,gp:0.7,fH:0.7,fA:0.8,fR:80};
+const BAL={mh0:38,mh1:4.2,mh2:0.03,ma0:9,ma1:0.62,ma2:0.0045,md0:3,md1:0.3,md2:0.002,bHp:1.6,bAtk:1.08,bDef:1.05,ex0:9,ex1:2.0,g0:4,g1:1.5,regen:0.03,gr:0.75,gp:0.7,fH:0.8,fA:0.85,fR:80};
 const CLS_SUM=CLASSES.reduce((a,c)=>a+c.w,0);
 const genName=()=>pick(NA)+pick(NB)+(rnd()<.4?pick(NB):'');
 const PETK=Object.keys(PETS).filter(k=>!PETS[k].clan);
@@ -34,6 +34,49 @@ const stOf=R=>STANCES[R&&R.st]||STANCES.def;
 const ST_SP={atk:{merc:1.6,dragon:1.6,door:1.3,pit:1.4,bridge:1.3,hunter:1.3},def:{fountain:1.6,seer:1.3,healer:1.5,monk:1.4},loot:{mimic:1.8,gamble:1.6,starfall:1.3,peddler:1.5,snailrace:1.4,heist:1.4},help:{wounded:2.2,rpet:1.5,egg:1.4,cavein:1.8,lantern:1.6,snack:1.3}};
 const PST={bold:'atk',careful:'def',greedy:'loot',kind:'help'};
 // headless heroes (cohort, balance sims) switch to guarding when badly hurt, otherwise follow their personality
+// ---- class paths (v2.4): acting like your class earns path points R.path (0-100); tiers at PATH_T give bonuses ----
+const PATH_T=[20,50,80];
+const PATH_TG={war:{fight:3,guard:4,dragon:2},mag:{study:6,curse:5},arc:{scout:6,hunt:5,sneak:3},pri:{help:4,pray:5},rog:{steal:5,trick:4,sneak:3},
+ far:{tame:4,trade:2,forage:4,gamble:2,hunt:2},dra:{fight:4,dragon:6,guard:2},dsl:{hunt:5,dragon:6,fight:2}};
+const PATH_ST={war:'atk',dra:'atk',dsl:'atk',mag:'def',arc:'def',pri:'help',rog:'loot',far:'loot'};
+const PATHS={
+ war:{n:'ทางเกียรติ',src:'สู้ซึ่งๆ หน้า ปกป้องคน ท้าดวล ล้มบอสโดยไม่อ้อม ท่าทีบุก',t:['ทหารหาญ','ขุนพล','วีรชนแห่งหอ'],b:['ATK +4%','ATK +8% · โดนตีแล้วมีโอกาสสวนกลับ','ATK +12% · สวนกลับบ่อยขึ้น']},
+ mag:{n:'ทางคาถา',src:'อ่านตำรา แตะรูน ศึกษาของต้องสาป ท่าทีระวังตัว',t:['ศิษย์คาถา','ผู้ไขรูน','จอมปราชญ์'],b:['MP สูงสุด +5','MP สูงสุด +5 · ร่ายสกิลซ้ำได้ถ้า MP พอ','MP สูงสุด +5 · ตัวเลือกของต้องสาปพลาดน้อยลงครึ่งหนึ่ง']},
+ arc:{n:'ทางพราน',src:'สำรวจ สะกดรอย ล่าสัตว์ หาทางลัด ท่าทีระวังตัว',t:['พรานป่า','ตาเหยี่ยว','เงาแห่งยอดไม้'],b:['ยิงชุดแรกก่อนศัตรูขยับ · โอกาสพลาดในตัวเลือกลดลง','ยิงชุดแรกแรงขึ้น · หลบเก่งขึ้น','ยิงชุดแรกแรงที่สุด · พลาดน้อยลงอีก']},
+ pri:{n:'ทางศรัทธา',src:'ช่วยคน รักษา ทำบุญ สวด ให้อภัย ท่าทีช่วยเหลือ ทำชั่วแล้วแต้มลด',t:['ผู้สวดภาวนา','ผู้ถือแสง','นักบุญแห่งหอ'],b:['ฮีลแรงขึ้น · ฟื้น HP ทุกชั้นเพิ่ม','ฮีลตอน HP ต่ำกว่า 40% แทนตอนเปิดฉาก','ฮีลแรงที่สุด']},
+ rog:{n:'ทางเงา',src:'ขโมย หลอก แอบ ย่อง ท่าทีหาของ',t:['ขโมยมือใหม่','มือไวมีชื่อ','เจ้าแห่งเงา'],b:['ทองจากเหตุการณ์ +12% · แทงจากเงาตอนเปิดฉาก','ทอง +24% · โดนซุ่มตีน้อยลง','ทอง +36% · ฉกทองกลางการต่อสู้']},
+ far:{n:'ทางไร่นา',src:'เลี้ยงสัตว์ ต่อรองราคา เก็บของป่า เสี่ยงดวง ท่าทีหาของ',t:['ชาวนาหัวไว','เจ้าของไร่','เศรษฐีบ้านนา'],b:['สัตว์เลี้ยงช่วยตี · ศาลพักใจลด 8%','สัตว์เลี้ยงตีแรงขึ้น · ลด 16% · ช่วงสงบเก็บยาได้','สัตว์เลี้ยงตีแรงที่สุด · ลด 24%']},
+ dra:{n:'ทางเลือดมังกร',src:'สู้ บุก ปกป้องคน เรื่องมังกร ท่าทีบุก',t:['ผู้สืบเลือด','ผู้ปลุกเลือด','มังกรในร่างคน'],b:['ดาเมจใส่บอส +6%','ดาเมจใส่บอส +12%','ดาเมจใส่บอส +18% · โดนบอสตีตายแล้วรอดได้ครั้งเดียว']},
+ dsl:{n:'ทางล่ามังกร',src:'ล่าสัตว์ สู้ เรื่องมังกร ท่าทีบุก',t:['นักล่า','นักล่าเกล็ด','ผู้ปิดตำนาน'],b:['ดาเมจใส่มังกร +10%','ดาเมจใส่มังกร +20% · ใส่บอส +3%','ดาเมจใส่มังกร +30% · ใส่บอส +6%']}};
+const pathOf=R=>PATHS[cid(R)]||null;
+const pathTier=R=>{const v=R&&R.path||0;let t=0;for(const x of PATH_T)if(v>=x)t++;return t;};
+const pathName=R=>{const P=pathOf(R),t=pathTier(R);return P&&t?P.t[t-1]:'';};
+const pathPts=(R,tg)=>{if(!tg||!tg.length)return 0;const M=PATH_TG[cid(R)]||{};let s=0;for(const x of tg)s+=M[x]||0;return s;};
+// regex fallback for key moments without explicit tags (story arcs)
+const TG_RX=[['steal',/ขโมย|ปล้น|ล้วง|ฉก|ริบ/],['trick',/หลอก|โกง|ต้มตุ๋น/],['sneak',/แอบ|ย่อง|อ้อม|หลบ/],['fight',/สู้|ดวล|ประลอง|บุก|ท้า/],['guard',/ปกป้อง|คุ้มกัน|ขวาง/],
+ ['study',/อ่าน|ศึกษา|รูน|ตำรา/],['curse',/สาป/],['scout',/สำรวจ|สะกดรอย|ลาดตระเวน|ทางลัด/],['hunt',/ล่า/],['help',/ช่วย|รักษา|ให้ยา/],['pray',/สวด|ทำบุญ|ไหว้|อภัย|ถวาย/],
+ ['tame',/เลี้ยง|ลูบ|อุ้ม/],['trade',/ซื้อ|ขาย|ต่อรอง/],['gamble',/พนัน|เดิมพัน/],['forage',/เก็บ|ขุด/],['dragon',/มังกร/]];
+const tgOf=t=>TG_RX.filter(([,rx])=>rx.test(t)).map(([k])=>k);
+// tags per choice index of the built-in key moments
+const KEY_TG={omen:[['pray'],['curse'],['steal','curse'],['pray']],pet:[['tame'],['tame','help'],['trade']],comp:[['trade'],['help','guard'],[]],boss:[['fight'],[],['sneak']],
+ merc:[['trade'],['fight'],[]],mimic:[[],['scout'],['sneak']],egg:[['tame'],['trade'],[]],relic:[['curse'],['pray'],['pray']],seer:[['study'],['pray'],[]],rpet:[['tame'],['tame']],
+ gamble:[['gamble'],['gamble','curse'],[]],wounded:[['help'],['steal'],['help']],door:[['fight'],['scout'],[]],fountain:[[],['pray','gamble'],['forage']],starfall:[['study'],['pray'],[]],
+ dragon:[['steal','sneak','dragon'],['fight','dragon'],['dragon']],smith:[['trade'],['trade'],['help']],bard:[['trade'],['help'],['steal']],thief:[['steal','guard'],['help'],['trade']],
+ monk:[['pray','study'],['pray'],['fight']],cat:[['tame'],['sneak'],['tame','help']],hunter:[['hunt'],['trade'],['help']],scholar:[['study'],['study','trade'],['help']],
+ noble:[['guard','help'],['fight'],['trick','steal']],cultist:[['curse'],['fight','guard'],['steal','sneak']],imp:[['curse'],['curse','trade'],['study']],healer:[['help'],['trade'],['forage','help']],
+ tomb:[['steal'],['study'],['pray']],bridge:[['fight'],['trade'],['scout','sneak']],crystal:[['study'],['forage'],['curse']],book:[['study'],['study'],[]],campfire:[['guard'],['help'],['steal']],
+ snack:[['trade'],['help'],['steal']],cavein:[['help'],['steal'],['help']],drill:[['fight'],['trade'],[]],lantern:[['guard','help'],['scout'],['help']],bones:[['help'],['trick'],[]],
+ fairyq:[['gamble'],['gamble'],[]],stars:[['study'],['study'],['gamble']],peddler:[['trade'],['trade'],['gamble','trade'],[]],snailrace:[['gamble'],['gamble'],[]],brew:[['curse'],['study','curse'],[]],
+ ruin:[['help'],['pray'],['pray']],harvest:[['forage','help'],['trade'],['steal']],pit:[['fight'],['gamble'],[]],oathk:[['guard'],[],['pray']],heist:[['steal'],['guard','trick'],[]],
+ whale:[['tame'],['tame'],['hunt']],phoenix:[['pray'],['hunt','steal'],['forage']],kingless:[['curse'],['steal'],['help']],astral:[['scout'],['forage'],['study']]};
+// add (or, for a priest doing evil, remove) path points; a new tier is announced once
+function pathAdd(R,pts,out){if(!pts||(!R.alive&&pts>0))return;const P=pathOf(R);if(!P)return;const t0=pathTier(R);R.path=clamp((R.path||0)+pts,0,100);const t=pathTier(R);
+ if(t>t0&&t>(R.pathHi||0)){R.pathHi=t;if(cid(R)==='mag'){R.h.mmp+=5;R.h.mp+=5;}
+  if(out){say(R,out,`${P.n}: ขึ้นขั้น "${P.t[t-1]}" (${P.b[t-1]})`,'lv');out.pathUp=t;}}}
+const pathHiName=R=>{const P=pathOf(R),t=R&&R.pathHi||0;return P&&t?P.t[t-1]:'';};
+// karma lean (v2.4): the hero copies the way you answer key moments, so evil picks there also tilt the automatic choices
+const kLean=R=>clamp((R.kl||0)/6,-1,1);
+const pathTg=(R,tg,out,k)=>pathAdd(R,pathPts(R,tg)*(k||1),out);
 const aiStance=R=>R.h.hp/R.h.mhp<.35?'def':PST[R.h.pers]||'def';
 const HELPD=['ช่วยพยุงนักผจญภัยขาแพลงลงบันไดไปส่งที่ชั้นล่าง','แบ่งน้ำในกระติกให้เด็กยกของที่หลงขึ้นมาในหอ','ช่วยฝังศพนักผจญภัยนิรนามที่นอนอยู่ข้างทาง','ปล่อยนกที่ติดกับดักกลับออกไปทางหน้าต่าง','ช่วยพ่อค้าเร่เก็บของที่หกกระจายเต็มขั้นบันได'];
 // ---- hazard model (1in8b life-table style): every floor 1..99 rolls death with p = 1-(1-q_f)^m ----
@@ -114,7 +157,7 @@ function newRun(h){const R={h:JSON.parse(JSON.stringify(h)),floor:1,pets:[],comp
  rolled:0,hzP:1,hzT:[],fateShift:0,mLog:0,mN:0,pMax:0,pMaxF:0,pPrev:[],lastP:0,omens:0,lastOmen:-9,scars:0,lethal:false,quiet:false,sinceKey:0,keyGap:5,egg:null,farmLeft:0,pend:null,keys:0,timeouts:0,reveal:null,cursed:0,lastSp:'',death:'',kt:{},
  way:{},sameN:0,plainN:0,ledger:[],kctx:'',lastKOmen:-9,
  mod:Object.assign({},omenOf(h).mod),used:{},omenX:[],arcs:{},quietN:0,drama:0,lastQuiet:0,lastDrama:0,lastDramaId:'',hist:[],xseen:null,
- st:PST[h.pers]||'def',stH:'',stCh:0,coh:[],mile:[],lu:{},gIn:0,gPrev:h.gold,ck:'',theme:''};
+ st:PST[h.pers]||'def',stH:'',stCh:0,coh:[],mile:[],lu:{},gIn:0,gPrev:h.gold,ck:'',theme:'',path:0,pathHi:0};
  {const DT=dayOf(h);if(DT){R.dayT=DT.id;for(const k in DT.mod||{})R.mod[k]=k==='regen'?(R.mod[k]||0)+DT.mod[k]:(R.mod[k]===undefined?1:R.mod[k])*DT.mod[k];}}
  trackKarma(R);R.keyGap=keyGap(R);planArcs(R);
  // apprentice inheritance: the pet joins at once, the master's karma follows as a ledger row and a small blessing or debt
@@ -125,7 +168,7 @@ function newRun(h){const R={h:JSON.parse(JSON.stringify(h)),floor:1,pets:[],comp
  const CP=h.clan&&h.clan.pet;if(CP&&PETS[CP]&&!R.pets.includes(CP)&&R.pets.length<2)R.pets.push(CP);
  return R;}
 // ---- karma ledger: every change of R.karma is written down with the floor and what caused it (R.kctx) ----
-function trackKarma(R){let k=0;Object.defineProperty(R,'karma',{enumerable:true,configurable:true,get:()=>k,set:v=>{const d=v-k;k=v;if(!d)return;
+function trackKarma(R){let k=0;Object.defineProperty(R,'karma',{enumerable:true,configurable:true,get:()=>k,set:v=>{const d=v-k;k=v;if(!d)return;if(d<0&&R.h&&cid(R)==='pri'&&R.path)R.path=Math.max(0,R.path+d*1.5);
  const t=R.kctx||'เรื่องเล็กๆ ระหว่างทาง',L=R.ledger,l=L[L.length-1];if(l&&l.t===t&&l.f===R.floor){l.d+=d;if(!l.d)L.pop();}else L.push({f:R.floor,d,t});}});}
 // ---- per-floor hazard multiplier m from the hero's current state ----
 function hzParts(R){const h=R.h,hf=clamp(h.hp/h.mhp,0,1),P={};
@@ -144,9 +187,9 @@ function shiftFate(R,d){R.hzP*=Math.exp(-HZ.g*d);R.fateShift+=d;return d;}
 const eAtk=R=>R.h.atk*(hasPet(R,'fox')?1.12:1)*(hasPet(R,'drk')?1.1:1)*stOf(R).a;
 const eDef=R=>R.h.def*(hasPet(R,'wolf')?1.12:1)*(hasPet(R,'drs')?1.1:1)*(hasTr(R,'shield')?1.1:1)*stOf(R).df;
 const eLuk=R=>(R.h.luk+(hasPet(R,'owl')?6:0)+(hasPet(R,'drg')?3:0)+(hasTr(R,'lucky')?4:0))*(cid(R)==='far'?1.5:1);
-const riskAdj=(R,p)=>clamp(p*clamp(1-(eLuk(R)-8)*.012,.45,1.25),.02,.95);
+const riskAdj=(R,p)=>clamp(p*clamp(1-(eLuk(R)-8)*.012,.45,1.25)*(cid(R)==='arc'?1-.05*pathTier(R):1),.02,.95);
 const critCh=R=>clamp(.05+eLuk(R)*.004+(cid(R)==='arc'?.12:0),0,.5);
-const dodgeCh=R=>clamp(eLuk(R)*.0025,0,.2);
+const dodgeCh=R=>clamp(eLuk(R)*.0025+(cid(R)==='arc'?.03*pathTier(R):0),0,.26);
 const fleeCh=R=>clamp(.45+eLuk(R)*.008+(cid(R)==='arc'?.2:0),.1,.92);
 const tameCh=R=>clamp(.12+eLuk(R)*.006,.05,.6);
 const normT=t=>String(t).replace(/[\d.,]+/g,'#');
@@ -182,21 +225,31 @@ const compCost=(R,c)=>Math.round(25*scl(R.floor)*MD(R,'cc',1)*(c&&c.cm||1));
 const warpCost=R=>Math.round(70*scl(R.floor));
 function power(a,d,hp){return Math.round(a*1.6+d*1.2+hp*.15);}
 const heroPower=R=>power(eAtk(R)+R.comps.reduce((s,c)=>s+c.pw*.6,0),eDef(R),R.h.mhp);
-function fight(R,en,o){o=o||{};const h=R.h,id=cid(R),A=eAtk(R),D=eDef(R),cc=critCh(R),dg=dodgeCh(R),rec=!o.dry;
- let hp=h.hp,ehp=en.hp,mp=h.mp;const ev=[];const bm=id==='dsl'?(isDrg(en)?1.5:en.boss?1.1:1):en.boss&&id==='dra'?1.25:1,em=o.enMul||1,st=o.stop||0;
+function fight(R,en,o){o=o||{};const h=R.h,id=cid(R),T=pathTier(R),A=eAtk(R)*(id==='war'?1+.02*T:1),D=eDef(R),cc=critCh(R),dg=dodgeCh(R),rec=!o.dry;
+ let hp=h.hp,ehp=en.hp,mp=h.mp,stole=0,ph=0;const ev=[];const bm=id==='dsl'?(isDrg(en)?1.5+.1*T:en.boss?1.1+.03*T:1):en.boss&&id==='dra'?1.25+.03*T:1,em=o.enMul||1,st=o.stop||0;
  const hit=(a,d)=>a*a/(a+d);
- if(mp>=10){mp-=10;if(id==='pri'){hp=Math.min(h.mhp,hp+h.mhp*.25);rec&&ev.push({t:'heal',hp,ehp});}else{const d=hit(A,en.def)*(id==='mag'?2.5:1.3)*bm;ehp-=d;rec&&ev.push({t:'skill',d,hp,ehp});}}
- if(o.ambush&&!en.calm){const d=hit(en.atk*em,D)*rr(.85,1.15);hp-=d;rec&&ev.push({t:'e',d,hp,ehp});}
+ // class path styles (v2.4): archer volley first, rogue stab from the shadows, mage double cast, priest heals when low
+ const amb=o.ambush&&!en.calm&&!(id==='rog'&&T>=2&&rnd()<.3*(T-1));
+ if(id==='arc'&&T>=1){const d=hit(A,en.def)*(.35+.15*T)*bm;ehp-=d;rec&&ev.push({t:'volley',d,hp,ehp});}
+ if(mp>=10&&!(id==='pri'&&T>=2)){mp-=10;if(id==='pri'){hp=Math.min(h.mhp,hp+h.mhp*(.2+.03*T));rec&&ev.push({t:'heal',hp,ehp});}else{const d=hit(A,en.def)*(id==='mag'?2.2:1.3)*bm;ehp-=d;rec&&ev.push({t:'skill',d,hp,ehp});
+  if(id==='mag'&&T>=2&&mp>=10&&ehp>st){mp-=10;const d2=hit(A,en.def)*.8*bm;ehp-=d2;rec&&ev.push({t:'skill',d:d2,hp,ehp,x2:1});}}}
+ if(id==='rog'&&T>=1&&!amb&&ehp>st){const d=hit(A,en.def)*1.8*(1+.15*(T-1))*bm;ehp-=d;rec&&ev.push({t:'stab',d,hp,ehp});}
+ if(amb){const d=hit(en.atk*em,D)*rr(.85,1.15);hp-=d;rec&&ev.push({t:'e',d,hp,ehp});}
  for(let r=0;r<(o.lim||(en.boss&&R.floor===100?BAL.fR:40))&&ehp>st&&hp>0;r++){
   const cr=rnd()<cc;let d=hit(A,en.def)*rr(.85,1.15)*(cr?1.8:1)*bm;ehp-=d;rec&&ev.push({t:'h',d,cr,hp,ehp});if(ehp<=st)break;
   for(const c of R.comps){if(c.cls==='pri')hp=Math.min(h.mhp,hp+h.mhp*.03);const d2=hit(c.pw,en.def)*rr(.8,1.2)*(c.cls==='pri'?.5:1);ehp-=d2;rec&&ev.push({t:'c',n:c.n,d:d2,hp,ehp});if(ehp<=st)break;}
   if(ehp<=st)break;
-  if(hasPet(R,'wolf')){const d3=hit(A*.25,en.def);ehp-=d3;rec&&ev.push({t:'p',d:d3,hp,ehp});if(ehp<=st)break;}
+  for(let pi=0;pi<R.pets.length&&ehp>st;pi++){const p=R.pets[pi],k=(p==='wolf'?.25:0)+(id==='far'&&T>=1?.06+.06*T:0);if(!k)continue;const d3=hit(A*k,en.def);ehp-=d3;rec&&ev.push({t:'p',d:d3,hp,ehp,pi});}
+  if(ehp<=st)break;
+  if(id==='rog'&&T>=3&&rec&&!stole&&rnd()<.25){stole=Math.round((BAL.g0+BAL.g1*R.floor)*.8*gMul(R));h.gold+=stole;ev.push({t:'steal',g:stole,hp,ehp});}
   if(en.calm)continue;
   if(rnd()<dg){rec&&ev.push({t:'miss',hp,ehp});continue;}
-  const ed=hit(en.atk*em,D)*rr(.85,1.15)*(id==='war'?.88:1);hp-=ed;rec&&ev.push({t:'e',d:ed,hp,ehp});
+  const ed=hit(en.atk*em,D)*rr(.85,1.15)*(id==='war'?.9:1);hp-=ed;rec&&ev.push({t:'e',d:ed,hp,ehp});
+  if(hp<=0&&id==='dra'&&T>=3&&en.boss&&!R.dsv){hp=1;if(rec){R.dsv=1;ev.push({t:'save',hp,ehp});}}
+  if(hp>0&&id==='war'&&T>=2&&rnd()<.1+.05*(T-2)){const d=hit(A,en.def)*.6*bm;ehp-=d;rec&&ev.push({t:'counter',d,hp,ehp});if(ehp<=st)break;}
+  if(hp>0&&id==='pri'&&T>=2&&!ph&&hp<h.mhp*.4&&mp>=10){ph=1;mp-=10;hp=Math.min(h.mhp,hp+h.mhp*(.22+.03*T));rec&&ev.push({t:'heal',hp,ehp});}
  }
- return{win:hp>0&&(!o.need||ehp<=st),hp:Math.max(0,hp),mp,ev,ehp:Math.max(0,ehp)};
+ return{win:hp>0&&(!o.need||ehp<=st),hp:Math.max(0,hp),mp,ev,ehp:Math.max(0,ehp),stole};
 }
 // boss rubber band (v2.3): no farming loop any more, so a boss far above the hero eases off until the hero has about BFIT.t to win at full HP
 const BFIT={t:.3,lo:.55,st:.9};
@@ -228,7 +281,7 @@ function fxParts(R,fx){const s=scl(R.floor),P=[],f=R.floor;if(!fx)return P;
  return P;}
 function applyFx(R,fx,out){const h=R.h,f=R.floor,s=scl(f);if(!fx)return;
  if(fx.hp){if(fx.hp>0)h.hp=Math.min(h.mhp,h.hp+fx.hp*h.mhp);else h.hp-=-fx.hp*h.mhp*(cid(R)==='war'?.88:1);}
- if(fx.gold){if(fx.gold>0)h.gold+=Math.round(fx.gold*s*(cid(R)==='rog'?1.3:1)*gMul(R)*stOf(R).g);else h.gold=Math.max(0,h.gold-Math.round(-fx.gold*s));}
+ if(fx.gold){if(fx.gold>0)h.gold+=Math.round(fx.gold*s*(cid(R)==='rog'?1.3*(1+.12*pathTier(R)):1)*gMul(R)*stOf(R).g);else h.gold=Math.max(0,h.gold-Math.round(-fx.gold*s));}
  if(fx.exp)gainExp(R,fx.exp*s,out);
  if(fx.atk)h.atk+=fx.atk*(1+f/30);if(fx.def)h.def+=fx.def*(1+f/30);
  if(fx.luk)h.luk=Math.max(0,h.luk+fx.luk);
@@ -249,6 +302,7 @@ function doFight(R,en,out,o){o=o||{};const h=R.h,f=R.floor;
  if(en.cur&&(en.boss||en.drg))say(R,out,`${en.n}จำกลิ่นตระกูลนักล่ามังกรได้ มันดุกว่าปกติ`,'bad');
  const res=fight(R,en,o);
  out.combat={en,ev:res.ev,win:res.win,startHp:h.hp,mhp:h.mhp};h.hp=res.hp;h.mp=res.mp;out.enemy=en;
+ if(res.stole)say(R,out,`ฉกทองจาก${en.n}กลางวงต่อสู้ได้ ${res.stole} ทอง`,'good');if(res.ev.some(e=>e.t==='save'))say(R,out,'เลือดมังกรพยุงร่างไว้ คุณไม่ยอมล้มทั้งที่ควรจะตายไปแล้ว','lv');
  if(res.win){R.kills++;const k=o.rw||1;const ex=(BAL.ex0+BAL.ex1*f)*(en.boss?6:1)*k;
   const gd=Math.round((en.boss?(60+15*f)*rr(.9,1.2):(BAL.g0+BAL.g1*f)*rr(.7,1.3)*k)*(cid(R)==='rog'?1.3:1)*gMul(R)*stOf(R).g);
   h.gold+=gd;say(R,out,`ปราบ${en.n}! +${Math.round(ex)} EXP · +${gd} ทอง`,'good');gainExp(R,ex,out);if(en.boss){out.coins=gd;bossPerks(R,gd,out);}if(clanM(R)==='s'&&isDrg(en)&&(en.boss||en.drg))drgFell(R,out);}
@@ -261,14 +315,15 @@ function genEvent(R){const f=R.floor;if(f%10===0)return{kind:'boss',en:bossFit(R
  const b=biome(f);let pool=[];EVENTS.forEach((e,i)=>{if((e.b===b||e.b===-1)&&!R.seen.includes(i))pool.push(i);});
  if(!pool.length)EVENTS.forEach((e,i)=>{if(e.b===b||e.b===-1)pool.push(i);});
  const ti=pick(pool);R.seen.push(ti);if(R.seen.length>6)R.seen.shift();return{kind:'ev',ti};}
+const chRisk=(R,ch)=>riskAdj(R,ch.p)*(cid(R)==='mag'&&pathTier(R)>=3&&ch.tg&&ch.tg.includes('curse')?.5:1);
 function chDis(R,ch){const c=ch.c?Math.round(ch.c*scl(R.floor)):0;if(c&&R.h.gold<c)return`ทองไม่พอ ขาด ${Math.ceil(c-R.h.gold)}`;if(ch.req==='pot'&&R.potions<1)return'ไม่มียา';return'';}
 function estCached(R,ev,n){const k=Math.round(R.h.hp)+'|'+Math.round(R.h.atk)+'|'+R.comps.length+'|'+R.pets.join();if(ev.ek!==k){ev.ek=k;ev.est=estimateWin(R,ev.en,n);}return ev.est;}
 function choicesOf(R,ev){const h=R.h,f=R.floor,s=scl(f);
- if(ev.kind==='ev')return EVENTS[ev.ti].c.map(ch=>{const P=[];if(ch.c)P.push({t:`−${Math.round(ch.c*s)} ทอง`,c:'w'});
-  if(ch.p){const pp=Math.round(riskAdj(R,ch.p)*100);
+ if(ev.kind==='ev')return EVENTS[ev.ti].c.map(ch=>{if(ch.cl&&ch.cl!==cid(R))return{t:ch.t,P:[],dis:true,hide:true};const P=[];if(ch.c)P.push({t:`−${Math.round(ch.c*s)} ทอง`,c:'w'});
+  if(ch.p){const pp=Math.round(chRisk(R,ch)*100);
    if(ch.gn){P.push({t:`${100-pp}% ${ch.gn}`,c:'g'},...fxParts(R,ch.g),{t:`/ ${pp}% ${ch.pn}`,c:'b'},...fxParts(R,ch.b));}
    else{P.push(...fxParts(R,ch.g),{t:`· ${pp}% ${ch.pn}`,c:'b'});}}else P.push(...fxParts(R,ch.g));
-  if(!P.length)P.push({t:'ไม่มีอะไรเปลี่ยน',c:''});const d=chDis(R,ch);if(d)P.push({t:`(${d})`,c:'b'});return{t:ch.t,P,dis:!!d};});
+  if(!P.length)P.push({t:'ไม่มีอะไรเปลี่ยน',c:''});const d=chDis(R,ch);if(d)P.push({t:`(${d})`,c:'b'});return{t:ch.t,P,dis:!!d,tg:ch.tg,cl:ch.cl};});
  if(ev.kind==='mon'){const w=Math.round(estCached(R,ev,60)*100),en=ev.en;
   const ex=Math.round(BAL.ex0+BAL.ex1*f),gd=Math.round(BAL.g0+BAL.g1*f);const can=en.pet&&R.pets.length<2;
   return[{t:'สู้!',P:[{t:`โอกาสชนะ ~${w}%`,c:w>=70?'g':w>=40?'w':'b'},{t:`+${ex} EXP`,c:'g'},{t:`+~${gd} ทอง`,c:'g'}]},
@@ -287,7 +342,12 @@ function choicesOf(R,ev){const h=R.h,f=R.floor,s=scl(f);
  return[];}
 const SAVED=['เกือบตายไปแล้ว แต่ชะตายังไม่ถึงฆาต','ล้มลงไปรอบหนึ่ง ลืมตาขึ้นมาอีกทีก็ยังหายใจอยู่','ภาพตรงหน้ามืดไปครู่หนึ่ง พอรู้สึกตัวก็ลุกขึ้นเดินต่อได้','ร่างกายพังไปครึ่งหนึ่ง แต่หอคอยยังไม่ยอมรับวิญญาณคุณ'];
 // death only when the fight was a chosen lethal one (boss); otherwise survive scarred (scars raise the floor hazard)
+// priest (v2.4): once per life the light pulls the priest back from death
+const REZ_HZ=5; // borrowed life: fate runs out faster after coming back
+const canRez=R=>cid(R)==='pri'&&!R.rez;
+function rezNow(R,out){R.rez=1;R.h.hp=Math.max(1,R.h.mhp*.3);R.h.mp=R.h.mmp;R.hzP*=REZ_HZ;say(R,out,'แสงศักดิ์สิทธิ์ดึงวิญญาณกลับเข้าร่าง คุณลืมตาขึ้นอีกครั้ง (นักบวชฟื้นคืนชีพได้ครั้งเดียว)','lv');out.rez=1;}
 function mortal(R,out,cause){if(R.h.hp>0||!R.alive)return;
+ if(R.lethal&&canRez(R)){rezNow(R,out);return;}
  if(R.lethal){die(R,cause||`สิ้นใจที่ชั้น ${R.floor}`);return;}
  R.h.hp=Math.max(1,R.h.mhp*.12);R.scars++;out.saved=true;say(R,out,fresh(R,'sv',SAVED)+` (แผลเป็น ${R.scars})`,'lv');}
 function resolve(R,ev,i){const h=R.h,f=R.floor;const out={msgs:[],combat:null,after:'result',coins:0,enemy:null,cause:''};
@@ -295,30 +355,30 @@ function resolve(R,ev,i){const h=R.h,f=R.floor;const out={msgs:[],combat:null,af
  if(ev.kind==='ev'){const T=EVENTS[ev.ti],ch=T.c[i];R.kctx=`${T.t}: ${ch.t}`;
   if(ch.c)h.gold-=Math.round(ch.c*scl(f));if(ch.req==='pot')R.potions--;
   say(R,out,`${T.t}: เลือก "${ch.t}"`,'info');gainExp(R,4+.6*f,out);
-  const bad=ch.p?rnd()<riskAdj(R,ch.p):false;const fx=bad?(ch.b||{}):(ch.g||{});
+  const bad=ch.p?rnd()<chRisk(R,ch):false;pathTg(R,ch.tg,out);const fx=bad?(ch.b||{}):(ch.g||{});
   say(R,out,bad?(ch.bm||`${ch.pn}!`):(ch.gm||(ch.gn?`${ch.gn}!`:'ผ่านไปได้ด้วยดี')),bad?'bad':'good');
   R.map[f-1]=bad?(fx.hp<0||fx.fight?'trap':'bad'):(fx.k>0?'good':fx.k<0?'evil':fx.gold>0?'treasure':fx.pet?'pet':'calm');
   applyFx(R,fx,out);if(fx.fight)R.map[f-1]='fight';
   if(!out.cause)out.cause=`${T.t}: ${bad?ch.pn:'โชคร้าย'} (ชั้น ${f})`;}
  else if(ev.kind==='mon'){const en=ev.en;R.map[f-1]='fight';
-  if(i===0){say(R,out,`เข้าปะทะ${en.n}!`,'info');doFight(R,en,out);}
+  if(i===0){say(R,out,`เข้าปะทะ${en.n}!`,'info');if(doFight(R,en,out))pathTg(R,isDrg(en)?['fight','dragon','hunt']:['fight','hunt'],out,.15);}
   else if(i===1){if(rnd()<fleeCh(R)){say(R,out,`วิ่งหนี${en.n}ได้สำเร็จ`,'good');R.map[f-1]='flee';gainExp(R,2+.3*f,out);}
    else{say(R,out,'หนีไม่พ้น! โดนตีจากด้านหลัง','bad');doFight(R,en,out,{ambush:true});}}
-  else{if(rnd()<tameCh(R)){say(R,out,`${en.n}ยอมสยบ!`,'good');addPet(R,en.pet,out);R.map[f-1]='pet';gainExp(R,(BAL.ex0+BAL.ex1*f)*.5,out);}
+  else{pathTg(R,['tame'],out,.6);if(rnd()<tameCh(R)){say(R,out,`${en.n}ยอมสยบ!`,'good');addPet(R,en.pet,out);R.map[f-1]='pet';gainExp(R,(BAL.ex0+BAL.ex1*f)*.5,out);}
    else{say(R,out,`${en.n}คลั่งหนักกว่าเดิม!`,'bad');doFight(R,en,out,{enMul:1.2});}}}
- else if(ev.kind==='pet'){const P=PETS[ev.pet];R.map[f-1]='pet';R.kctx=`${P.n}: ${cs[i].t}`;
+ else if(ev.kind==='pet'){const P=PETS[ev.pet];R.map[f-1]='pet';R.kctx=`${P.n}: ${cs[i].t}`;pathTg(R,KEY_TG.pet[i],out);
   if(i===0){if(R.pets.length>=2){say(R,out,`ปล่อย${PETS[R.pets[0]].n}กลับป่า`,'info');R.pets.shift();}addPet(R,ev.pet,out);}
   else if(i===1){R.karma+=2;say(R,out,`${P.n}กินอิ่มแล้ววิ่งจากไปอย่างมีความสุข`,'good');R.map[f-1]='good';}
   else{R.karma-=3;h.gold+=Math.round(15*scl(f));say(R,out,`ขาย${P.n}ได้ทองมา ก่อนไปมันหันมามองคุณตาละห้อย`,'bad');R.map[f-1]='evil';}}
- else if(ev.kind==='comp'){const c=ev.comp;R.map[f-1]='comp';R.kctx=`${c.n}: ${cs[i].t}`;
+ else if(ev.kind==='comp'){const c=ev.comp;R.map[f-1]='comp';R.kctx=`${c.n}: ${cs[i].t}`;pathTg(R,KEY_TG.comp[i],out);
   if(i===0){h.gold-=compCost(R,c);addComp(R,c,out);}
   else if(i===1){if(rnd()<riskAdj(R,.35)){say(R,out,`ทำภารกิจให้${c.n}สำเร็จ`,'good');R.karma+=1;addComp(R,c,out);}else{say(R,out,'ภารกิจพลาด! บาดเจ็บหนัก','bad');h.hp-=h.mhp*.2;out.cause=`ภารกิจของ${c.n}ล้มเหลว (ชั้น ${f})`;}}
   else{say(R,out,`บอกลา${c.n} แล้วเดินต่อคนเดียว`,'info');R.map[f-1]='calm';}}
  else if(ev.kind==='boss'){const en=ev.en;
   if(i===0){say(R,out,`ท้าชิงบอส ${en.n}!`,'info');R.map[f-1]='boss';
-   if(doFight(R,en,out,{cause:`พ่ายแพ้ต่อบอส ${en.n} (ชั้น ${f})`})){R.bosses++;R.retreats=0;if(f===100){R.won=true;R.sec=rnd()<SEC_P?{st:'ask',c:pick(['k','s','g'])}:{st:'none'};out.after='end';say(R,out,'พิชิตยอดหอคอยโชคชะตา!','lv');}else out.after='shop';}}
+   if(doFight(R,en,out,{cause:`พ่ายแพ้ต่อบอส ${en.n} (ชั้น ${f})`})){R.bosses++;pathTg(R,isDrg(en)?['fight','dragon']:['fight'],out);R.retreats=0;if(f===100){R.won=true;R.sec=rnd()<SEC_P?{st:'ask',c:pick(['k','s','g'])}:{st:'none'};out.after='end';say(R,out,'พิชิตยอดหอคอยโชคชะตา!','lv');}else out.after='shop';}}
   else if(i===1){if(R.warps>0)R.warps--;else h.gold-=warpCost(R);R.map[f-1]='warp';R.retreats=0;say(R,out,`ฉีกม้วนวาร์ป ข้าม${en.n}ไปอย่างเงียบๆ`,'info');out.after='shop';}
-  else{R.sneaks=(R.sneaks||0)+1;R.retreats=0;h.hp=Math.max(1,h.hp-h.mhp*.25);shiftFate(R,-2);R.map[f-1]='flee';say(R,out,`ลัดเลาะช่องแคบหลังห้องบอส ผ่าน${en.n}ไปได้ แต่ตัวเต็มไปด้วยรอยถลอก`,'info');out.after='shop';}}
+  else{R.sneaks=(R.sneaks||0)+1;R.retreats=0;pathTg(R,['sneak'],out);h.hp=Math.max(1,h.hp-h.mhp*.25);shiftFate(R,-2);R.map[f-1]='flee';say(R,out,`ลัดเลาะช่องแคบหลังห้องบอส ผ่าน${en.n}ไปได้ แต่ตัวเต็มไปด้วยรอยถลอก`,'info');out.after='shop';}}
  if(R.alive&&h.hp<=0)mortal(R,out,out.cause||`สิ้นใจที่ชั้น ${f}`);
  if(R.won)R.alive=false;
  return out;}
@@ -330,11 +390,12 @@ function farm(R){const out={msgs:[],combat:null,after:'result',coins:0,cause:''}
  if(R.h.hp<=0)mortal(R,out,out.cause);return out;}
 function drink(R){if(R.potions<1)return false;R.potions--;R.h.hp=Math.min(R.h.mhp,R.h.hp+R.h.mhp*.45);return true;}
 function climb(R){const out={msgs:[]},h=R.h,id=cid(R);R.floor++;if(R.floor>R.maxFloor)R.maxFloor=R.floor;R.farmN=0;
- const rg=BAL.regen+MD(R,'regen',0)+(id==='pri'?.06:0)+(id==='dra'?.03:0)+(hasPet(R,'slime')?.04:0)+(hasPet(R,'drs')?.02:0);h.hp=Math.min(h.mhp,h.hp+h.mhp*rg);h.mp=Math.min(h.mmp,h.mp+h.mmp*.2);
+ const rg=BAL.regen+MD(R,'regen',0)+(id==='pri'?.05+.005*pathTier(R):0)+(id==='dra'?.03:0)+(hasPet(R,'slime')?.04:0)+(hasPet(R,'drs')?.02:0);h.hp=Math.min(h.mhp,h.hp+h.mhp*rg);h.mp=Math.min(h.mmp,h.mp+h.mmp*.2);
  R.comps.forEach(c=>c.pw*=1.015);
  {const d=h.gold-(R.gPrev||0);if(d>0)R.gIn=(R.gIn||0)+d;R.gPrev=h.gold;}
  // stance "help": now and then a small good deed on the way up
  if(R.st==='help'&&rnd()<.07){R.kctx='ช่วยคนระหว่างทาง';R.karma+=1;R.kctx='';say(R,out,fresh(R,'hd',HELPD)+' (ท่าทีช่วยเหลือ)','good');}
+ if(R.st===PATH_ST[id])pathAdd(R,.4,out);
  cohTick(R,out);mileTick(R,out);
  // hidden karma only leaks through the odd bad omen when it is very negative
  if(R.karma<=-15&&R.floor-R.lastKOmen>=5&&rnd()<.15){R.lastKOmen=R.floor;say(R,out,fresh(R,'ko',KOMEN),'info');}
@@ -358,6 +419,7 @@ function shopList(R){const f=R.floor,h=R.h,b=R.buys,s=scl(f),inc=k=>Math.pow(1.3
  {id:'mhp',n:'ยาอายุวัฒนะ',d:'HP สูงสุด +10%',cost:Math.round(32*s*inc('mhp'))},
  {id:'luk',n:'เครื่องรางนำโชค',d:'LUK +3',cost:Math.round(22*s*inc('luk'))}];
  if(h.rank<RANKS.length-1)L.push({id:'rank',n:`เลื่อนแรงค์ ${RANKS[h.rank].k}→${RANKS[h.rank+1].k}`,d:'พลังพื้นฐานทุกอย่างเพิ่มตามแรงค์',cost:Math.round((220+180*h.rank)*s*inc('rank'))});
+ if(cid(R)==='far'&&pathTier(R))L.forEach(x=>x.cost=Math.round(x.cost*(1-.08*pathTier(R))));
  return L.map(x=>Object.assign(x,{dis:h.gold<x.cost||(x.id==='heal'&&h.hp>=h.mhp-.5&&h.mp>=h.mmp-.5)}));}
 function buy(R,id){const it=shopList(R).find(x=>x.id===id);if(!it||it.dis)return false;const h=R.h,f=R.floor;h.gold-=it.cost;R.buys[id]=(R.buys[id]||0)+1;
  if(id==='heal'){h.hp=h.mhp;h.mp=h.mmp;R.buys.heal=0;}else if(id==='pot'){R.potions++;R.buys.pot=0;}else if(id==='warp'){R.warps++;R.buys.warp=0;}
@@ -366,10 +428,10 @@ function buy(R,id){const it=shopList(R).find(x=>x.id===id);if(!it||it.dis)return
  return true;}
 // --- AI policy (also the default answer when a decision timer runs out) ---
 function aiPick(R,ev){const h=R.h,hf=h.hp/h.mhp;
- if(ev.kind==='ev'){let best=0,bs=-1e9;EVENTS[ev.ti].c.forEach((ch,i)=>{if(chDis(R,ch))return;let s=rnd();if(ch.p)s-=ch.p*(hf<.5?3:.8);
+ if(ev.kind==='ev'){let best=0,bs=-1e9;EVENTS[ev.ti].c.forEach((ch,i)=>{if(chDis(R,ch)||(ch.cl&&ch.cl!==cid(R)))return;let s=rnd()+(pathPts(R,ch.tg)>0?.15:0)+(ch.cl?.15:0);{const kv=(ch.g&&ch.g.k||0)+(ch.b&&ch.b.k||0)*(ch.p||0);if(kv)s+=Math.sign(kv)*kLean(R)*1.2;}if(ch.p)s-=ch.p*(hf<.5?3:.8);
   if(ch.g&&ch.g.hp>0&&hf<.6)s+=1.2;if(ch.g&&ch.g.hp<0&&hf<.5)s-=1;if(s>bs){bs=s;best=i;}});return best;}
  if(ev.kind==='mon'){const w=estimateWin(R,ev.en,24);if(w>=.75)return 0;if(ev.en.pet&&R.pets.length<2&&w>=.5&&rnd()<.5)return 2;return 1;}
- if(ev.kind==='pet')return 0;
+ if(ev.kind==='pet')return kLean(R)<-.4&&rnd()<-kLean(R)?2:0;
  if(ev.kind==='comp'){if(R.comps.length>=2)return 2;if(h.gold>=compCost(R,ev.comp)+20)return 0;return hf>.6?1:2;}
  if(ev.kind==='boss'){const w=estimateWin(R,ev.en,60);if(w>=.6)return 0;const cw=(R.warps>0||h.gold>=warpCost(R))&&R.floor<100;
   if(cw&&w<.45)return 1;if(w<.3&&R.floor<100)return 2;return 0;}
@@ -530,7 +592,7 @@ function beast(R,k,fm){const t=pick(monsOf(biome(R.floor))),en=modMon(R,mkMon(t,
 function mkHire(R,n,cls,tr,k){const T=TRAITS.find(t=>t.id===tr)||TRAITS[0];return{n,cls,pw:(4+R.floor*.6)*(k||1)*MD(R,'cp',1)*(T.pw||1),tr:T.id,line:T.lines[0],cm:T.cost||1};}
 function hire(R,out,c){if(R.comps.length>=2){const wk=[...R.comps].sort((a,b)=>a.pw-b.pw)[0];R.comps.splice(R.comps.indexOf(wk),1);say(R,out,`${wk.n}ขอแยกทางไปเงียบๆ`,'info');}addComp(R,c,out);}
 const fullP=R=>R.comps.length>=2?[{t:`(ปลด${[...R.comps].sort((a,b)=>a.pw-b.pw)[0].n}ออกแทน)`,c:'w'}]:[];
-const coin=(R,out,g)=>{R.h.gold+=g;out.coins=(out.coins||0)+g;return g;};
+const coin=(R,out,g)=>{if(cid(R)==='rog')g=Math.round(g*(1+.12*pathTier(R)));R.h.gold+=g;out.coins=(out.coins||0)+g;return g;};
 const heal=(R,k)=>{R.h.hp=Math.min(R.h.mhp,R.h.hp+R.h.mhp*k);};
 const xp=(R,out,b,k)=>gainExp(R,b+k*R.floor,out);
 const skipN=(R,n)=>Math.max(0,Math.min(n,Math.ceil(R.floor/10)*10-1-R.floor));
@@ -1188,7 +1250,7 @@ function quietTick(R,n){const out=mkOut(),f0=R.floor,g0=R.h.gold,l0=R.h.lv,k0=R.
  let dead=false;const qb=[];for(;k<n&&R.alive;k++){if(rollFloor(R)){dead=true;break;}const ev=genEvent(R);if(ev.kind==='boss')break;const fg=R.h.gold,fh=R.h.hp,ff=R.floor;const o=resolve(R,ev,aiPick(R,ev))||mkOut();aiPotion(R);finishFloor(R,o);
   qb.push({f:ff,g:Math.round(R.h.gold-fg),hp:Math.round(R.h.hp-fh)});if(o.mile)out.mile=o.mile;
   o.msgs.forEach(m=>{if(m.keep||(m.c==='lv'&&!/^เลเวลอัป/.test(m.t))||/ทรยศ/.test(m.t))keep.push(m);});}
- R.quiet=false;R.quietN++;R.lastQuiet=R.floor;const dg=Math.round(R.h.gold-g0),dk=R.kills-k0;
+ R.quiet=false;R.quietN++;R.lastQuiet=R.floor;if(cid(R)==='far'&&pathTier(R)>=2&&k&&rnd()<.5){R.potions++;keep.push({t:'เก็บสมุนไพรข้างทางมาต้มเป็นยาได้หนึ่งขวด',c:'good'});}const dg=Math.round(R.h.gold-g0),dk=R.kills-k0;
  if(k)say(R,out,`${fresh(R,'qt',QUIET)} ผ่านไป ${k} ชั้นรวด (ชั้น ${f0}–${f0+k-1}) · สู้ ${dk} ครั้ง · ทอง ${dg>=0?'+':''}${dg}${R.h.lv>l0?` · เลเวล ${l0}→${R.h.lv}`:''}`,'info');
  keep.forEach(m=>say(R,out,m.t,m.c));if(dead){const d=deathTick(R);out.msgs.push(...d.msgs);out.vis=d.vis;}out.quietN=Math.max(1,k);out.f0=f0;out.qb=qb;return out;}
 function dramaTick(R,D){const out=mkOut();R.drama++;R.lastDrama=R.floor;D.run(R,out);if(R.alive&&R.h.hp<=0)mortal(R,out,out.cause);finishFloor(R,out);return out;}
@@ -1219,6 +1281,8 @@ function mkKey(R,type,ev){const f=R.floor,K={type,ev,tag:'',title:'',text:'',vis
    {t:'เก็บทองไว้ก่อน',P:[{t:'แค่พักฟื้นให้เต็ม',c:''}]}];K.ai=0;}
  else if(type==='arc')mkArcKey(R,K,ev);
  else{const S=SPECIAL[type];S.mk(R,K);K.tid='sp:'+type;K.rar=TIER[type]||'c';}
+ {const KT=KEY_TG[type];K.ch.forEach((c,i)=>{if(!c.tg)c.tg=KT?KT[i]||[]:type==='arc'?tgOf(c.t):[];if(c.hide)return;
+  if(c.cl)c.P.unshift({t:`✦ เฉพาะ${clsName(c.cl)}`,c:'pt'});else if(type!=='promo'&&pathPts(R,c.tg)>0)c.P.push({t:`✦ ${pathOf(R).n}`,c:'pt'});});}
  if(!K.ch[K.ai]||K.ch[K.ai].dis){const j=K.ch.findIndex(c=>!c.dis);K.ai=j<0?0:j;}
  K.pick=persPick(R,K);if(!K.ch[K.pick]||K.ch[K.pick].dis)K.pick=K.ai;
  return K;}
@@ -1243,6 +1307,7 @@ function applyKey(R,K,i,auto){const f=R.floor;if(!K.ch[i]||K.ch[i].dis)return nu
   else if(K.type==='shop')shopBuy(R,i,out);
   else if(K.type==='arc')resArc(R,K,i,out);
   else SPECIAL[K.type].res(R,K,i,out);
+  if(K.type==='promo')pathAdd(R,6,out);else if(K.type!=='shop')pathTg(R,K.ch[i].tg,out);
   if(R.alive&&R.h.hp<=0)mortal(R,out,out.cause);}
  if(auto===true){finishFloor(R,out);return out;}
  R.sinceKey=0;R.keyGap=keyGap(R);if(auto==='same')R.sameN++;else if(auto==='plain')R.plainN++;else R.keys++;
@@ -1275,8 +1340,8 @@ function persPick(R,K){const ps=R.h.pers||'careful';
  if(K.type==='shop')return K.ai;
  if(K.type==='boss'){const w=K.ev.est||0;if(ps==='bold'&&w>=.8)return 0;if(ps==='careful'&&w<.8&&!K.ch[2].dis)return K.ch[1].dis?2:1;return K.ai;}
  const W=PW[ps]||PW.careful;let best=K.ai,bs=-1e9;
- K.ch.forEach((c,i)=>{if(c.dis)return;let s=(i===K.ai?1:0)+rnd()*.25;const txt=c.t+' '+c.P.map(p=>p.t).join(' ');
-  c.P.forEach(p=>{if(p.c==='g')s+=W.g;else if(p.c==='b')s-=W.b;if(p.c==='kk')s+=(p.t.includes('✦')?1:-1)*W.k*(/หนัก/.test(p.t)?2:1);
+ K.ch.forEach((c,i)=>{if(c.dis)return;let s=(i===K.ai?1:0)+rnd()*.25+(pathPts(R,c.tg)>0?.15:0);const txt=c.t+' '+c.P.map(p=>p.t).join(' ');
+  c.P.forEach(p=>{if(p.c==='g')s+=W.g;else if(p.c==='b')s-=W.b;if(p.c==='kk')s+=(p.t.includes('✦')?1:-1)*(W.k+kLean(R)*1.2)*(/หนัก/.test(p.t)?2:1);
    if(/ทอง/.test(p.t)){if(p.c==='g')s+=W.gold;else if(/−|เดิมพัน/.test(p.t))s-=W.cost;}
    const mm=p.t.match(/โอกาสชนะ ~(\d+)%/);if(mm){const w=+mm[1];s+=W.fight>0?(w>=45?W.fight:-.6):(w>=80?.3:W.fight);}});
   if(/สู้|ดวล|ปลุก|ท้า/.test(c.t))s+=W.fight*.5;if(/ไม่เสี่ยง|เดินผ่าน|ปล่อยมันไว้/.test(txt))s+=W.safe;
@@ -1318,12 +1383,12 @@ function fateCause(R){const f=R.floor,b=biome(f),P=hzParts(R),hf=R.h.hp/R.h.mhp;
  if(!R.pets.length&&!R.comps.length)add(1,{k:'alone',t:'ล้มลงคนเดียวในทางเดินมืด ไม่มีใครได้ยินเสียงเรียก',vis:null});
  if(f<=6)add(4,{k:'slip',t:'ลื่นตกบันไดหินตั้งแต่ยังไม่ทันได้เห็นอะไรเลย',vis:null});
  return O[wIdx(W)];}
-function deathTick(R){const out=mkOut(),c=fateCause(R);const cause=`${c.t} (ชั้น ${R.floor})`;say(R,out,cause,'bad');R.ck=c.k||'fate';die(R,cause);R.death='fate';out.vis=c.vis;return out;}
+function deathTick(R){const out=mkOut(),c=fateCause(R);const cause=`${c.t} (ชั้น ${R.floor})`;say(R,out,cause,'bad');if(canRez(R)){rezNow(R,out);out.vis=c.vis;return out;}R.ck=c.k||'fate';die(R,cause);R.death='fate';out.vis=c.vis;return out;}
 // headless full life with AI everywhere (used for balance checks)
 // R.tk = floor-story units shown in the UI (each lasts 5 s / speed); paused key moments add 15 s of real time each
 function autoLife(h){const R=newRun(h||rollHero());let g=0;R.tk=0;
  while(R.alive&&g++<5000){R.st=aiStance(R);const P=planFloor(R);R.tk+=P.type==='quiet'?1.6:P.type==='autokey'&&!P.how?1.3:1;
-  if(P.type==='death'){deathTick(R);break;}
+  if(P.type==='death'){deathTick(R);if(!R.alive)break;continue;}
   if(P.type==='farm')farmTick(R);else if(P.type==='auto')autoTick(R,P.ev);else if(P.type==='quiet')quietTick(R,P.n);else if(P.type==='autokey'){applyKey(R,P.K,P.i!==undefined?P.i:P.K.ai,P.how||true);if(!R.alive&&!R.won)R.death=R.death||'boss';}else if(P.type==='drama'){R.lastDramaId=P.D.id;dramaTick(R,P.D);}else{R.timeouts++;applyKey(R,P.K,P.K.pick);if(!R.alive&&!R.won)R.death=R.death||'boss';}}
  return R;}
 // ---- secret floor above 100 (v2.1): a dragon on its hoard, spared once wounded (way 0) or slain (way 1) ----
@@ -1342,7 +1407,7 @@ function secFight(R,way){const en=secEn(R),h=R.h,out=mkOut();R.sec.m0=clanM(R);R
  else{R.cause=`ถูก${en.n}ฆ่าบนชั้นลับเหนือยอดหอคอย`;h.hp=0;}
  return out;}
 /*SIM-END*/
-if(typeof document==='undefined'){window.AUTO_SIM={SPECIAL,ARCS,DRAMA,MFIT,secPrep,BFIT,DAYS,dayHit,secEn,secFight,secOpts,estimateWin,fight,SEC_K,DRG,rollHero,HZ,LX,pRoll,project,hzM,autoLife,newRun,planFloor,applyKey,mkKey,BAL,RUN_OMENS,STANCES};return;}
+if(typeof document==='undefined'){window.AUTO_SIM={SPECIAL,ARCS,DRAMA,PATHS,pathTier,MFIT,secPrep,BFIT,DAYS,dayHit,secEn,secFight,secOpts,estimateWin,fight,SEC_K,DRG,rollHero,HZ,LX,pRoll,project,hzM,autoLife,newRun,planFloor,applyKey,mkKey,BAL,RUN_OMENS,STANCES};return;}
 
 // ================= UI =================
 const {heroSpr,MSPR,BSPR,PSPR,PROPS,COIN,ICONS,sprCanvas,blit,bgImg,drawOverlay,drawProp,compSpr,compKey}=window.ART;
@@ -1427,13 +1492,16 @@ function fxEv(e,C){if(RM||!S)return;const en=C.en,E=ePos(en),boss=!!en.boss,R=S.
   if(C.last&&C.win)killFx(en,Math.max(70,D*.35));};
  const proj=(s,x0,y0,arc,d,hit,o)=>fo(Object.assign({k:'proj',s,x0,y0,x1:E.x-2,y1:E.y,arc,d,hit},o||{}));
  const heal=(amt,big)=>{if(amt<.5)return;num('+'+Math.round(amt),52,big?78:84,'#6aff8a');for(let i=0;i<(big?14:4);i++)pt(52+fr(-7,7),fr(84,100),0,fr(-1.2,-.4),i%2?'#8aff9a':'#ffffff',fr(400,750),{g:-.01,dr:.98});};
+ if(e.t==='volley'||e.t==='stab')e=Object.assign({},e,{t:'skill'});else if(e.t==='counter')e=Object.assign({},e,{t:'h'});
+ if(e.t==='steal'){num('+'+e.g,52,74,'#ffd04a');if(C.snd)AUDIO.sfx('coin');for(let i=0;i<6;i++)pt(E.x,E.y,-fr(1,2.2),fr(-1.5,-.4),'#ffd04a',fr(300,520),{g:.05,dr:.97});return;}
+ if(e.t==='save'){fo({k:'ring',x:52,y:99,r0:3,r1:16,col:'#ff8a2a',d:520,fy:.35});burst(52,90,12,FIRE,1.8);num('รอด!',50,76,'#ffd04a',1);return;}
  if(e.t==='h'){mv('h','lunge',D,7,0);later(D*.33,()=>hitE(e.cr?'#ffd04a':'#ffffff',e.cr?{cr:1,pre:'!',n:18,cols:['#ffffff','#ffd04a','#ff8a2a'],sp:2.4}:{}));}
  else if(e.t==='c'){let i=R?R.comps.findIndex(c=>c.n===e.n):0;if(i<0)i=0;const c=R&&R.comps[i],cc=c?c.cls:'war',x0=30-16*i+6;
   mv('c'+i,'lunge',D,5,3);
   const s=cc==='mag'?'bolt':cc==='arc'?'arrow':cc==='pri'?'holy':'wave';
   later(D*.25,()=>proj(s,x0,90,cc==='arc'?-10:-3,Math.max(90,D*.6),()=>hitE('#9ad8ff',{n:4,sp:1.2,noSlash:cc!=='war',quiet:lo})));
   if(e.hp>C.prev+.5)heal(e.hp-C.prev,false);}
- else if(e.t==='p'){const i=R?Math.max(0,R.pets.indexOf('wolf')):0;mv('p'+i,'lunge',D,i?36:16,4);later(D*.35,()=>hitE('#ffb0d0',{n:4,noSlash:true,cols:['#ffffff','#ffb0d0']}));}
+ else if(e.t==='p'){const i=e.pi!==undefined?e.pi:R?Math.max(0,R.pets.indexOf('wolf')):0;mv('p'+i,'lunge',D,i?36:16,4);later(D*.35,()=>hitE('#ffb0d0',{n:4,noSlash:true,cols:['#ffffff','#ffb0d0']}));}
  else if(e.t==='miss'||e.t==='e'){const DD=D*1.2;mv('e','tele',DD,boss?-10:-16);
   later(DD*.62,()=>{const t=performance.now();
    if(e.t==='miss'){mv('h','side',D,-6);num('หลบ!',50,78,'#7ae8f0',1);for(let i=0;i<3;i++)pt(60,86+i*4,-fr(1.5,2.5),0,'#cfe8ff',fr(160,260),{g:0,dr:.9});}
@@ -1558,6 +1626,9 @@ function achWatch(R){if(!R||!window.ACH)return;const W=S.aw||(S.aw={f:R.floor,p:
  if(R.karma!==W.k){ach('karma',{delta:R.karma-W.k,total:R.karma});W.k=R.karma;}}
 function renderHUD(){const R=S.R,h=R?R.h:S.hero,C=CLASSES[h.cls];let hp=h.hp;if(S.phase==='combat'&&S.cb)hp=S.cb.hp;
  $('hName').textContent=h.name;$('hSub').textContent=`รุ่นที่ ${h.gen||1} · แรงค์ ${RANKS[h.rank].k} · ${C.n} · ${h.village}`;
+ {const el=$('hPath'),P=R&&pathOf(R);if(el){if(!P)el.hidden=true;else{const v=R.path||0,t=pathTier(R),nx=PATH_T[t];el.hidden=false;
+  el.innerHTML=`<span class="pt">✦ ${esc(P.n)}${t?' · '+esc(P.t[t-1]):''}</span> <span class="pbar"><i style="width:${clamp(v,0,100)}%"></i></span> <span class="px">${Math.floor(v)}${nx?'/'+nx:''}</span>`;
+  el.dataset.tipn=P.n;el.dataset.tipd=`ได้แต้มจาก: ${P.src}${nx?` · ครบ ${nx} แต้มเป็น "${P.t[t]}": ${P.b[t]}`:' · ขึ้นถึงขั้นสุดท้ายแล้ว'}${t?` · ตอนนี้ได้: ${P.b[t-1]}`:''}`;}}}
  const f=R?R.floor:0;$('hFloor').textContent=f;
  $('v-hp').textContent=`${Math.ceil(hp)}/${Math.ceil(h.mhp)}`;$('b-hp').style.width=clamp(hp/h.mhp*100,0,100)+'%';
  const A=R?eAtk(R):h.atk,D=R?eDef(R):h.def,Lk=R?eLuk(R):h.luk;
@@ -1569,7 +1640,8 @@ function renderHUD(){const R=S.R,h=R?R.h:S.hero,C=CLASSES[h.cls];let hp=h.hp;if(
  $('biomeTag').textContent=R?`${BIOMES[biome(R.floor)]} · ชั้น ${R.floor}`:'ห้องโถงแห่งการสุ่มเกิด';
  const ticks=$('pTicks');if(!ticks.childElementCount)for(let i=10;i<=100;i+=10){const d=document.createElement('div');d.className='tick';d.style.left=i+'%';ticks.appendChild(d);}
  [...ticks.children].forEach((d,i)=>d.classList.toggle('done',f>(i+1)*10));
- const now={hp:Math.round(hp),atk:Math.round(A*10)/10,def:Math.round(D*10)/10,luk:Math.round(Lk),mp:Math.round(h.mp),lv:h.lv,gold:Math.round(h.gold),run:S.runId};
+ const now={hp:Math.round(hp),atk:Math.round(A*10)/10,def:Math.round(D*10)/10,luk:Math.round(Lk),mp:Math.round(h.mp),lv:h.lv,gold:Math.round(h.gold),run:S.runId,pt:R?R.pathHi||0:0};
+ if(snap&&snap.run===now.run&&now.pt>(snap.pt||0)){AUDIO.sfx('chest');const el=$('hPath');if(el&&!RM){el.classList.remove('up');void el.offsetWidth;el.classList.add('up');}}
  if(snap&&snap.run===now.run&&now.lv>snap.lv){AUDIO.sfx('levelup');lvlFx();}
  if(snap&&snap.run===now.run&&S.phase!=='birth'){let n=0;for(const k of ['hp','atk','def','luk','mp','lv','gold']){const d=now[k]-snap[k];if(Math.abs(d)>=(k==='atk'||k==='def'?.5:1))floatD(k,d,n++);}}
  snap=now;}
@@ -1609,7 +1681,7 @@ function saveMemo(e){const a=loadMemo();a.unshift(e);
  for(let k=a.length-1;k>=-1;k--){try{localStorage.setItem(MKEY,JSON.stringify(a));return;}catch(err){if(k<0)return;MEMO_BULK.forEach(f=>{if(a[k])delete a[k][f];});}}}
 let memoAll=false;
 function renderMemo(){const a=[...loadMemo(),...loadOldMemo()].sort((x,y)=>(y.t||0)-(x.t||0)),N=12,show=memoAll?a:a.slice(0,N);
- $('memo').innerHTML=a.length?show.map(m=>`<div class="row"><span class="px" style="color:${RANKS[m.rank]?RANKS[m.rank].col:'#fff'}">${esc(RANKS[m.rank]?RANKS[m.rank].k:'?')}</span><span>${esc(m.name)}${m.drg==='f'?' 🐉':m.drg==='s'?' ⚔':''} · ${esc(m.cls)}${m.gen>1?` · รุ่นที่ ${m.gen}`:''}${m.old?' <span class="oldtag">โหมดเก่า</span>':''}${m.pat?` <span class="mpat"${patTip(m.pat,m.patN)}>${esc(patEmo(m.pat))}${m.patN?' '+esc(m.patN):''}</span>`:''}<br><span class="x">${esc(m.cause)}</span></span><span class="px">${m.won?'👑 ':''}${m.floor}F</span></div>`).join('')
+ $('memo').innerHTML=a.length?show.map(m=>`<div class="row"><span class="px" style="color:${RANKS[m.rank]?RANKS[m.rank].col:'#fff'}">${esc(RANKS[m.rank]?RANKS[m.rank].k:'?')}</span><span>${esc(m.name)}${m.drg==='f'?' 🐉':m.drg==='s'?' ⚔':''} · ${esc(m.cls)}${m.pth?' · '+esc(m.pth):''}${m.gen>1?` · รุ่นที่ ${m.gen}`:''}${m.old?' <span class="oldtag">โหมดเก่า</span>':''}${m.pat?` <span class="mpat"${patTip(m.pat,m.patN)}>${esc(patEmo(m.pat))}${m.patN?' '+esc(m.patN):''}</span>`:''}<br><span class="x">${esc(m.cause)}</span></span><span class="px">${m.won?'👑 ':''}${m.floor}F</span></div>`).join('')
   +(a.length>N?`<button type="button" class="btn memomore" id="memoMore">${memoAll?'ย่อรายการ':`ดูเพิ่ม (อีก ${a.length-N} คน)`}</button>`:''):'<div class="dim" style="font-size:13px">ยังไม่มีใครนอนอยู่ที่นี่</div>';
  const b=$('memoMore');if(b)b.onclick=()=>{memoAll=!memoAll;renderMemo();};}
 // ---- lineage (สายตระกูล): every life is appended to its line; apprentices continue the line, rebirth starts a new one ----
@@ -1668,7 +1740,7 @@ function finalizeRun(){if(!S||!S.R||S.fin)return;S.fin=1;const R=S.R,h=R.h,fl=R.
  try{addLife(R);S.hero.lin=h.lin;S.hero.house=h.house;S.hero.gen=h.gen;}catch(e){}
  try{clanApply(R);}catch(e){}
  let pt=null;try{pt=fatePattern(R);}catch(e){}
- saveMemo(Object.assign({name:h.name,rank:h.rank,cls:CLASSES[h.cls].n,floor:fl,won:R.won,cause:R.won&&!(R.sec&&R.sec.res==='x')?'พิชิตยอดหอคอย':R.cause,lv:h.lv,gen:h.gen||1,t:Date.now()},pt?{pat:pt.code,patN:pt.n}:{},R.sec&&R.sec.res&&R.sec.res!=='n'?{drg:R.sec.res}:{}));clearSave();poolAdd(R);poolSave();}
+ saveMemo(Object.assign({name:h.name,rank:h.rank,cls:CLASSES[h.cls].n,pth:pathHiName(R)||undefined,floor:fl,won:R.won,cause:R.won&&!(R.sec&&R.sec.res==='x')?'พิชิตยอดหอคอย':R.cause,lv:h.lv,gen:h.gen||1,t:Date.now()},pt?{pat:pt.code,patN:pt.n}:{},R.sec&&R.sec.res&&R.sec.res!=='n'?{drg:R.sec.res}:{}));clearSave();poolAdd(R);poolSave();}
 const isArr=Array.isArray,isObj=o=>!!o&&typeof o==='object'&&!isArr(o);
 // heroes from older saves have no lineage yet: they become generation 1 of their own line
 function linFix(h){if(!h)return;if(!(h.gen>=1))h.gen=1;if(!h.house)h.house=h.name;if(!h.lin)h.lin=newLinId();}
@@ -1693,7 +1765,7 @@ function resumeRun(){let d=null;try{d=JSON.parse(localStorage.getItem(SAVEK)||'n
   R.coh=isArr(R.coh)?R.coh.filter(c=>isObj(c)&&c.n&&c.f>0):[];if(!isArr(d.R.mile)||!isArr(R.mile))R.mile=MILES.filter(m=>m<=R.floor);
   if(typeof R.gPrev!=='number')R.gPrev=R.h.gold;if(typeof R.theme!=='string')R.theme='';if(typeof R.ck!=='string')R.ck='';
   for(const id in R.arcs)if(!ARCS[id])delete R.arcs[id];R.pets=R.pets.filter(p=>PETS[p]);
-  ['rolled','hzP','fateShift','mLog','mN','pMax','pMaxF','lastP','scars','cursed','keys','timeouts','sameN','plainN','sinceKey','keyGap','stCh','gIn'].forEach(x=>{if(typeof R[x]!=='number'||!isFinite(R[x]))R[x]=x==='hzP'?1:x==='keyGap'?5:0;});
+  ['rolled','hzP','fateShift','mLog','mN','pMax','pMaxF','lastP','scars','cursed','keys','timeouts','sameN','plainN','sinceKey','keyGap','stCh','gIn','path','pathHi','kl'].forEach(x=>{if(typeof R[x]!=='number'||!isFinite(R[x]))R[x]=x==='hzP'?1:x==='keyGap'?5:0;});
   S={phase:'flow',hero,rerolled:true,R,K:null,cb:null,cmp:null,saved:false,runId:d.runId||Date.now(),t0:+d.t0||Date.now(),speed:loadSpeed(),paused:!!d.paused,tm:0,
    frame:isObj(d.frame)&&isArr(d.frame.msgs)?d.frame:{f:R.floor,tag:`ชั้น ${R.floor}`,title:'',text:'',msgs:[]}};
   snap=null;VIS.coins=[];VIS.show=S.frame.vis||null;VIS.walk0=performance.now();
@@ -1712,7 +1784,7 @@ const card=$('card');
 const CHIPK=[[/กรรมชั่ว/,'karma_bad'],[/กรรมดี/,'karma_good'],[/แผลเป็น/,'scar'],[/โอกาสตาย|ตาย|อายุขัย|อายุอาจ|เสี่ยง/,'death_risk'],[/ชะตา/,'fate'],[/วาร์ป/,'warp'],
  [new RegExp('(^|[^฀-๿])ยา([^฀-๿]|$)'),'potion'],[/สัตว์เลี้ยง/,'pet'],[/เพื่อน|ทีม|ร่วมทาง|ปลด|ทหารรับจ้าง|^พลัง d/,'comp'],
  [/EXP/,'exp'],[/ATK/,'atk'],[/DEF/,'def'],[/LUK/,'luk'],[/HP/,'hp'],[/ทอง/,'gold']];
-function chipKey(p){const t=String(p.t||'');if(p.c==='kk')return /ชั่ว/.test(t)?'karma_bad':'karma_good';for(const [re,k] of CHIPK)if(re.test(t))return k;return'';}
+function chipKey(p){const t=String(p.t||'');if(p.c==='pt')return'path';if(p.c==='kk')return /ชั่ว/.test(t)?'karma_bad':'karma_good';for(const [re,k] of CHIPK)if(re.test(t))return k;return'';}
 function partsHTML(P){return P.map(p=>{const k=chipKey(p);return`<span class="${p.c||''}"${k?` data-tip="${k}"`:''}>${esc(p.t)}</span>`;}).join(' ');}
 function focusPrimary(){const b=card.querySelector('[data-enter]')||card.querySelector('button:not(:disabled)');if(b&&document.activeElement&&document.activeElement!==document.body&&!card.contains(document.activeElement))return;if(b)try{b.focus({preventScroll:true});}catch(e){}}
 function render(){if(S.phase!=='decide')card.classList.remove('legend');$('formBox').hidden=S.phase!=='birth';renderHUD();renderParty();renderLog();renderCtl();renderLineage();saveRun();
@@ -1871,7 +1943,7 @@ function animFight(cb,dur){clearFx();if(RM||!cb||!cb.ev.length)return;const E=cb
  if(cb.win)fxT.push(setTimeout(()=>{if(!VIS.edead)VIS.edead=performance.now();},base+n*st+450));}
 function tick(){if(!S||S.phase!=='flow'||S.paused)return;const R=S.R,f=R.floor,g0=R.h.gold;clearFx();S.tmAt=0;VIS.edead=false;
  const P=planFloor(R);
- if(P.type==='death'){const p=R.lastP,out=deathTick(R);S.frame={f,tag:`ชั้น ${f} · ชะตาขาด`,title:'ถึงฆาตแล้ว',text:R.cause,msgs:[{t:`ชะตาทอยที่ชั้นนี้ โอกาสตาย ${(p*100).toFixed(1)}%`,c:'lv'}]};VIS.show=out.vis;goDying();return;}
+ if(P.type==='death'){const p=R.lastP,out=deathTick(R);if(R.alive){S.frame={f,tag:`ชั้น ${f} · ฟื้นคืนชีพ`,title:'แสงศักดิ์สิทธิ์',text:'',msgs:out.msgs};VIS.show=null;AUDIO.sfx('levelup');lvlFx();render();schedule(floorMs()*1.6);return;}S.frame={f,tag:`ชั้น ${f} · ชะตาขาด`,title:'ถึงฆาตแล้ว',text:R.cause,msgs:[{t:`ชะตาทอยที่ชั้นนี้ โอกาสตาย ${(p*100).toFixed(1)}%`,c:'lv'}]};VIS.show=out.vis;goDying();return;}
  if(P.type==='key'){openKey(P.K);return;}
  let out,fr,slow=1;
  if(P.type==='drama'){R.lastDramaId=P.D.id;out=dramaTick(R,P.D);AUDIO.sfx('boss');
@@ -1918,10 +1990,11 @@ function renderDecide(){const K=S.K,R=S.R;
  const rt=K.rar==='l'?'<span class="rar l">★ ระดับตำนาน</span>':K.rar==='r'?'<span class="rar r">◆ หายาก</span>':'';
  card.innerHTML=`<div class="tag keytag">⚑ จุดเปลี่ยนชะตา · ${esc(K.tag)} ${rt}</div><h3>${esc(K.title)}</h3><p>${esc(K.text)}</p>${vs}
  <div class="cd" role="timer" aria-label="เวลาตัดสินใจ"><i id="cdBar"></i></div><div class="cdl" id="cdTxt"></div>
- <div class="chs">${K.ch.map((c,i)=>`<button class="ch${i===K.pick?' ai':''}" data-k="${i+1}" ${c.dis?'disabled':''}><span class="k">${i+1}</span><span><span class="t">${esc(c.t)}</span><span class="s">${partsHTML(c.dis?c.P.filter((p,j)=>j!==disWhy(R,c).j):c.P)}</span>${c.dis?`<span class="lock">🔒 ${esc(disWhy(R,c).w)}</span>`:''}${i===K.pick?`<span class="aitag">ถ้าหมดเวลา ${esc(R.h.name)} (${esc(PERS[R.h.pers].n)}) จะเลือกข้อนี้</span>`:''}</span></button>`).join('')}</div>`;
- card.querySelectorAll('button.ch').forEach((b,i)=>b.addEventListener('click',()=>choose(i,false)));card.classList.toggle('legend',K.rar==='l');updCd();}
+ <div class="chs">${K.ch.map((c,i)=>c.hide?'':`<button class="ch${i===K.pick?' ai':''}${c.cl?' cl':''}" data-i="${i}" data-k="${K.ch.slice(0,i+1).filter(x=>!x.hide).length}" ${c.dis?'disabled':''}><span class="k">${K.ch.slice(0,i+1).filter(x=>!x.hide).length}</span><span><span class="t">${esc(c.t)}</span><span class="s">${partsHTML(c.dis?c.P.filter((p,j)=>j!==disWhy(R,c).j):c.P)}</span>${c.dis?`<span class="lock">🔒 ${esc(disWhy(R,c).w)}</span>`:''}${i===K.pick?`<span class="aitag">ถ้าหมดเวลา ${esc(R.h.name)} (${esc(PERS[R.h.pers].n)}) จะเลือกข้อนี้</span>`:''}</span></button>`).join('')}</div>`;
+ card.querySelectorAll('button.ch').forEach(b=>b.addEventListener('click',()=>choose(+b.dataset.i,false)));card.classList.toggle('legend',K.rar==='l');updCd();}
 function choose(i,timeout){if(S.phase!=='decide')return;const K=S.K,R=S.R,f=R.floor;if(!K.ch[i]||K.ch[i].dis)return;clearInterval(cdI);
- const g0=R.h.gold;const out=applyKey(R,K,i);if(!out)return;if(timeout)R.timeouts++;
+ const g0=R.h.gold,k0=R.karma;const out=applyKey(R,K,i);if(!out)return;if(timeout)R.timeouts++;
+ else if(K.type!=='shop'){const dk=clamp(R.karma-k0,-4,4);if(dk)R.kl=clamp((R.kl||0)*.9+dk,-12,12);} // only your own picks move the lean
  showOutcome(K,i,out,{t:timeout?`หมดเวลา ${R.h.name} (${PERS[R.h.pers].n}) เลือกเอง: "${K.ch[i].t}"`:`คุณเลือก "${K.ch[i].t}"`,c:timeout?'lv':'info'},g0,false,f);}
 // SAME_WAY / PLAIN: answer without stopping the clock, then show the outcome like a normal choice
 function quickKey(P){const R=S.R,K=P.K,i=P.i,g0=R.h.gold,f=R.floor;S.K=K;VIS.show=K.vis;const out=applyKey(R,K,i,P.how);if(!out){S.phase='flow';schedule(floorMs());return;}
@@ -1985,13 +2058,14 @@ function renderSecret(){const R=S.R,X=R.sec,D=DRG[X.c],h=R.h,EGN=`ไข่ม�
 const secSum=R=>{const X=R.sec||{},D=DRG[X.c];if(!D)return'';return X.res==='n'?'พบบันไดขึ้นไปแต่เลือกไม่ขึ้น':X.res==='f'?`ล้ม${D.n}แล้วไว้ชีวิต ได้ไข่มังกรกลับมา`:X.res==='s'?`ฆ่า${D.n}แล้วขนสมบัติกลับมา`:X.res==='x'?`ตายในกรงเล็บของ${D.n}`:'';};
 let cbTimer=null;
 function cbLine(e,en){const n=Math.round(e.d||0);
- if(e.t==='h')return(e.cr?'คริติคอล! ':'')+`คุณโจมตี ${n}`;if(e.t==='skill')return`ใช้สกิล! ${n} ดาเมจ`;if(e.t==='heal')return'สวดรักษาตัวเอง';if(e.t==='c')return`${e.n} โจมตี ${n}`;if(e.t==='p')return`สัตว์เลี้ยงกัด ${n}`;if(e.t==='miss')return`หลบการโจมตีได้!`;return`${en.n} โจมตี ${n}`;}
+ if(e.t==='h')return(e.cr?'คริติคอล! ':'')+`คุณโจมตี ${n}`;if(e.t==='skill')return e.x2?`ร่ายซ้ำอีกรอบ! ${n} ดาเมจ`:`ใช้สกิล! ${n} ดาเมจ`;if(e.t==='volley')return`ยิงชุดแรกก่อนศัตรูขยับ ${n}`;if(e.t==='stab')return`แทงจากเงา! ${n}`;
+ if(e.t==='counter')return`สวนกลับ ${n}`;if(e.t==='steal')return`ฉกทองมาได้ ${e.g}`;if(e.t==='save')return'เลือดมังกรพยุงร่างไว้';if(e.t==='heal')return'สวดรักษาตัวเอง';if(e.t==='c')return`${e.n} โจมตี ${n}`;if(e.t==='p')return`สัตว์เลี้ยงกัด ${n}`;if(e.t==='miss')return`หลบการโจมตีได้!`;return`${en.n} โจมตี ${n}`;}
 function playCombat(){clearTimeout(cbTimer);const cb=S.cb;if(!cb)return;const step=RM?0:clamp(2600/Math.max(1,cb.ev.length),60,240)/Math.sqrt(S.speed);
  const tick2=()=>{if(S.phase!=='combat'||S.cb!==cb)return;if(cb.i>=cb.ev.length){finishCombat();return;}
   const pv=cb.hp,e=cb.ev[cb.i++];cb.hp=e.hp;cb.ehp=e.ehp;cb.lines.unshift(cbLine(e,cb.en));const last=cb.i>=cb.ev.length;
   fxEv(e,{en:cb.en,beat:step,prev:pv,last,win:cb.win,snd:true});
   // skills/heals and the killing blow get a longer beat so their effect can play out
-  updCombatUI();cbTimer=setTimeout(tick2,step*(e.t==='skill'||e.t==='heal'?2:1)*(last&&cb.win?2.5:1));};
+  updCombatUI();cbTimer=setTimeout(tick2,step*(/^(skill|heal|volley|stab|save)$/.test(e.t)?2:1)*(last&&cb.win?2.5:1));};
  if(RM){finishCombat();return;}tick2();}
 function finishCombat(){clearTimeout(cbTimer);const cb=S.cb;if(cb&&cb.win&&!cb.spare&&!VIS.edead)killFx(cb.en,120);afterKey();}
 function renderCombat(){const cb=S.cb;card.innerHTML=`<div class="tag">${esc(cb.tag||`ชั้น ${S.R.floor}`)} · การต่อสู้</div><h3>ปะทะ ${esc(cb.en.n)}</h3>
@@ -2285,7 +2359,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  const dayH=DT?`<div class="daybox end" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${dHit?`ชีวิตนี้ได้เจอ${esc(DT.hn)}`:`ชีวิตนี้ไม่ได้เจอ${esc(DT.hn)}`}<span id="dayStat">${esc(S.dayStat||'')}</span></div>`:'';
  const share=!!(window.SHARE&&window.SHARE.open),lb=!!(window.LB&&window.LB.open);
  card.innerHTML=`<div class="epi"><div class="tag">${won?'ตำนานบทใหม่':'แผ่นจารึกหน้าหลุมศพ'}</div><div class="big">${won?'👑 ':'✝ '}${esc(h.name)}</div><div class="rtitle${S.title.gold?' gold':''}">ฉายา: ${esc(S.title.t)}</div>
- <dl class="kv"><dt>แรงค์/อาชีพ</dt><dd>${RANKS[h.rank].k} · ${C.n} (1 ใน ${fmt(h.odds)})</dd><dt>ชั้นที่ไปถึง</dt><dd class="px">${fl} / 100</dd><dt>เลเวล</dt><dd class="px">${h.lv}</dd>
+ <dl class="kv"><dt>แรงค์/อาชีพ</dt><dd>${RANKS[h.rank].k} · ${C.n} (1 ใน ${fmt(h.odds)})</dd>${pathOf(R)?`<dt>ทางของอาชีพ</dt><dd><span data-tip="path">${esc(pathOf(R).n)}</span> · ${R.pathHi?`ขั้นสูงสุด "${esc(pathHiName(R))}"`:'ยังไม่ถึงขั้นแรก'} · ${Math.floor(R.path||0)} แต้ม</dd>`:''}<dt>ชั้นที่ไปถึง</dt><dd class="px">${fl} / 100</dd><dt>เลเวล</dt><dd class="px">${h.lv}</dd>
  <dt>${won?'ผลลัพธ์':'สาเหตุการตาย'}</dt><dd>${esc(won?'พิชิตผู้กลืนดาราและยืนบนยอดหอคอย':R.cause)}</dd>${secSum(R)?`<dt>ชั้นลับ</dt><dd>${esc(secSum(R))}</dd>`:''}${CLAN_T[R.clanM]?`<dt>ตระกูล</dt><dd><span data-tip="clan">${CLAN_T[R.clanM]}</span>${R.clanM==='s'?` · ต้องล้มมังกรอีก ${3-(R.clanN|0)} ตัวคำสาปจึงจะคลาย`:''}</dd>`:''}<dt>ดวงชะตา</dt><dd>${esc(fateLine(R))}</dd>
  <dt>จุดเปลี่ยน</dt><dd>${R.keys} ครั้ง${R.timeouts?` · ปล่อยให้นิสัย${esc(PERS[h.pers].n)}เลือกแทน ${R.timeouts} ครั้ง`:''}${R.sameN+R.plainN?` · ตอบไปเองโดยไม่ต้องหยุด ${R.sameN+R.plainN} ครั้ง`:''}</dd><dt>ทองที่ทิ้งไว้</dt><dd class="px">${fmt(h.gold)}</dd>
  <dt>ปาร์ตี้</dt><dd>${[...R.pets.map(p=>PETS[p].n),...R.comps.map(c=>c.n+' ('+clsName(c.cls)+')')].join(', ')||'เดินทางคนเดียว'}</dd>
@@ -2308,7 +2382,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  $('btnHeir').onclick=()=>newBirth({heir:P});
  $('btnReborn').onclick=()=>newBirth({kShift:clamp(R.karma/5,-6,6),prev:{name:h.name}});
  const L=S.lg,LI=lookInfo(h);
- const sum={name:h.name,village:h.village,rankK:RANKS[h.rank].k,rankIdx:h.rank,rankCol:RANKS[h.rank].col,clsId:C.id,clsN:C.n,look:look(h),form:look(h).form,floor:R.sec&&R.sec.win?101:fl,won,title:S.title.t,cause:won?'พิชิตยอดหอคอย':R.cause,
+ const sum={name:h.name,village:h.village,rankK:RANKS[h.rank].k,rankIdx:h.rank,rankCol:RANKS[h.rank].col,clsId:C.id,clsN:C.n+(pathHiName(R)?' · '+pathHiName(R):''),look:look(h),form:look(h).form,floor:R.sec&&R.sec.win?101:fl,won,title:S.title.t,cause:won?'พิชิตยอดหอคอย':R.cause,
   odds:combOdds(h),pct,karma:R.karma,score:L.score,themeId:R.theme||S.themeId||'',gen:h.gen||1,pets:[...R.pets],comps:R.comps.map(c=>c.n),kills:R.kills,bosses:R.bosses,scars:R.scars,keyMoments:R.keys,timeouts:R.timeouts,
   stanceHist:R.stH||'',durationMs:S.t0?Date.now()-S.t0:0,date:Date.now(),lookName:LI.n,
   tk:R.net&&R.net.tk||'',sid:R.net&&R.net.sid||'',day:h.day&&h.day.d||'',dh:dHit?1:0,

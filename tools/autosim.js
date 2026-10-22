@@ -14,10 +14,12 @@ const fa=[];for(let i=0;i<N;i++){const h=A.rollHero();let f=1;while(f<100&&Math.
 console.log(`hazard-only (birth m, N=${N}): p10 ${q(fa,.1)} p25 ${q(fa,.25)} median ${q(fa,.5)} p75 ${q(fa,.75)} p90 ${q(fa,.9)} reach100 ${pct(fa.filter(x=>x>=100).length,N)} early<=10 ${pct(fa.filter(x=>x<=10).length,N)}`);
 // 2) full auto lives
 const tids=new Set(),per=[];let tk=0,keys=0,floors=0,won=0,boss=0,fate=0,quiet=0,drama=0,arcs=0,same=0,plain=0,omens=0,reach=0,mlog=0,mn=0,ledger=0,scars=0;const ends=[];const dist=[];const pers={};
-const M=Math.max(RUNS,+process.argv[4]||0);const ck={},stc={a:0,d:0,l:0,h:0};const T0=Date.now();
+const M=Math.max(RUNS,+process.argv[4]||0);const cls={},rkS={},ck={},stc={a:0,d:0,l:0,h:0};const T0=Date.now();
 for(let r=0;r<M;r++){const R=A.autoLife();if(!R.won)ck[R.ck||'?']=(ck[R.ck||'?']||0)+1;for(const c of R.stH||'')stc[c]=(stc[c]||0)+1;const t=new Set(R.hist.map(h=>h.tid));per.push(t.size);if(r<RUNS)t.forEach(x=>tids.add(x));
  const end=R.won?100:R.floor;keys+=R.keys;floors+=end;if(R.won)won++;if(R.death==='boss')boss++;if(R.death==='fate')fate++;if(R.maxFloor>=100)reach++;
  quiet+=R.quietN;drama+=R.drama;arcs+=Object.keys(R.arcs).length;same+=R.sameN;plain+=R.plainN;omens+=R.omens;mlog+=R.mLog;mn+=R.mN;ledger+=R.ledger.length;tk+=R.tk;scars+=R.scars;ends.push(end);
+ {const c=ctx.CONTENT.CLASSES[R.h.cls].id,o=cls[c]=cls[c]||{n:0,e:[],w:0,k:0,b:0,pt:0,t:[0,0,0,0],st:{}};o.n++;o.e.push(end);if(R.won)o.w++;o.k+=R.karma;if(R.death==='boss')o.b++;o.pt+=R.path||0;o.t[R.pathHi||0]++;for(const x of R.stH||'')o.st[x]=(o.st[x]||0)+1;
+  const rk=ctx.CONTENT.RANKS[R.h.rank].k,z=rkS[rk]=rkS[rk]||{n:0,w:0};z.n++;if(R.won)z.w++;}
  const p=R.h.pers;pers[p]=pers[p]||{n:0,f:0,w:0};pers[p].n++;pers[p].f+=end;if(R.won)pers[p].w++;
  dist.push(R.hist.length-t.size);}
 const ms=(Date.now()-T0)/M;ends.sort((x,y)=>x-y);
@@ -25,6 +27,8 @@ console.log(`runs ${M}: end-floor p10 ${q(ends,.1)} median ${q(ends,.5)} p90 ${q
 console.log(`per run: key moments (paused) ${(keys/M).toFixed(1)} · SAME_WAY ${(same/M).toFixed(2)} · PLAIN ${(plain/M).toFixed(2)} · omens ${(omens/M).toFixed(2)} · quiet ${(quiet/M).toFixed(2)} · drama ${(drama/M).toFixed(2)} · arcs ${(arcs/M).toFixed(2)} · ledger rows ${(ledger/M).toFixed(1)} · scars ${(scars/M).toFixed(2)} · geo-mean m ${Math.exp(mlog/mn).toFixed(2)} · floors/key ${(floors/keys).toFixed(1)}`);
 const mins=sp=>((tk/M)*5/sp+(keys/M)*15)/60;console.log(`est. real time per run (all timers expire): 1x ${mins(1).toFixed(0)} min · 4x ${mins(4).toFixed(1)} min · 16x ${mins(16).toFixed(1)} min (floor ticks ${(tk/M).toFixed(1)}/run)`);
 console.log('by personality: '+Object.keys(pers).map(k=>`${k} n${pers[k].n} avgFloor ${(pers[k].f/pers[k].n).toFixed(1)} won ${pct(pers[k].w,pers[k].n)}`).join(' | '));
+console.log('by class:\n'+Object.keys(cls).map(k=>{const o=cls[k];o.e.sort((x,y)=>x-y);const sT=Object.values(o.st).reduce((a,b)=>a+b,0)||1,top=Object.keys(o.st).sort((a,b)=>o.st[b]-o.st[a])[0];return `  ${k.padEnd(3)} n${String(o.n).padStart(5)} median ${q(o.e,.5)} won ${pct(o.w,o.n).padStart(6)} karma ${(o.k/o.n).toFixed(1).padStart(5)} bossDeath ${pct(o.b,o.n).padStart(6)} path ${(o.pt/o.n).toFixed(1).padStart(5)} tiers ${o.t.map(x=>pct(x,o.n)).join('/')} topStance ${top} ${pct(o.st[top]||0,sT)}`;}).join('\n'));
+console.log('won by rank: '+Object.keys(rkS).sort().map(k=>`${k} ${pct(rkS[k].w,rkS[k].n)}`).join(' · '));
 console.log(`distinct key-moment templates across first ${RUNS} runs: ${tids.size} (excluding boss/omen: ${[...tids].filter(x=>!['boss','omen'].includes(x)).length})`);
 if(process.argv.includes('-v'))console.log([...tids].sort().join(' '));
 console.log(`sim cost: ${ms.toFixed(2)} ms per headless life (a 4-hero cohort at run start ~${(ms*4).toFixed(0)} ms)`);
