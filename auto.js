@@ -175,8 +175,8 @@ function newRun(h){const R={h:JSON.parse(JSON.stringify(h)),floor:1,pets:[],comp
  const I=h.inh;if(I&&typeof I==='object'){if(I.pet&&PETS[I.pet])R.pets.push(I.pet);
   if(I.k){R.kctx=`มรดกกรรมจาก${I.from||'อาจารย์'}`;R.karma+=I.k;R.kctx='';}
   if(I.k>=2)R.hzP*=.94;else if(I.k<=-2)R.hzP*=1.06;}
- // family pet hatched from a secret-floor egg: every new life starts with it
- const CP=h.clan&&h.clan.pet;if(CP&&PETS[CP]&&!R.pets.includes(CP)&&R.pets.length<2)R.pets.push(CP);
+ // family pet hatched from a secret-floor egg: every new life starts with it, unless left at home on the birth screen (h.petHome)
+ const CP=h.clan&&h.clan.pet;if(CP&&!h.petHome&&PETS[CP]&&!R.pets.includes(CP)&&R.pets.length<2)R.pets.push(CP);
  R.exF=!hasSw(R)&&rnd()<EXC.fq?ri(EXC.lo,EXC.hi):0; // floor from which the sword in the stone may show up (0 = not this life)
  return R;}
 // ---- karma ledger: every change of R.karma is written down with the floor and what caused it (R.kctx) ----
@@ -2217,7 +2217,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  const I=h.inh,lin=h.master?`<div class="vil" data-tip="lineage">รุ่นที่ ${h.gen} แห่งสาย${esc(h.house)} · ศิษย์ของ${esc(h.master)}</div>`:`<div class="vil" data-tip="gen">รุ่นที่ ${h.gen||1} แห่งสาย${esc(h.house||h.name)}${h.prev?` · ว่ากันว่าเป็น${esc(h.prev.name)}กลับชาติมาเกิด`:''}</div>`;
  const inh=I?`<div class="inhbox rv"${D(5)} data-tip="lineage">มรดกจากอาจารย์${esc(I.from)}: ทอง +${fmt(I.gold)}${I.pet&&PETS[I.pet]?` · ${esc(PETS[I.pet].n)}ตามมาด้วย`:''}${I.k>=2?' · บุญของอาจารย์คุ้มครอง (LUK +2 ความเสี่ยงตายลดลงเล็กน้อย)':I.k<=-2?' · หนี้กรรมของอาจารย์ตามมาด้วย (ความเสี่ยงตายสูงขึ้นเล็กน้อย)':''}</div>`:'';
  const CL=h.clan||{},CF=loadClan().fresh,cp=CL.pet&&PETS[CL.pet];
- const clanH=CL.m||cp||C.id==='dsl'?`<div class="inhbox clanbox rv"${D(5)}>${CL.m?`<span data-tip="clan"><b>${CLAN_T[CL.m]}</b></span> · ${esc(clanLine(CL.m,CL.n))}`:''}${cp?`${CL.m?'<br>':''}<span data-tip="clanpet">${CF?`ไข่มังกร${esc(DRG[CF]?DRG[CF].n.replace('มังกร',''):'')}ที่คนในตระกูลเก็บกลับมาฟักแล้ว ได้${esc(cp.n)}เป็นสัตว์ประจำตระกูล`:`${esc(cp.n)} สัตว์ประจำตระกูล เดินตามมาด้วย`} (${esc(cp.d)})</span>`:''}${C.id==='dsl'?`${CL.m||cp?'<br>':''}<span data-tip="dsl">เกิดมาเป็นนักล่ามังกร อาชีพลับที่เกิดได้เฉพาะในตระกูลที่เคยฆ่ามังกร</span>`:''}</div>`:'';
+ const clanH=CL.m||cp||C.id==='dsl'?`<div class="inhbox clanbox rv"${D(5)}>${CL.m?`<span data-tip="clan"><b>${CLAN_T[CL.m]}</b></span> · ${esc(clanLine(CL.m,CL.n))}`:''}${cp?`${CL.m?'<br>':''}<span data-tip="clanpet">${CF?`ไข่มังกร${esc(DRG[CF]?DRG[CF].n.replace('มังกร',''):'')}ที่คนในตระกูลเก็บกลับมาฟักแล้ว ได้${esc(cp.n)}เป็นสัตว์ประจำตระกูล`:h.petHome?`${esc(cp.n)} สัตว์ประจำตระกูล ชาตินี้ฝากไว้ที่บ้าน`:`${esc(cp.n)} สัตว์ประจำตระกูล เดินตามมาด้วย`} (${esc(cp.d)})</span> <button class="btn sm" id="btnPetHome" type="button" aria-pressed="${!!h.petHome}">${h.petHome?'พาไปด้วย':'ฝากไว้ที่บ้าน'}</button>`:''}${C.id==='dsl'?`${CL.m||cp?'<br>':''}<span data-tip="dsl">เกิดมาเป็นนักล่ามังกร อาชีพลับที่เกิดได้เฉพาะในตระกูลที่เคยฆ่ามังกร</span>`:''}</div>`:'';
  const excH=h.ex&&h.ex.got?`<div class="inhbox clanbox rv"${D(5)}><span data-tip="excal"><b>🗡 ดาบศักดิ์สิทธิ์ในหิน</b></span> · ติดตัวมาตั้งแต่เกิด (ATK +10% · ตีบอสแรงขึ้น 10%)</div>`:'';
  card.innerHTML=`<div class="cert${an?' anim':''}"><div class="hd">✦ ใบประกาศนักผจญภัย ✦</div><div class="nm">${esc(h.name)}</div><div class="vil">ถิ่นกำเนิด: ${esc(h.village)}</div>${lin}
  <div class="tiles"><div class="tile rv"${D(0)}><span class="tl">แรงค์</span><span class="rk" style="background:${Rk.col}">RANK ${Rk.k}</span><span class="tp px">${Rk.w}%</span></div>
@@ -2242,13 +2242,15 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  const fb=$('formBox');fb.innerHTML=[['slime','สไลม์'],['human','คน']].map(([f,n])=>`<button class="btn${look(h).form===f?' on':''}" type="button" data-form="${f}" aria-pressed="${look(h).form===f}">ร่าง: ${n}</button>`).join('');
  fb.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{const f=b.dataset.form;rollHero.form=f;S.hero.look=Object.assign({},look(S.hero),{form:f});S.themeId=heroTheme(S.hero);render();});
  // full re-roll (once): rank/class/omen/name; a custom name typed by the player is carried over
- $('btnReroll').onclick=()=>{if(S.rerolled)return;S.rerolled=true;const old=S.hero;unlivedAdd(old);S.hero=rollBirth(S.bo);if(old.cname)setName(S.hero,old.name);S.rvDone=false;VIS.star=0;render();};
+ $('btnReroll').onclick=()=>{if(S.rerolled)return;S.rerolled=true;const old=S.hero;unlivedAdd(old);S.hero=rollBirth(S.bo);if(old.cname)setName(S.hero,old.name);if(old.petHome)S.hero.petHome=1;S.rvDone=false;VIS.star=0;render();};
  // appearance only, unlimited: new look seed in the same form; rank/class/personality/omen stay
  $('btnLook').onclick=()=>{const h2=S.hero;h2.look=window.ART.rollLook(look(h2).form);S.themeId=heroTheme(h2);render();};
  const inp=$('inName');inp.addEventListener('input',()=>{setName(S.hero,inp.value);const nm=card.querySelector('.cert .nm');if(nm)nm.textContent=S.hero.name;renderHUD();renderParty();saveRun();});
  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
  inp.addEventListener('change',()=>{if(cleanName(inp.value)!==inp.value)inp.value=S.hero.cname?S.hero.name:'';});
  $('btnEnter').onclick=startRun;liveBox();
+ // family pet stays home for this life only (lets the no-pet win stay reachable)
+ const ph=$('btnPetHome');if(ph)ph.onclick=()=>{const h2=S.hero;if(h2.petHome)delete h2.petHome;else h2.petHome=1;render();saveRun();};
  const bu=$('btnUnl');if(bu)bu.onclick=()=>{S.unlOpen=!S.unlOpen;const pn=$('unlPanel');if(pn)pn.hidden=!S.unlOpen;bu.setAttribute('aria-expanded',S.unlOpen?'true':'false');};
  const bs=$('btnShareBirth');if(bs)bs.onclick=()=>{try{window.SHARE.openBirth(birthShareData(S.hero));}catch(e){}};}
 // ---- unlived lives (v2.3): heroes thrown away with the one-time re-roll; total count n only grows, list capped at 60 ----
