@@ -61,9 +61,11 @@ function toEntry(s){s=(s&&typeof s==='object')?s:{};
 
 // ---- id เครื่อง (v2.7): สุ่มครั้งเดียว ไม่ผูกกับตัวตน ใช้ให้เซิร์ฟเวอร์จำกัดจำนวนโพสต์/คะแนนต่อเครื่อง ----
 const K_DV='tof-dev-v1';
-function devId(){let v=null;try{v=localStorage.getItem(K_DV);}catch(e){}if(typeof v==='string'&&/^[0-9a-f]{16}$/.test(v))return v;
+// ตั๋วรอบผูกกับ id นี้ (ขอตั๋วกับส่งคะแนนต้องเป็นเครื่องเดียวกัน) เลยจำไว้ในหน่วยความจำด้วย เครื่องที่ localStorage ใช้ไม่ได้จะได้ไม่สุ่มใหม่ทุกครั้ง
+let dvMem='';
+function devId(){let v=null;try{v=localStorage.getItem(K_DV);}catch(e){}if(typeof v==='string'&&/^[0-9a-f]{16}$/.test(v))return dvMem=v;if(dvMem)return dvMem;
  const b=new Uint8Array(8);try{crypto.getRandomValues(b);}catch(e){for(let i=0;i<8;i++)b[i]=Math.floor(Math.random()*256);}
- v=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');try{localStorage.setItem(K_DV,v);}catch(e){}return v;}
+ v=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');try{localStorage.setItem(K_DV,v);}catch(e){}return dvMem=v;}
 
 // ---- share analytics (v2.3): ตัวนับจาก share.js ติดไปกับผลรอบ (field ss ไม่อยู่ใน canon) ----
 // ตัวนับที่ติดอยู่กับรอบในคิวถือว่า "จองไว้แล้ว" จะลบออกจาก storage ก็ต่อเมื่อเซิร์ฟเวอร์ตอบว่านับแล้ว (ss:1) จึงไม่นับซ้ำและไม่หาย
@@ -392,7 +394,8 @@ const LIVE='/api/live';
 async function liveCall(body){if(typeof fetch!=='function')return null;
  try{const r=await fetch(LIVE,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{Accept:'application/json'},body:body?JSON.stringify(body):undefined,credentials:'same-origin'});
   if(!r.ok)return null;const j=await r.json();return j&&!j.error?j:null;}catch(e){return null;}}
-const live={start:sid=>liveCall({a:'start',sid}),beat:(sid,f)=>liveCall({a:'beat',sid,f:int(f,1,101)}),
+// ลดการเขียน D1: ตัวนับคนกำลังเล่นนับจากตั๋วที่ยังไม่ส่งคะแนน เกมเลยไม่ส่ง beat แล้ว (beat ยังอยู่ให้เรียกได้ เซิร์ฟเวอร์ตอบเฉยๆ ไม่เขียน)
+const live={start:sid=>liveCall({a:'start',sid,dv:devId()}),beat:(sid,f)=>liveCall({a:'beat',sid,f:int(f,1,101)}),
  get:day=>{if(typeof fetch!=='function')return Promise.resolve(null);return fetch(LIVE+'?day='+encodeURIComponent(day||''),{headers:{Accept:'application/json'},credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(j=>j&&!j.error?j:null).catch(()=>null);},
  recent:()=>load().then(d=>d&&!d.error?d.recent:[])};
 window.LB={submit,open,flush,mine:()=>rd(K_MINE,[]),live,ssSoon};
