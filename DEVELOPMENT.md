@@ -154,7 +154,7 @@
 ### แผน v2.7: ทำตาม REA รอบ 3 ทั้งหมด (ผู้ใช้สั่ง 2026-10-22)
 
 สถานะ: ชุด A–E ทำแล้วใน v2.7 (รวมเข้า main 2026-10-22) เหลือชุด F
-- **ต้องทำบน Cloudflare ก่อนอนุสรณ์จะใช้ได้**: รัน `migrations/0001_memorial.sql` กับ D1 `tower-of-fate` (D1 Console หรือ `npx wrangler d1 execute tower-of-fate --remote --file=migrations/0001_memorial.sql`) ระหว่างยังไม่มีตาราง API ตอบ 503 `not-ready` เกมขึ้นข้อความว่ายังไม่เปิด
+- **อนุสรณ์: รัน migration บน D1 แล้ว (2026-10-22 ผ่าน D1 Console)** ถ้าสร้างฐานใหม่ต้องรัน `migrations/0001_memorial.sql` กับ D1 `tower-of-fate` (D1 Console หรือ `npx wrangler d1 execute tower-of-fate --remote --file=migrations/0001_memorial.sql`) ระหว่างยังไม่มีตาราง API ตอบ 503 `not-ready` เกมขึ้นข้อความว่ายังไม่เปิด
 - localStorage ใหม่: `tof-dev-v1` (id เครื่อง 16 hex ส่งเป็น `dv` กับโพสต์/คะแนน/สถิติแชร์), `R.gwS`, `R.later`, `R.hpF`, `R.memo` อยู่ในเซฟรอบ · API ใหม่: `/api/memorial`, `/api/candle`, `/api/move`, `POST /api/live {a:'ss'}` · หน้าใหม่ `/m/<id>` (+ `.png`)
 - บอสปลายหอ: `BLATE={80:1.15,90:1.25,100:1.05}` ก่อน `bossFit` (autosim ชนะ ~4.1% → ~2.8–3.6%)
 - อาชีพลับ (v2.6.2): nec/ang ปลดล็อกเฉพาะคนที่กลายร่างจริง, `sw` nec/ang 1, dsl 2 · ข้อมูลจริง 50 รอบล่าสุดมีอาชีพลับ 1 ใน 3 ส่วนใหญ่มาจากการกลายร่างกลางหอ ถ้ายังมากไป ขยับ `NEC_K`/`ANG_K` และชั้นขั้นต่ำใน `turnOk`
