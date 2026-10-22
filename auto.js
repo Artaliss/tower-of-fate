@@ -188,7 +188,7 @@ function hzParts(R){const h=R.h,hf=clamp(h.hp/h.mhp,0,1),P={};
  P.curse=Math.pow(1.3,R.cursed);P.scar=1+.1*R.scars;const cn=R.comps.length+(cid(R)==='nec'?2:0),al=R.pets.length+cn;P.ally=al?Math.pow(.93,R.pets.length)*Math.pow(.9,cn):1.12;
  P.omen=MD(R,'hz',1);P.stance=stOf(R).hz;P.born=h.con*Math.exp(-(h.rank-1.5)*.05);P.fate=R.hzP;P.temp=R.hzT.reduce((a,t)=>t.until>=R.floor?a*t.k:a,1);return P;}
 function hzM(R){const P=hzParts(R);let m=1;for(const k in P)m*=P[k];return clamp(m*HZ_NORM,.25,9);}
-const HZ_NORM=1.3; // re-centres the typical in-run multiplier (geo-mean of the raw m in play is ~0.6-0.7) back to 1
+const HZ_NORM=2.1; // re-centres the typical in-run multiplier (geo-mean of the raw m in play is ~0.6-0.7); raised from 1.3 in v0.2.20 so the brink escapes leave overall difficulty near where it was
 const curP=R=>pRoll(R.floor,hzM(R));
 // roll today's death once per floor number; returns true if fate takes the hero here
 function rollFloor(R){if(R.floor<=R.rolled||R.floor>=100)return false;R.rolled=R.floor;R.stH=(R.stH||'')+(R.st||'def')[0];const m=hzM(R),p=pRoll(R.floor,m);
@@ -1463,7 +1463,7 @@ function quietTick(R,n){const out=mkOut(),f0=R.floor,g0=R.h.gold,l0=R.h.lv,k0=R.
   o.msgs.forEach(m=>{if(m.keep||(m.c==='lv'&&!/^เลเวลอัป/.test(m.t))||/ทรยศ/.test(m.t))keep.push(m);});}
  R.quiet=false;R.quietN++;R.lastQuiet=R.floor;if(cid(R)==='far'&&pathTier(R)>=2&&k&&rnd()<.5){R.potions++;keep.push({t:'เก็บสมุนไพรข้างทางมาต้มเป็นยาได้หนึ่งขวด',c:'good'});}const dg=Math.round(R.h.gold-g0),dk=R.kills-k0;
  if(k)say(R,out,`${fresh(R,'qt',QUIET)} ผ่านไป ${k} ชั้นรวด (ชั้น ${f0}–${f0+k-1}) · สู้ ${dk} ครั้ง · ทอง ${dg>=0?'+':''}${dg}${R.h.lv>l0?` · เลเวล ${l0}→${R.h.lv}`:''}`,'info');
- keep.forEach(m=>say(R,out,m.t,m.c));if(dead){const d=deathTick(R);out.msgs.push(...d.msgs);out.vis=d.vis;}out.quietN=Math.max(1,k);out.f0=f0;out.qb=qb;return out;}
+ keep.forEach(m=>say(R,out,m.t,m.c));if(dead){if(brinkOk(R)){R.pend='brink';say(R,out,'ลมหายใจสะดุดกลางทาง ชะตากำลังจะขาด','bad');}else{const d=deathTick(R);out.msgs.push(...d.msgs);out.vis=d.vis;}}out.quietN=Math.max(1,k);out.f0=f0;out.qb=qb;return out;}
 function dramaTick(R,D){const out=mkOut();R.drama++;R.lastDrama=R.floor;D.run(R,out);if(R.alive&&R.h.hp<=0)mortal(R,out,out.cause);finishFloor(R,out);return out;}
 function hatch(R,out){R.egg=null;if(R.pets.length<2){const p=pick(PETK);R.pets.push(p);R.h.luk+=2;say(R,out,`ไข่ฟักแล้ว! ${PETS[p].n}ตัวน้อยมองคุณเป็นแม่ทันที (${PETS[p].d})`,'good');}
  else{R.h.luk+=4;say(R,out,'ไข่ฟักออกมาเป็นนกไฟตัวจิ๋ว มันบินวนรอบหัวคุณสามรอบแล้วหายไป ทิ้งโชคไว้ให้ (LUK +4)','good');}}
@@ -1497,7 +1497,7 @@ function mkKey(R,type,ev){const f=R.floor,K={type,ev,tag:'',title:'',text:'',vis
  {const KT=KEY_TG[type];K.ch.forEach((c,i)=>{if(!c.tg)c.tg=KT?KT[i]||[]:type==='arc'?tgOf(c.t):[];if(c.hide)return;
   if(c.cl)c.P.unshift({t:`✦ เฉพาะ${clsName(c.cl)}`,c:'pt'});else if(type!=='promo'&&pathPts(R,c.tg)>0)c.P.push({t:`✦ ${pathOf(R).n}`,c:'pt'});});}
  if(!K.ch[K.ai]||K.ch[K.ai].dis){const j=K.ch.findIndex(c=>!c.dis);K.ai=j<0?0:j;}
- K.pick=persPick(R,K);if(!K.ch[K.pick]||K.ch[K.pick].dis)K.pick=K.ai;
+ K.pick=type==='brink'?K.ai:persPick(R,K);if(!K.ch[K.pick]||K.ch[K.pick].dis)K.pick=K.ai; // at the brink a timeout never picks death while something else is left
  return K;}
 function shopBuy(R,i,out){const h=R.h,n0={};const cnt=id=>{n0[id]=(n0[id]||0)+1;};const b=id=>{if(buy(R,id)){cnt(id);return true;}return false;};
  if(i===0){const g0=h.gold,a0=h.atk,d0=h.def,m0=h.mhp,p0=R.potions,w0=R.warps;aiShop(R);
@@ -1536,7 +1536,7 @@ function finishFloor(R,out){if(!R.alive)return;aiPotion(R);if(R.pend||R.farmLeft
 function omenDue(R){if(R.omens>=3||R.floor<6||R.floor%10===0||R.floor>=99||R.floor-R.lastOmen<6)return false;const p=R.lastP,m=hzM(R),pv=R.pPrev;
  return p>=.03&&(m>=1.7||(pv.length>=4&&p>=pv[0]*1.8));}
 // ---- SAME_WAY / PLAIN: key moments that do not need to stop the clock ----
-const NO_WAY={boss:1,omen:1,shop:1,crown:1,favor:1}; // v2.7: the contest retry at 90 and a favour being called in always stop and ask
+const NO_WAY={boss:1,omen:1,shop:1,crown:1,favor:1,brink:1}; // v2.7: the contest retry at 90 and a favour being called in always stop and ask
 const sigOf=K=>'cs:'+K.ch.map(c=>c.t).join('|');
 const isGood=p=>p.c==='g'||(p.c==='kk'&&p.t.includes('✦'));
 function dominant(K,en){const good=c=>c.P.some(isGood),clean=c=>c.P.every(p=>isGood(p)||p.c==='');
@@ -1565,7 +1565,7 @@ function planFloor(R){const P=planFloor0(R);
 function planFloor0(R){
  if(R.pend){const p=R.pend;R.pend=null;return{type:p==='shop'?'autokey':'key',K:mkKey(R,p)};}
  if(R.farmLeft>0)return{type:'farm'};
- if(rollFloor(R))return{type:'death'};
+ if(rollFloor(R))return brinkOk(R)?{type:'key',K:mkKey(R,'brink')}:{type:'death'};
  if(omenDue(R))return{type:'key',K:mkKey(R,'omen')};
  {const tk=towerKey(R);if(tk)return{type:'key',K:mkKey(R,tk)};} // v2.7: faction vote / tower-wide event
  if(R.floor%10!==0){
@@ -1601,7 +1601,29 @@ function fateCause(R){const f=R.floor,b=biome(f),P=hzParts(R),hf=R.h.hp/R.h.mhp;
  if(!R.pets.length&&!R.comps.length)add(1,{k:'alone',t:'ล้มลงคนเดียวในทางเดินมืด ไม่มีใครได้ยินเสียงเรียก',vis:null});
  if(f<=6)add(4,{k:'slip',t:'ลื่นตกบันไดหินตั้งแต่ยังไม่ทันได้เห็นอะไรเลย',vis:null});
  return O[wIdx(W)];}
-function deathTick(R){const out=mkOut(),c=fateCause(R);const cause=`${c.t} (ชั้น ${R.floor})`;say(R,out,cause,'bad');if(canRez(R)){rezNow(R,out);out.vis=c.vis;return out;}R.ck=c.k||'fate';die(R,cause);R.death='fate';out.vis=c.vis;return out;}
+function fateDie(R,c,out){const cause=`${c.t} (ชั้น ${R.floor})`;say(R,out,cause,'bad');out.vis=c.vis;if(canRez(R)){rezNow(R,out);return;}R.ck=c.k||'fate';die(R,cause);R.death='fate';}
+function deathTick(R){const out=mkOut();fateDie(R,fateCause(R),out);return out;}
+// ---- brink (v0.2.20): a fate roll that would kill becomes a key moment where the hero pays to live, up to BRINK_MAX times a life ----
+// each escape makes the tower remember the face (R.hzP up), and the last choice is always to accept it
+const BRINK_MAX=3,BRINK_HZ=1.4;
+const brinkOk=R=>(R.brink|0)<BRINK_MAX;
+SPECIAL.brink={w:0,ok:()=>false,mk(R,K){const f=R.floor,h=R.h,c=fateCause(R),n=(R.brink|0)+1,g=Math.round(45*scl(f)),cp=R.comps[0];
+  K.data={c,g,cp:cp?cp.n:''};K.tag=`ชั้น ${f} · เฉียดตาย`;K.title='เส้นด้ายเส้นสุดท้าย';K.vis=c.vis;K.rar='l';
+  K.text=`${c.t} ภาพตรงหน้าเริ่มมืดลง แต่ลมหายใจยังไม่ขาด ยังพอมีเวลาอีกเสี้ยววินาที (ครั้งที่ ${n} จาก ${BRINK_MAX} ในชีวิตนี้)`;
+  K.ch=[CH('กรอกยาเข้าปาก',[{t:'ยา −1',c:'b'},{t:'แผลเป็น +1',c:'b'}],R.potions<1),
+   CH(cp?`ให้${cp.n}รับแทน`:'ไม่มีใครรับแทนได้',[{t:cp?`${cp.n}ตายแทนคุณ`:'ต้องมีเพื่อนร่วมทาง',c:'b'}],!cp),
+   CH('โยนทองให้ชะตา',[{t:`−${g} ทอง`,c:'w'}],h.gold<g),
+   CH('ขอแลกด้วยบุญที่สะสมมา',[{t:'กรรม −12',c:'b'}],R.karma<6),
+   CH('ยอมรับชะตา',[{t:'ตายที่ชั้นนี้',c:'b'}])];
+  K.ai=K.ch.findIndex(x=>!x.dis);},
+ res(R,K,i,out){const f=R.floor,h=R.h,D=K.data;
+  if(i===4){fateDie(R,D.c,out);return;}
+  R.brink=(R.brink|0)+1;R.hzP*=BRINK_HZ;R.map[f-1]='bad';h.hp=Math.max(h.hp,h.mhp*.2);
+  if(i===0){drink(R);R.scars++;say(R,out,`มือสั่นจนยาหกไปครึ่งขวด แต่ที่เหลือก็พอดึงคุณกลับมา (แผลเป็น ${R.scars})`,'lv');}
+  else if(i===1){const ix=R.comps.findIndex(x=>x.n===D.cp);const n=ix>=0?R.comps.splice(ix,1)[0].n:D.cp;say(R,out,`${n}ผลักคุณออกไปแล้วรับทุกอย่างไว้แทน ก่อนสิ้นใจยังหันมายิ้มให้`,'lv');}
+  else if(i===2){h.gold-=D.g;say(R,out,`เหรียญ ${D.g} เหรียญร่วงกระจายลงบันได ชะตาก้มลงเก็บ แล้วปล่อยคุณไปอีกครั้ง`,'lv');}
+  else{R.kctx='แลกชีวิตด้วยบุญเก่า';R.karma-=12;R.kctx='';say(R,out,'บุญที่ทำมาทั้งชีวิตลุกเป็นแสงสว่างวาบเดียวแล้วดับไป คุณยังหายใจอยู่','lv');}
+  say(R,out,'หอคอยจำหน้าคุณได้แล้ว ชั้นต่อจากนี้จะเสี่ยงขึ้นอีกนิด','bad');try{window.ACH&&window.ACH.onEvent('brink',{n:R.brink});}catch(e){}}};
 // headless full life with AI everywhere (used for balance checks)
 // R.tk = floor-story units shown in the UI (each lasts 5 s / speed); paused key moments add 15 s of real time each
 function autoLife(h){const R=newRun(h||rollHero());let g=0;R.tk=0;

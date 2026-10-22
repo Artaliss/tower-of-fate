@@ -60,6 +60,8 @@ const DEFS=[
  {id:'drg_spare',n:'สหายมังกร',d:'ตีมังกรจนยอมแพ้ แล้วปล่อยมันไป',icon:'🐉',tier:'legend',hid:1,t:s=>str(s.drg)==='f'},
  {id:'drg_slay',n:'นักล่ามังกร',d:'ฆ่ามังกรบนชั้นลับ',icon:'🐲',tier:'legend',hid:1,t:s=>str(s.drg)==='s'},
  {id:'clan_pick',n:'ชื่อที่เลือกใช้',d:'เปลี่ยนฉายาตระกูลมังกรตอนเกิด',icon:'📜',tier:'silver',hid:1,ev:1},
+ {id:'brink1',n:'ยังไม่ถึงเวลา',d:'รอดจากจุดเฉียดตาย',icon:'🕯',tier:'silver',ev:1},
+ {id:'brink3',n:'แมวเก้าชีวิต',d:'รอดจากจุดเฉียดตายครบ 3 ครั้งในชีวิตเดียว',icon:'🐈‍⬛',tier:'gold',ev:1},
  {id:'clanpet_pick',n:'ตัวไหนก็ลูกรัก',d:'เปลี่ยนสัตว์ประจำตระกูลตอนเกิด',icon:'🥚',tier:'silver',hid:1,ev:1},
  {id:'drg_lift',n:'ดยุกปราบมังกร',d:'ตระกูลล้มมังกรครบ 3 ตัว คำสาปเลยหายไป',icon:'🏰',tier:'legend',hid:1,t:s=>s.lift===true},
  {id:'win_dsl',n:'เลือดมังกรบนคมดาบ',d:'ชนะเกมด้วยนักล่ามังกร',icon:'🔥',tier:'gold',hid:1,cls:'dsl'},
@@ -175,6 +177,7 @@ function onEvent(type,data){try{const d=(data&&typeof data==='object')?data:{};
   case 'gw':unlock('gw');break;
   case 'credits':unlock('credits');break;
   case 'birth_ss':unlock('ss');break;
+  case 'brink':unlock('brink1');if(num(d.n)>=3)unlock('brink3');break;
   case 'clan':unlock('clan_pick');break;
   case 'clanpet':unlock('clanpet_pick');break;
   case 'memo':unlock('memo');break;
