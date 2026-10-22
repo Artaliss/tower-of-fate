@@ -190,7 +190,7 @@ function create(d,opt){opt=opt||{};if(!d||cbusy)return;cBuild();const box=cdlg._
  go.onclick=async()=>{if(cbusy)return;cbusy=true;go.disabled=no.disabled=true;msg.style.color='#86d67f';msg.textContent='กำลังตั้งอนุสรณ์…';
   await ogP;const dk=rndHex(24);const r=await api('/api/memorial',{a:'create',d,img:og||undefined,dk},30000);cbusy=false;
   if(!r.j.ok||!okId(r.j.id)){go.disabled=no.disabled=false;msg.style.color='#ef6b5e';msg.textContent=errTxt(r);return;}
-  const id=r.j.id,O=ownLoad();O[id]={k:dk,n:d.n,f:d.f,at:Date.now()};ownSave(O);try{opt.onDone&&opt.onDone(id);}catch(e){}
+  const id=r.j.id,O=ownLoad();O[id]={k:dk,n:d.n,f:d.f,at:Date.now()};ownSave(O);try{opt.onDone&&opt.onDone(id);}catch(e){}try{window.ACH&&window.ACH.onEvent&&window.ACH.onEvent('memo',{id});}catch(e){}
   done(d,id,og);};}
 function done(d,id,og){const box=cdlg._box;box.replaceChildren();const url=linkOf(id);
  const t=el('h2',{id:'mmc-t'},'อนุสรณ์เปิดแล้ว');const img=el('img',{alt:`ภาพตัวอย่างลิงก์อนุสรณ์ของ ${d.n}`,width:'1200',height:'630'});if(og)img.src=og;else img.hidden=true;
@@ -257,7 +257,7 @@ function drawCandles(t){const x=V.cd&&V.cd.x;if(!x)return;x.clearRect(0,0,64,24)
  for(let i=0;i<N;i++){const X=Math.round(32-(N*7)/2+i*7);if(n)A.drawCandle(x,X,15,t,i);else{x.globalAlpha=.35;A.blit(x,A.CANDLE,X,15,{key:'candle',noShadow:true});x.globalAlpha=1;}}}
 async function candle(){const M=V.m,b=V.el.querySelector('.cdb');if(!M||!b||V.lit[M.id])return;b.disabled=true;
  const r=await api('/api/candle',{id:M.id});if(V.m!==M)return;
- if(r.j.ok){V.lit[M.id]=1;if(typeof r.j.c==='number')M.c=r.j.c;candleTxt();say(r.j.dup?'วันนี้คุณจุดเทียนให้ไปแล้ว':'จุดเทียนแล้ว');}else{b.disabled=false;say(errTxt(r),true);}}
+ if(r.j.ok){V.lit[M.id]=1;if(!r.j.dup&&!ownLoad()[M.id])try{window.ACH&&window.ACH.onEvent&&window.ACH.onEvent('candle',{id:M.id});}catch(e){}if(typeof r.j.c==='number')M.c=r.j.c;candleTxt();say(r.j.dup?'วันนี้คุณจุดเทียนให้ไปแล้ว':'จุดเทียนแล้ว');}else{b.disabled=false;say(errTxt(r),true);}}
 function tab(t){V.tab=t;const o=V.el,M=V.m,d=M.d,p=o.querySelector('.mmv-pane');V.anim=[];
  o.querySelectorAll('.mmv-tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===t?'true':'false'));
  if(t==='alb'){const fl=d.f>100?100:d.f;p.innerHTML=BANDS.map(([a,b],bi)=>{const F=(d.fr||[]).map((f,i)=>({f,i})).filter(o=>o.f.f>=a&&o.f.f<=b);

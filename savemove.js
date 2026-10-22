@@ -97,6 +97,7 @@ function out(){const o=collect(),m=summary(o);
   let pk=null;try{pk=await pack(o);}catch(e){pk=null;}
   const r=pk?await api({a:'put',z:pk.z,p:pk.p,m}):{st:400,j:{error:'invalid'}};busy=false;no.disabled=false;
   if(!r.j.ok||!okCode(r.j.code)){go.disabled=false;sayIn(msg,errTxt(r),true);return;}
+  try{window.ACH&&window.ACH.onEvent&&window.ACH.onEvent('move',{dir:'out'});}catch(e){}
   shown(r.j.code,r.j.exp);};}
 function shown(code,exp){const url=ORIGIN+'/?move='+code;
  const t=el('h2',{id:'mvd-t'},'ได้โค้ดแล้ว'),c=el('div',{class:'mvd-code','aria-label':'โค้ดย้ายเซฟ'},code);
@@ -137,6 +138,7 @@ function confirmIn(code,info){const here=summary(collect()),there=info.m||{};
   let o=null;try{o=await unpack(r.j.z,r.j.p);}catch(e){o=null;}
   if(!o||typeof o!=='object'||Array.isArray(o)){busy=false;no.disabled=false;sayIn(msg,'อ่านเซฟไม่ได้ เบราว์เซอร์นี้อาจเก่าเกินไป ลองเปิดด้วย Chrome หรือ Safari รุ่นใหม่',true);return;}
   if(!apply(o)){busy=false;no.disabled=false;sayIn(msg,'เขียนเซฟไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์อาจเต็ม',true);return;}
+  try{window.ACH&&window.ACH.onEvent&&window.ACH.onEvent('move',{dir:'in'});}catch(e){}
   sayIn(msg,'ย้ายเซฟเสร็จแล้ว กำลังโหลดเกมใหม่…');setTimeout(()=>{try{location.replace(cleanUrl());}catch(e){location.reload();}},700);};}
 // replace every tof-* key (except SKIP) with the incoming ones; on a storage error the old values are put back
 function apply(o){const old=collect(),ks=Object.keys(o).filter(k=>typeof k==='string'&&k.startsWith('tof-')&&!SKIP.includes(k)&&typeof o[k]==='string');

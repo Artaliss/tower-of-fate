@@ -4,7 +4,8 @@
 (function(){
 'use strict';
 const KEY='tof-ach-v1';
-const CLS={war:'นักรบ',mag:'จอมเวท',arc:'นักธนู',pri:'นักบวช',rog:'โจร',far:'ชาวไร่',dra:'อัศวินมังกร',dsl:'นักล่ามังกร'};
+const CLS={war:'นักรบ',mag:'จอมเวท',arc:'นักธนู',pri:'นักบวช',rog:'โจร',far:'ชาวไร่',dra:'อัศวินมังกร',dsl:'นักล่ามังกร',nec:'เนโครแมนเซอร์',ang:'ทูตสวรรค์'};
+const SEC=['nec','ang','dsl'];
 const BASE7=['war','mag','arc','pri','rog','far','dra']; // win_all นับเฉพาะ 7 อาชีพปกติ ไม่รวมอาชีพลับ
 const TIER={bronze:{n:'ทองแดง',c:'#c98a5a'},silver:{n:'เงิน',c:'#c9d3d6'},gold:{n:'ทอง',c:'#f4bb4a'},legend:{n:'ตำนาน',c:'#ff7a5a'}};
 
@@ -59,7 +60,38 @@ const DEFS=[
  {id:'drg_spare',n:'สหายมังกร',d:'ตีมังกรจนยอมแพ้ แล้วปล่อยมันไป',icon:'🐉',tier:'legend',hid:1,t:s=>str(s.drg)==='f'},
  {id:'drg_slay',n:'นักล่ามังกร',d:'ฆ่ามังกรบนชั้นลับ',icon:'🐲',tier:'legend',hid:1,t:s=>str(s.drg)==='s'},
  {id:'drg_lift',n:'ดยุกปราบมังกร',d:'ตระกูลล้มมังกรครบ 3 ตัว คำสาปเลยหายไป',icon:'🏰',tier:'legend',hid:1,t:s=>s.lift===true},
- {id:'win_dsl',n:'เลือดมังกรบนคมดาบ',d:'ชนะเกมด้วยนักล่ามังกร',icon:'🔥',tier:'gold',hid:1,cls:'dsl'}
+ {id:'win_dsl',n:'เลือดมังกรบนคมดาบ',d:'ชนะเกมด้วยนักล่ามังกร',icon:'🔥',tier:'gold',hid:1,cls:'dsl'},
+ // v2.4–v2.7 (ev:1 = ปลดล็อกจาก onEvent เท่านั้น)
+ {id:'turn_nec',n:'คัมภีร์ที่ไม่ควรเปิด',d:'ชั่วจนสุดทาง แล้วกลายร่างเป็นเนโครแมนเซอร์กลางหอ',icon:'☠️',tier:'gold',hid:1,t:s=>!!s.turned&&str(s.clsId)==='nec'},
+ {id:'turn_ang',n:'ขนนกร่วงใส่หัว',d:'ดีจนสุดทาง แล้วกลายร่างเป็นทูตสวรรค์กลางหอ',icon:'😇',tier:'gold',hid:1,t:s=>!!s.turned&&str(s.clsId)==='ang'},
+ {id:'win_nec',n:'กองกระดูกบนยอดหอ',d:'ชนะเกมด้วยเนโครแมนเซอร์',icon:'💀',tier:'legend',hid:1,cls:'nec'},
+ {id:'win_ang',n:'ปีกที่ไม่ต้องยืมมังกร',d:'ชนะเกมด้วยทูตสวรรค์',icon:'🪽',tier:'legend',hid:1,cls:'ang'},
+ {id:'born_sec',n:'เกิดมาก็แปลกแล้ว',d:'เกิดเป็นอาชีพลับตั้งแต่ลืมตา',icon:'🥚',tier:'gold',hid:1,t:s=>SEC.includes(str(s.clsId))&&!s.turned&&!s.turn},
+ {id:'path1',n:'เริ่มเข้าทาง',d:'ถึงขั้นแรกของทางอาชีพ',icon:'✦',tier:'bronze',t:s=>num(s.pathHi)>=1},
+ {id:'path2',n:'ครึ่งทางของอาชีพ',d:'ถึงขั้นที่ 2 ของทางอาชีพ',icon:'✴️',tier:'silver',t:s=>num(s.pathHi)>=2},
+ {id:'path3',n:'ตำแหน่งนี้ของข้า',d:'ชิงตำแหน่งชนะ ได้ขั้นสุดท้ายของทางอาชีพ',icon:'👑',tier:'gold',t:s=>num(s.pathHi)>=3},
+ {id:'crown_gold',n:'เงินซื้อได้จริงด้วย',d:'ชิงตำแหน่งชนะเพราะทุ่มทอง',icon:'💰',tier:'silver',t:s=>!!(s.cw&&s.cw.won&&s.cw.how==='gold')},
+ {id:'crown_cheat',n:'ไม่มีใครเห็นหรอก',d:'โกงตอนชิงตำแหน่งแล้วรอด',icon:'🃏',tier:'silver',hid:1,t:s=>!!(s.cw&&s.cw.won&&s.cw.how==='cheat')},
+ {id:'crown_caught',n:'มือไว แต่ตาคนไวกว่า',d:'โกงตอนชิงตำแหน่งแล้วโดนจับได้กลางที่ชุมนุม',icon:'🚨',tier:'bronze',t:s=>!!(s.cw&&num(s.cw.caught)>0)},
+ {id:'crown_retry',n:'แพ้แล้วขึ้นใหม่',d:'ชิงตำแหน่งครั้งแรกแพ้ ครั้งที่สองชนะ',icon:'🔂',tier:'gold',t:s=>!!(s.cw&&s.cw.won&&num(s.cw.n)>=2)},
+ {id:'rez',n:'ยังไม่ถึงคิว',d:'นักบวชตายแล้วฟื้นกลับมากลางหอ',icon:'🙏',tier:'silver',t:s=>!!s.rez},
+ {id:'rez_win',n:'ตายมาแล้วรอบหนึ่ง',d:'ชนะเกมทั้งที่เคยตายไปแล้วครั้งหนึ่ง',icon:'⚱️',tier:'gold',t:s=>!!s.won&&!!s.rez},
+ {id:'sneak1',n:'เดินเขย่งปลายเท้า',d:'แอบอ้อมบอสได้โดยไม่โดนจับ',icon:'🦶',tier:'bronze',t:s=>num(s.sneaks)>=1},
+ {id:'sneak3',n:'บอสจำหน้าไม่ได้',d:'แอบอ้อมบอสสำเร็จ 3 ครั้งในรอบเดียว',icon:'🥷',tier:'silver',t:s=>num(s.sneaks)>=3},
+ {id:'caught',n:'ก้อนหินก้อนนั้น',d:'แอบอ้อมบอสแล้วเหยียบหินดังก๊อก',icon:'🪨',tier:'bronze',t:s=>num(s.caught)>=1},
+ {id:'tw1',n:'ทั้งหอเจอเหมือนกัน',d:'เจอเหตุการณ์ระดับหอ',icon:'🌫️',tier:'bronze',t:s=>num(s.twN)>=1},
+ {id:'fac_win',n:'เลือกข้างเป็น',d:'หนุนภาคีที่ได้ครองหอ',icon:'⚖️',tier:'bronze',t:s=>num(s.facW)>=1},
+ {id:'bribe',n:'ไม่เข้าข้างใคร ยกเว้นทอง',d:'รับสินบนจากภาคีแล้วนั่งเฉยๆ',icon:'🤫',tier:'bronze',t:s=>num(s.facB)>=1},
+ {id:'later',n:'ปลูกไว้ก่อน เก็บทีหลัง',d:'เรื่องที่เลือกไว้หลายชั้นก่อนออกผลดี',icon:'⏳',tier:'bronze',t:s=>num(s.ltG)>=1},
+ {id:'dayhit',n:'ทันข่าววันนี้',d:'เจอเรื่องตามหัวข้อของวัน',icon:'📅',tier:'bronze',t:s=>num(s.dh)>0},
+ {id:'dayzone',n:'ฝ่าข่าวร้ายมาได้',d:'เดินเข้าช่วงภัยประจำวันแล้วรอดออกมาอีกฝั่ง',icon:'📰',tier:'silver',t:s=>num(s.dz)>=2},
+ {id:'stat5',n:'ร่างกายฟ้องทุกอย่าง',d:'ค่าสถานะส่งผลระหว่างทางครบ 5 แบบในรอบเดียว',icon:'📈',tier:'silver',t:s=>cnt(s.sn)>=5},
+ {id:'stev3',n:'ชีวิตมีแต่เรื่องปวดหัว',d:'เจอเรื่องที่เกิดเพราะสถานะของตัวเอง 3 เรื่องในรอบเดียว',icon:'🐾',tier:'silver',t:s=>num(s.stE)>=3},
+ {id:'gw',n:'วันที่ไม่ได้มาถึง',d:'มอบความปรารถนาที่ค้างไว้ให้ใครสักคน',icon:'🎁',tier:'bronze',ev:1},
+ {id:'credits',n:'นั่งดูจนไฟเปิด',d:'อยู่ดูเรื่องที่ไม่มีใครรู้หลังคำจารึก',icon:'🎬',tier:'bronze',hid:1,ev:1},
+ {id:'memo',n:'ป้ายหลุมศพออนไลน์',d:'ตั้งอนุสรณ์ออนไลน์ให้ชีวิตที่จบไป',icon:'🪦',tier:'bronze',ev:1},
+ {id:'candle',n:'เทียนให้คนแปลกหน้า',d:'จุดเทียนที่อนุสรณ์ของคนอื่น',icon:'🕯',tier:'bronze',ev:1},
+ {id:'move',n:'ขนเซฟย้ายบ้าน',d:'ย้ายเซฟข้ามเครื่องด้วยโค้ด 9 ตัว',icon:'📦',tier:'bronze',ev:1}
 ];
 const BY={};DEFS.forEach(a=>{BY[a.id]=a;});
 
@@ -132,6 +164,11 @@ function onEvent(type,data){try{const d=(data&&typeof data==='object')?data:{};
   case 'legend':R.legends++;unlock('legend');break;
   case 'omen':R.omens++;unlock('omen');break;
   case 'lineage':{const g=Math.floor(num(d.gen));R.gen=Math.max(R.gen,g);if(g>=3)unlock('gen3');if(g>=10)unlock('gen10');break;}
+  case 'gw':unlock('gw');break;
+  case 'credits':unlock('credits');break;
+  case 'memo':unlock('memo');break;
+  case 'candle':unlock('candle');break;
+  case 'move':if(str(d.dir)==='in')M=load();unlock('move');break;// รับเซฟ: เริ่มจากของที่เพิ่งย้ายมา ไม่เอาของเครื่องเดิมกลับมาปน
   case 'karma':{const t=num(d.total);R.kMax=Math.max(R.kMax,t);R.kMin=Math.min(R.kMin,t);if(t>=20)unlock('kgood');if(t<=-20)unlock('kbad');break;}
  }}catch(e){}}
 

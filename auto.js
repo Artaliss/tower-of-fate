@@ -333,7 +333,7 @@ function genEvent(R){const f=R.floor;if(f%10===0){const en=modMon(R,mkBoss(f),MD
  const b=biome(f);let pool=[];EVENTS.forEach((e,i)=>{if((e.b===b||e.b===-1)&&!R.seen.includes(i)&&evW(R,e)>0)pool.push(i);});
  if(!pool.length)EVENTS.forEach((e,i)=>{if((e.b===b||e.b===-1)&&evW(R,e)>0)pool.push(i);});
  let x=rnd()*pool.reduce((a,i)=>a+evW(R,EVENTS[i]),0),ti=pool[pool.length-1];for(const i of pool){x-=evW(R,EVENTS[i]);if(x<0){ti=i;break;}}
- R.seen.push(ti);if(R.seen.length>6)R.seen.shift();
+ R.seen.push(ti);if(R.seen.length>6)R.seen.shift();if(EVENTS[ti].ok)(R.stE||(R.stE={}))[ti]=1;
  const pt=R.pets[0],c=R.comps;return{kind:'ev',ti,sub:{pet:pt&&PETS[pt]?PETS[pt].n:'',comp:c[0]?c[0].n:'',comp2:c[1]?c[1].n:''}};}
 const evW=(R,e)=>e.ok&&!e.ok(R)?0:e.w?e.w(R):1;
 const evS=(ev,s)=>s&&ev&&ev.sub?String(s).replace(/\{(pet|comp|comp2)\}/g,(m,k)=>ev.sub[k]||m):s;
@@ -1612,7 +1612,7 @@ const pctC=p=>p>=60?'g':p>=35?'w':'b';
 // ---- laterAt: choose now, learn the result n floors on; entries are plain data {at,id,d,l} (handler id, no functions) so saves resume them ----
 const latS=R=>Array.isArray(R.later)?R.later:(R.later=[]);
 function laterAt(R,n,id,d,l){latS(R).push({at:R.floor+n,id,d:d||{},l:l||''});}
-function laterTick(R,out){const L=latS(R);if(!L.length||!R.alive)return;for(const x of L.filter(x=>x.at<=R.floor)){L.splice(L.indexOf(x),1);const fn=LATER[x.id];if(!fn)continue;const kc=R.kctx;R.kctx=x.l||'ผลจากเรื่องเก่า';fn(R,out,x.d||{});R.kctx=kc;}}
+function laterTick(R,out){const L=latS(R);if(!L.length||!R.alive)return;for(const x of L.filter(x=>x.at<=R.floor)){L.splice(L.indexOf(x),1);const fn=LATER[x.id];if(!fn)continue;const kc=R.kctx,n0=out.msgs.length;R.kctx=x.l||'ผลจากเรื่องเก่า';fn(R,out,x.d||{});R.kctx=kc;if(out.msgs.slice(n0).some(m=>m.c==='good'))R.ltG=(R.ltG||0)+1;}}
 const laterNow=R=>R&&R.later?latS(R).filter(x=>x.l&&x.at>R.floor).map(x=>`⏳ ${x.l} (อีก ${x.at-R.floor} ชั้น)`):[];
 const hurt=(R,k)=>{R.h.hp=Math.max(1,R.h.hp-R.h.mhp*k);};
 const LATER={
@@ -2732,7 +2732,10 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
   odds:combOdds(h),pct,karma:R.karma,score:L.score,themeId:R.theme||S.themeId||'',gen:h.gen||1,pets:[...R.pets],comps:R.comps.map(c=>c.n),kills:R.kills,bosses:R.bosses,scars:R.scars,keyMoments:R.keys,timeouts:R.timeouts,
   stanceHist:R.stH||'',durationMs:S.t0?Date.now()-S.t0:0,date:Date.now(),lookName:LI.n,
   tk:R.net&&R.net.tk||'',sid:R.net&&R.net.sid||'',day:h.day&&h.day.d||'',dh:dHit?1:0,
-  drg:R.sec&&['n','f','s','x'].includes(R.sec.res)?R.sec.res:'',drgC:R.sec&&R.sec.res&&DRG[R.sec.c]?R.sec.c:'',clan:R.clanM||'',lift:!!R.lift};
+  drg:R.sec&&['n','f','s','x'].includes(R.sec.res)?R.sec.res:'',drgC:R.sec&&R.sec.res&&DRG[R.sec.c]?R.sec.c:'',clan:R.clanM||'',lift:!!R.lift,
+  pathHi:R.pathHi||0,turned:R.turned?1:0,rez:R.rez?1:0,sneaks:R.sneaks||0,caught:R.caught||0,cw:R.cw&&R.cw.id===C.id?{n:R.cw.n||0,won:R.cw.won?1:0,how:R.cw.how||'',caught:R.cw.caught||0,paid:R.cw.paid||''}:null,
+  twN:Object.keys(R.used).filter(k=>k.startsWith('sp:tw_')).length,facW:(R.fac&&R.fac.h||[]).filter(x=>x.me===1).length,facB:(R.fac&&R.fac.h||[]).filter(x=>x.b).length,ltG:R.ltG||0,
+  dz:R.dZ&&R.dZ.in?(dayZone(R)&&fl>dayZone(R).b?2:1):0,sn:Object.keys(R.sn||{}),stE:Object.keys(R.stE||{}).length};
  if(!S.sent){S.sent=true;try{window.ACH&&window.ACH.onRunEnd&&window.ACH.onRunEnd(sum);}catch(e){}try{window.LB&&window.LB.submit&&window.LB.submit(sum);}catch(e){}
   // day stats come back a moment after this run was submitted
   if(DT&&h.day&&window.LB&&window.LB.live){const run=S.runId;setTimeout(()=>window.LB.live.get(h.day.d).then(g=>{const d=g&&g.day;if(!d||!d.n||!S||S.runId!==run)return;
@@ -2780,7 +2783,7 @@ function gwMount(R){if(!S.gw)S.gw=gwList(R);const W=S.gw,G=S.gwG||(S.gwG={});if(
  sec.innerHTML=`<h2 id="gwH">ความปรารถนาที่ค้างไว้</h2><p class="gwl">สิ่งที่${esc(R.h.name)}ไม่ทันได้ทำ กด "มอบให้" แล้วเราจะวาดวันนั้นให้</p><div class="gws">${W.map((w,i)=>`<figure class="gwc${G[w.k]?' on':''}" style="--r:${GW_TILT[i]||0}deg"><div class="gwp"><canvas width="300" height="200" aria-hidden="true"></canvas></div><figcaption><b>${esc(w.t)}</b><span>${esc(w.m)}</span><i class="gwh"${G[w.k]?'':' hidden'}>${esc(w.w)}</i></figcaption><button type="button" class="btn gwb" data-i="${i}">${G[w.k]?'📤 แชร์วันนี้':'มอบให้'}</button></figure>`).join('')}</div><p class="gwmsg" role="status" aria-live="polite"></p>`;
  const A=card.querySelectorAll('.endacts'),at=A[A.length-1];if(at&&at.parentNode)at.parentNode.insertBefore(sec,at.nextSibling);else card.appendChild(sec);
  sec.querySelectorAll('canvas').forEach((c,i)=>gwPaint(c,W[i]));
- sec.querySelectorAll('.gwb').forEach(b=>b.onclick=()=>{const w=W[+b.dataset.i];if(!w)return;if(G[w.k]){gwShare(w);return;}G[w.k]=1;gwKeep(R,w);
+ sec.querySelectorAll('.gwb').forEach(b=>b.onclick=()=>{const w=W[+b.dataset.i];if(!w)return;if(G[w.k]){gwShare(w);return;}G[w.k]=1;gwKeep(R,w);ach('gw',{k:w.k});
   const f=b.closest('.gwc');f.classList.add('on');f.querySelector('.gwh').hidden=false;b.textContent='📤 แชร์วันนี้';
   const m=sec.querySelector('.gwmsg');if(m)m.textContent=`มอบ「${w.t}」ให้${R.h.name}แล้ว เก็บไว้ที่หลุมศพในสุสานด้วย`;});}
 function gwShare(w){if(!S||!S.shareD||!window.SHARE||!window.SHARE.openGift)return;try{window.SHARE.openGift(Object.assign({},S.shareD,{note:'',date:Date.now(),gift:w}));}catch(e){}}
@@ -2828,7 +2831,7 @@ function drawBx(x,B,t){const R=S.R,h=R.h,fl=R.won?100:R.floor,b=biome(fl),A=wind
  room();const sl=MSPR.slime;const out=t>6200,X=out?go(116,200,6200,3000):go(196,116,300,3200);if(!out&&t<=3500)blit(x,ICONS.sword,100,94,{noShadow:true});
  if(sl)blit(x,sl,X,84+hop(out?6200:300,3000),{flip:out,key:'slime'+(out?'f':'')});if(out||t>3500){if(!out)blit(x,ICONS.sword,X+4,78,{noShadow:true});else blit(x,ICONS.sword,X+4,78+hop(6200,3000),{noShadow:true});}}
 function bxTry(){if(RM||CINE.static||!CINE.el||CINE.bxS===S||!S||!S.R)return false;const s=CINE.steps[CINE.i];if(!s||s.k!=='e')return false;
- let B=null;try{B=bxPick(S.R);}catch(e){B=null;}if(!B)return false;CINE.bxS=S;
+ let B=null;try{B=bxPick(S.R);}catch(e){B=null;}if(!B)return false;CINE.bxS=S;ach('credits',{});
  try{CINE.epT.forEach(clearTimeout);CINE.epT=[];clearTimeout(CINE.tm);cancelAnimationFrame(CINE.raf);
   const el=CINE.el,bx=document.createElement('div');bx.className='cbx';
   bx.innerHTML=`<div class="cbt">เรื่องที่ไม่มีใครรู้</div><div class="cfr"><canvas width="384" height="256" class="on"></canvas></div><div class="cba"></div><div class="cbb"></div>`;
