@@ -1,6 +1,7 @@
 // leaderboard.js — กระดานอันดับ + ความสำเร็จ + สถิติของฉัน
 // API: window.LB = { submit(summary), open(tab?), flush(), mine(), live:{start(sid), beat(sid,floor), get(day)} }
 // v2.3: แท็บ 'wall' ชีวิตที่แบ่งปัน (/api/posts) + แนบตัวนับการแชร์ (tof-share-stat-v1) ไปกับผลรอบเป็น field ss
+// v2.7: ตัวนับการแชร์ส่งเองผ่าน /api/live {a:'ss'} (LB.ssSoon) ไม่รอผลรอบแล้ว · id เครื่อง 16 hex (tof-dev-v1) ติดไปกับโพสต์ คะแนน และตัวนับ เป็น field dv
 // POST/GET '/api/scores' (Cloudflare Pages Function). ส่งไม่สำเร็จจะเก็บคิวไว้ใน localStorage แล้วส่งใหม่ตอนโหลดครั้งหน้า
 (function(){
 'use strict';
@@ -44,6 +45,12 @@ function toEntry(s){s=(s&&typeof s==='object')?s:{};
  e.id=fnv(canon(e))+e.date.toString(36).slice(-3);
  return e;}
 
+// ---- id เครื่อง (v2.7): สุ่มครั้งเดียว ไม่ผูกกับตัวตน ใช้ให้เซิร์ฟเวอร์จำกัดจำนวนโพสต์/คะแนนต่อเครื่อง ----
+const K_DV='tof-dev-v1';
+function devId(){let v=null;try{v=localStorage.getItem(K_DV);}catch(e){}if(typeof v==='string'&&/^[0-9a-f]{16}$/.test(v))return v;
+ const b=new Uint8Array(8);try{crypto.getRandomValues(b);}catch(e){for(let i=0;i<8;i++)b[i]=Math.floor(Math.random()*256);}
+ v=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');try{localStorage.setItem(K_DV,v);}catch(e){}return v;}
+
 // ---- share analytics (v2.3): ตัวนับจาก share.js ติดไปกับผลรอบ (field ss ไม่อยู่ใน canon) ----
 // ตัวนับที่ติดอยู่กับรอบในคิวถือว่า "จองไว้แล้ว" จะลบออกจาก storage ก็ต่อเมื่อเซิร์ฟเวอร์ตอบว่านับแล้ว (ss:1) จึงไม่นับซ้ำและไม่หาย
 const K_SS='tof-share-stat-v1',SS_CAP=50,SHK=['img','line','x','threads','copy','native','save'],SSK=['ao','mo','bo',...SHK,'note'];
@@ -52,6 +59,12 @@ function ssRead(){const v=rd(K_SS,null),o={};const ok=v&&typeof v==='object';con
 function ssTake(Q){const have=ssRead(),o={};let any=0;
  for(const k of SSK){let n=have[k];for(const e of Q)if(e&&e.ss)n-=int(e.ss[k],0,SS_CAP);n=Math.min(SS_CAP,n);if(n>0){o[k]=n;any=1;}}
  return any?o:null;}
+// v2.7: ส่งตัวนับที่ยังไม่ได้ส่งขึ้น /api/live เอง หน่วงไว้ 4 วิให้กดหลายปุ่มรวมเป็นครั้งเดียว ยอดที่ติดคิวผลรอบเก่าอยู่ ssTake หักออกให้แล้ว
+let ssT=0,ssBusy=false;
+function ssSoon(){clearTimeout(ssT);ssT=setTimeout(ssSend,4000);}
+async function ssSend(){if(ssBusy||typeof fetch!=='function')return;const q=rd(K_Q,[]),ss=ssTake(Array.isArray(q)?q:[]);if(!ss)return;ssBusy=true;
+ try{const r=await fetch('/api/live',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({a:'ss',dv:devId(),ss}),credentials:'same-origin'});
+  let j=null;try{j=await r.json();}catch(e){}if(r.ok&&j&&j.ss===1)ssDone(ss);}catch(e){}finally{ssBusy=false;}}
 function ssDone(sent){try{const v=rd(K_SS,null);if(!v||typeof v!=='object'||!sent)return;
  for(const k of SSK){const n=int(sent[k],0,SS_CAP);if(!n)continue;const t=SHK.includes(k)?v.sh:v;if(!t||typeof t!=='object')continue;
   const c=num(t[k]);if(c>0)t[k]=Math.max(0,Math.floor(c)-n);}
@@ -63,7 +76,7 @@ function submit(summary){try{if(!summary||typeof summary!=='object'||!(num(summa
  const mine=rd(K_MINE,[]);const L=Array.isArray(mine)?mine:[];
  if(!L.some(x=>x&&x.id===e.id)){L.push(Object.assign({cause:clean(String((summary&&summary.cause)||''),60)},e));L.sort(cmp);wr(K_MINE,L.slice(0,20));}
  const ids=rd(K_IDS,[]);if(Array.isArray(ids)&&!ids.includes(e.id)){ids.push(e.id);wr(K_IDS,ids.slice(-200));}
- const q=rd(K_Q,[]);const Q=Array.isArray(q)?q:[];if(!Q.some(x=>x&&x.id===e.id)){const ss=ssTake(Q);if(ss)e.ss=ss;Q.push(e);}wr(K_Q,Q.slice(-20));
+ const q=rd(K_Q,[]);const Q=Array.isArray(q)?q:[];if(!Q.some(x=>x&&x.id===e.id))Q.push(e);wr(K_Q,Q.slice(-20));
  flush();return e.id;}catch(err){return null;}}
 
 async function flush(){if(flushing||typeof fetch!=='function')return;flushing=true;
@@ -71,7 +84,7 @@ async function flush(){if(flushing||typeof fetch!=='function')return;flushing=tr
   const old=Date.now()-29*86400e3;const Q=Q0.filter(e=>e&&num(e.date)>old);
   const keep=[];
   for(const e of Q){let st=0;
-   try{const {id,...body}=e;const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),credentials:'same-origin'});st=r.status;
+   try{const {id,...body}=e;body.dv=devId();const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),credentials:'same-origin'});st=r.status;
     if(st>=200&&st<300&&e.ss){let j=null;try{j=await r.json();}catch(err){}if(j&&j.ss===1)ssDone(e.ss);}}catch(err){st=0;}
    // 2xx = ส่งแล้ว, 4xx (ยกเว้น 429/404/408) = ข้อมูลไม่ผ่าน ส่งซ้ำก็ไม่ผ่าน ทิ้งได้
    const done=(st>=200&&st<300)||(st>=400&&st<500&&st!==429&&st!==404&&st!==408);
@@ -126,7 +139,7 @@ function css(){if(document.getElementById('lb-css'))return;const st=document.cre
 .lb-cmp textarea{resize:vertical;min-height:64px}
 .lb-cmp select:focus,.lb-cmp textarea:focus{outline:none;border-color:var(--gold,#f4bb4a)}
 .lb-crow{display:flex;align-items:center;gap:8px;margin-top:8px}.lb-crow span{flex:1;font-size:12px;min-width:0}
-.lb-crow .err{color:#ff9a6a}.lb-crow .okm{color:#8fe3b0}
+.lb-crow .err{color:#ff9a6a}.lb-crow .okm{color:#8fe3b0}.lb-crow .care{color:#f1e7d0;line-height:1.6}
 .lb-btn{background:var(--gold,#f4bb4a);color:#1a1206;border:2px solid #0006;border-radius:3px;padding:5px 14px;font:inherit;font-size:13px;font-weight:500;cursor:pointer;flex:none}
 .lb-btn:disabled{opacity:.5;cursor:default}
 .lb-post{display:grid;grid-template-columns:34px 1fr;gap:8px;background:var(--bg2,#101b20);border:2px solid var(--line,#2c434d);border-radius:3px;padding:8px;font-size:13px;min-width:0}
@@ -218,7 +231,7 @@ async function loadPosts(){if(pcache&&Date.now()-pcacheAt<20e3)return pcache;
   pcache={posts:j.posts.filter(p=>p&&typeof p==='object'&&p.s&&typeof p.s==='object')};pcacheAt=Date.now();return pcache;
  }catch(e){return {error:'net'};}finally{clearTimeout(to);}}
 async function postsCall(body){if(typeof fetch!=='function')return {st:0,j:{}};
- try{const r=await fetch(API_P,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),credentials:'same-origin'});
+ try{const r=await fetch(API_P,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({dv:devId()},body)),credentials:'same-origin'});
   let j=null;try{j=await r.json();}catch(e){}return {st:r.status,j:j&&typeof j==='object'?j:{}};}catch(e){return {st:0,j:{}};}}
 function ago(t){const m=Math.floor((Date.now()-num(t))/60e3);if(m<2)return 'เมื่อกี้';if(m<60)return m+' นาทีก่อน';const h=Math.floor(m/60);if(h<24)return h+' ชั่วโมงก่อน';return Math.floor(h/24)+' วันก่อน';}
 function endTxt(s){return s.f===101?'ผ่านชั้นลับมังกร':s.w?'พิชิตยอดหอ':'ล้มที่ชั้น '+int(s.f,1,100);}
@@ -233,8 +246,10 @@ ${p.q?`<blockquote>“${esc(p.q)}”</blockquote>`:''}<div class="lb-pf"><span>$
 <button type="button" class="rm" aria-pressed="${rm}" title="ระลึกถึงชีวิตนี้"${rm?' disabled':''}>🕯 ระลึกถึง <b>${int(p.rm,0,1e9)}</b></button>
 <button type="button" class="rep"${rp?' disabled':''}>${rp?'รายงานแล้ว':'รายงาน'}</button></div></div></li>`;}
 const PERR={link:'มีลิงก์อยู่ในข้อความ เอาออกก่อนนะ',personal:'เหมือนจะมีเบอร์โทรหรืออีเมลอยู่ เอาออกก่อนนะ',abuse:'มีคำไม่สุภาพอยู่ ลองเขียนใหม่อีกที',
+ crisis:'ข้อความนี้ยังไม่ได้โพสต์ ถ้าช่วงนี้คุณรู้สึกหนักจนอยากหายไป ลองโทรคุยกับสายด่วนสุขภาพจิต 1323 ดูนะ เปิดตลอด 24 ชั่วโมง ไม่เสียค่าโทร มีคนพร้อมฟังคุณอยู่',
  len:'สั้นไปหน่อย ต้องมีอย่างน้อย 4 ตัวอักษร หรือเว้นว่างไว้เลยก็ได้',dup:'รอบนี้แบ่งปันไปแล้ว',busy:'ช่วงนี้คนโพสต์เยอะมาก ลองใหม่อีกสักพัก',fail:'ส่งไม่สำเร็จ ลองใหม่อีกครั้ง'};
-function postErr(r){const j=r.j||{};if(j.error==='rate-limited')return `โพสต์ได้ชั่วโมงละ 3 ครั้ง รออีกราว ${Math.max(1,Math.ceil(num(j.retryAfter)/60))} นาทีนะ`;
+function postErr(r){const j=r.j||{};if(j.error==='rate-limited'&&j.scope==='dev')return `เครื่องนี้แบ่งปันได้วันละ ${int(j.max||8,1,99)} ครั้ง ครบแล้วสำหรับวันนี้ พรุ่งนี้มาเล่าต่อได้นะ`;
+ if(j.error==='rate-limited')return `โพสต์ได้ชั่วโมงละ 3 ครั้ง รออีกราว ${Math.max(1,Math.ceil(num(j.retryAfter)/60))} นาทีนะ`;
  if(j.error==='filtered')return PERR[j.why]||PERR.abuse;return PERR[j.error]||PERR.fail;}
 
 function bindPosts(ul){
@@ -281,13 +296,14 @@ async function wall(B,mine){
  ta.oninput=()=>say(Array.from(ta.value).length+'/300');
  go.onclick=async()=>{const e=runs[+sel.value];if(!e)return;const q=ta.value.replace(/\s+/g,' ').trim(),ql=Array.from(q).length;
   if(ql>0&&ql<4){say(PERR.len,'err');return;}
+  if(q&&window.SHARE&&SHARE.crisis&&SHARE.crisis(q)){say(PERR.crisis,'care');return;}
   go.disabled=true;say('กำลังส่ง…');
   const r=await postsCall({a:'post',s:runSum(e),q});go.disabled=false;
   if(r.st>=200&&r.st<300&&r.j.post){pmark('ps',e.id);ta.value='';say('แบ่งปันแล้ว','okm');
    d.posts=[r.j.post,...d.posts.filter(x=>x.id!==r.j.post.id)];if(pcache)pcache.posts=d.posts;const o=sel.options[sel.selectedIndex];if(o&&!/\(แบ่งปันแล้ว\)$/.test(o.textContent))o.textContent+=' (แบ่งปันแล้ว)';
    paint();return;}
   if(r.j.error==='dup')pmark('ps',e.id);
-  say(r.st===0?PERR.fail:postErr(r),'err');};}
+  say(r.st===0?PERR.fail:postErr(r),r.j.why==='crisis'?'care':'err');};}
 
 function open(tab){try{if(typeof document==='undefined')return;if(!dlg)build();
  if(!dlg.open){if(typeof dlg.showModal==='function')dlg.showModal();else dlg.setAttribute('open','');}
@@ -301,7 +317,7 @@ async function liveCall(body){if(typeof fetch!=='function')return null;
 const live={start:sid=>liveCall({a:'start',sid}),beat:(sid,f)=>liveCall({a:'beat',sid,f:int(f,1,101)}),
  get:day=>{if(typeof fetch!=='function')return Promise.resolve(null);return fetch(LIVE+'?day='+encodeURIComponent(day||''),{headers:{Accept:'application/json'},credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(j=>j&&!j.error?j:null).catch(()=>null);},
  recent:()=>load().then(d=>d&&!d.error?d.recent:[])};
-window.LB={submit,open,flush,mine:()=>rd(K_MINE,[]),live};
+window.LB={submit,open,flush,mine:()=>rd(K_MINE,[]),live,ssSoon};
 // ส่งคิวที่ค้างจากรอบก่อน
-try{const go=()=>setTimeout(flush,2500);if(document.readyState==='complete')go();else window.addEventListener('load',go);window.addEventListener('online',()=>flush());}catch(e){}
+try{const go=()=>setTimeout(()=>{flush();ssSoon();},2500);if(document.readyState==='complete')go();else window.addEventListener('load',go);window.addEventListener('online',()=>flush());}catch(e){}
 })();

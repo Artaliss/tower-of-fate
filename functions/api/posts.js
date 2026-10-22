@@ -4,9 +4,11 @@
 //    p:[{id, t, s:{n,r,c,o,f,w,d,ti,ca,g}, q, rm, rp, x?, k}],   newest first, max 200 (x=1 hidden by reports)
 //    qp:{<ipHash>:[ts..]},   post times per IP in the last hour (quota)
 //    qa:{<ipHash>:[ts..]},   react/report times per IP in the last hour (quota)
+//    qd:{<devHash>:[ts..]},  post times per device id in the last 24 h (v2.7, quota; the id itself is not stored)
 //    rk:['<ipHash>:<id>'..], pk:[...] }   recent react / report keys (cheap repeat filter, ring buffers)
 // GET                         -> {posts:[{id,t,s,q,rm}]}  newest 50 visible (Cache-Control: max-age=20)
-// POST {a:'post', s:{...}, q} -> {ok, post} | {error:'filtered', why:'link'|'personal'|'abuse'} | {error:'len'} | 429 {error:'rate-limited'|'busy'} | 409 {error:'dup'}
+// POST {a:'post', s:{...}, q, dv?} -> {ok, post} | {error:'filtered', why:'crisis'|'link'|'personal'|'abuse'} | {error:'len'} | 429 {error:'rate-limited', scope?:'dev'}|{error:'busy'} | 409 {error:'dup'}
+//   why:'crisis' = the line talks about wanting to die / self-harm: not posted, the client answers with the 1323 hotline instead (v2.7)
 // POST {a:'react', id}        -> {ok, rm, dup?}     (repeat from the same IP: no write)
 // POST {a:'report', id}       -> {ok, dup?}         (hidden once rp >= REPORT_HIDE distinct IPs)
 
@@ -15,6 +17,7 @@ import { store } from './store.js';
 const KEY = 'posts', MAX_POSTS = 200, GET_N = 50, MAX_BODY = 2048;
 const Q_MIN = 4, Q_MAX = 300;
 const POST_PER_HOUR = 3, ACT_PER_HOUR = 40, GLOBAL_POST_PER_HOUR = 40;
+const POST_PER_DAY_DEV = 8, DAY = 86400e3;   // v2.7 per device id
 const REPORT_HIDE = 3, RING = 1500;
 const RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'];
 const CLS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra', 'dsl'];
@@ -47,6 +50,13 @@ function sameOrigin(request) {
   if (r) { try { return new URL(r).origin === self; } catch { return false; } }
   return request.method === 'GET';
 }
+
+// ---- crisis check (v2.7, keep identical to share.js): wanting to die or hurting oneself. Negations ("ไม่อยากตาย", "don't want to die") are dropped first ----
+const CR_SQ=/[\s\-_.,!?*~'"()[\]{}|/\\:;ๆ]+/g,CR_NEG_TH=/ไม่(ได้|เคย)?อยาก(ไป)?ตาย/g,CR_NEG_EN=/\b(do\s*n[o']?t|never|not|no)\s*(want|wanna)\s*(to\s*)?die\b/g;
+const CR_TH=['อยากตาย','อยากไปตาย','ฆ่าตัวตาย','ฆ่าตัวเอง','ทำร้ายตัวเอง','กรีดข้อมือ','กรีดแขน','กรีดตัวเอง','ไม่อยากมีชีวิต','ไม่อยากอยู่แล้ว','ไม่อยากอยู่บนโลก','ไม่อยากอยู่ในโลก',
+ 'ไม่อยากตื่นอีก','ไม่อยากตื่นขึ้นมาอีก','อยากหายไปจากโลก','จบชีวิตตัวเอง','ปลิดชีพตัวเอง','ปลิดชีวิตตัวเอง','กินยาตาย','กินยาฆ่าตัว','โดดตึกตาย','กระโดดตึก','ผูกคอตาย'];
+const CR_EN=/\b(kill(ing)?\s*my\s*self|want(ed)?\s*to\s*die|wanna\s*die|suicid(e|al)|end(ing)?\s*my\s*life|end\s*it\s*all|self[\s-]*harm(ing)?|cut(ting)?\s*my\s*self|kms)\b/;
+export function crisis(t){const low=String(t||'').toLowerCase(),th=low.replace(CR_SQ,'').replace(CR_NEG_TH,'');return CR_TH.some(w=>th.includes(w))||CR_EN.test(low.replace(CR_NEG_EN,' '));}
 
 // ---- content filter ----
 const TH_DIGIT = /[๐-๙]/g;
@@ -94,13 +104,13 @@ async function read(kv, opt) {
   let v = null; try { v = JSON.parse(await kv.get(KEY, opt) || 'null'); } catch { }
   if (!v || typeof v !== 'object') v = {};
   if (!Array.isArray(v.p)) v.p = [];
-  for (const k of ['qp', 'qa']) if (!v[k] || typeof v[k] !== 'object') v[k] = {};
+  for (const k of ['qp', 'qa', 'qd']) if (!v[k] || typeof v[k] !== 'object') v[k] = {};
   for (const k of ['rk', 'pk']) if (!Array.isArray(v[k])) v[k] = [];
   v.v = 1;
   return v;
 }
-function pruneQ(q, now) {
-  for (const k in q) { const a = Array.isArray(q[k]) ? q[k].filter(t => now - t < HOUR) : []; if (a.length) q[k] = a; else delete q[k]; }
+function pruneQ(q, now, win = HOUR) {
+  for (const k in q) { const a = Array.isArray(q[k]) ? q[k].filter(t => now - t < win) : []; if (a.length) q[k] = a; else delete q[k]; }
 }
 const pub = p => ({ id: p.id, t: p.t, s: p.s, q: p.q, rm: p.rm | 0 });
 
@@ -132,10 +142,16 @@ export async function onRequestPost({ request, env }) {
     const q = clean(b.q, Q_MAX + 1);
     const ql = Array.from(q).length;
     if (ql > Q_MAX || (ql > 0 && ql < Q_MIN)) return json({ error: 'len', min: Q_MIN, max: Q_MAX }, 400);
-    const why = q ? screen(q) : '';
+    const why = q ? (crisis(q) ? 'crisis' : screen(q)) : '';
     if (why) return json({ error: 'filtered', why }, 400);
     const v = await read(kv);
-    pruneQ(v.qp, now); pruneQ(v.qa, now);
+    pruneQ(v.qp, now); pruneQ(v.qa, now); pruneQ(v.qd, now, DAY);
+    const dv = typeof b.dv === 'string' && /^[0-9a-f]{16}$/.test(b.dv) ? fnv('tof-dv|' + b.dv) : '';
+    const myDev = dv ? v.qd[dv] || [] : [];
+    if (myDev.length >= POST_PER_DAY_DEV) {
+      const wait = Math.max(1, Math.ceil((Math.min(...myDev) + DAY - now) / 1000));
+      return json({ error: 'rate-limited', scope: 'dev', max: POST_PER_DAY_DEV, retryAfter: wait }, 429, { 'Retry-After': String(wait) });
+    }
     const mine = v.qp[ip] || [];
     if (mine.length >= POST_PER_HOUR) {
       const wait = Math.max(1, Math.ceil((Math.min(...mine) + HOUR - now) / 1000));
@@ -148,6 +164,7 @@ export async function onRequestPost({ request, env }) {
     const post = { id: crypto.randomUUID().replace(/-/g, '').slice(0, 10), t: now, s, q, rm: 0, rp: 0, k };
     v.p.unshift(post); v.p.length = Math.min(v.p.length, MAX_POSTS);
     v.qp[ip] = [...mine, now];
+    if (dv) v.qd[dv] = [...myDev, now];
     await kv.put(KEY, JSON.stringify(v));
     return json({ ok: true, post: pub(post) });
   }

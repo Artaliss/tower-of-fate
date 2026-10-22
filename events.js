@@ -641,6 +641,17 @@ const DAYS=[
 {id:'phoenix',n:'วันขนนกไฟ',d:'มีคนเห็นขนนกไฟตกอยู่ตามบันได นกไฟอาจอยู่ไม่ไกล',hn:'นกไฟใกล้มอด',sp:{phoenix:5}},
 {id:'grave',n:'วันเปิดสุสาน',d:'หลุมศพเก่าในหอเปิดออก โครงกระดูกเดินกันเกลื่อน',hn:'หลุมศพหรือโครงกระดูก',sp:{tomb:4,bones:3}},
 {id:'library',n:'วันห้องสมุดเปิด',d:'หนังสือกับนักปราชญ์โผล่บ่อยขึ้น EXP มากขึ้น 10%',hn:'หนังสือหรือนักปราชญ์',sp:{book:4,scholar:3},mod:{xp:1.1}}];
+// day hazards (v2.7): zn = trouble that only hits one 10-floor band, picked from the date so everyone shares it (dayZone in auto.js).
+// n/ic = name in "หอตอนนี้", k = hazard multiplier inside the band, w = news heard below the band ("ได้ยินว่าชั้น X–Y " + w), in = line on walking into it
+const DAYZ={
+fog:{n:'หมอกหนา',ic:'🌫',k:1.12,w:'หมอกลงหนาจนมองไม่เห็นบันไดขั้นถัดไป',in:'หมอกหนาอย่างที่เขาลือกันจริงๆ ต้องคลำราวบันไดขึ้นไปทีละขั้น'},
+blood:{n:'ฝูงมอนคลั่งแสงจันทร์',ic:'🩸',k:1.15,w:'มอนสเตอร์คลั่งแสงจันทร์สีเลือด ออกล่ากันเป็นฝูง',in:'แสงจันทร์สีแดงลอดหน้าต่างเข้ามา เสียงหอนดังมาจากทุกทิศ'},
+dragon:{n:'มังกรบินวนรอบหอ',ic:'🐉',k:1.1,w:'มีมังกรเกล็ดเขียวบินวนอยู่นอกหน้าต่าง',in:'เงาปีกใหญ่พาดผ่านหน้าต่าง ลมร้อนพัดเข้ามาเป็นระลอก'},
+cult:{n:'วงพิธีลัทธิ',ic:'🕯',k:1.12,w:'ลัทธิเปลวเทียนตั้งวงพิธีขวางทางเดินอยู่',in:'กลิ่นเทียนไหม้ลอยมาตามบันได เสียงสวดดังอยู่ใกล้ๆ'},
+grave:{n:'โครงกระดูกเดินเกลื่อน',ic:'💀',k:1.1,w:'โครงกระดูกจากหลุมเก่าลุกขึ้นมาเดินเต็มทางเดิน',in:'เสียงกระดูกกระทบกันดังก๊อกแก๊กมาจากทุกมุม'},
+star:{n:'ดาวตกกระแทกหอ',ic:'☄',k:1.08,w:'ดาวตกลงมากระแทกผนังหอจนหินร่วง',in:'เศษหินร่วงลงมาจากเพดาน เพิ่งมีดาวตกชนผนังข้างบนไปเมื่อกี้'},
+phoenix:{n:'ไฟลามบันได',ic:'🔥',k:1.1,w:'ไฟจากขนนกไฟลามไปตามบันได',in:'ควันลอยลงมาตามช่องบันได ขั้นบันไดร้อนจนพื้นรองเท้าแทบละลาย'}};
+for(const D of DAYS)if(DAYZ[D.id])D.zn=DAYZ[D.id];
 // class promotions (v2.3): one SPECIAL 'promo' per life, text per class id; fx is read by auto.js promoFx
 // fx: a/d = ATK/DEF units (2+floor*.1), hp = max HP +%, l = LUK, m = max MP, g = gold (gG base), c = gold cost (gS base), k = karma, dmg = HP lost %, x = EXP units, pot = potions, fight = beast strength
 const PROMO={

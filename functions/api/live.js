@@ -5,6 +5,7 @@
 // GET  ?day=YYYY-MM-DD           -> {n, day:{n,h,w,f}|null}
 // POST {a:'start', sid}           -> {tk, n}
 // POST {a:'beat', sid, f}         -> {n}
+// POST {a:'ss', dv?, ss:{...}}    -> {ok, ss:1}   share counters (v2.7) summed into d[today].ss; no sid, nothing about the player is kept
 // Writes are kept low (KV free tier = 1,000 writes/day): a beat only writes when the sid was last written >= 5 min ago.
 
 import { store } from './store.js';
@@ -15,6 +16,23 @@ const json = (obj, status = 200, extra = {}) =>
   new Response(JSON.stringify(obj), { status, headers: { ...SEC, 'Cache-Control': 'no-store', ...extra } });
 const okSid = s => typeof s === 'string' && /^[a-z0-9]{6,24}$/.test(s);
 export const okDay = d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+export const okDv = d => typeof d === 'string' && /^[0-9a-f]{16}$/.test(d);   // device id (v2.7), random per browser
+export const thDay = now => new Date(now + 7 * 3600e3).toISOString().slice(0, 10);
+
+// share analytics: which share buttons get pressed (counts only). Sent by leaderboard.js through {a:'ss'} (v2.7); old clients still send them with a score (scores.js)
+export const SS_KEYS = ['ao', 'mo', 'bo', 'img', 'line', 'x', 'threads', 'copy', 'native', 'save', 'note'];
+const SS_CAP = 50;
+export function shareStats(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = {}; let any = 0;
+  for (const k of SS_KEYS) { const n = v[k]; if (typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= SS_CAP) { o[k] = n; any = 1; } }
+  return any ? o : null;
+}
+export function addShare(v, day, ss) {
+  const d = v.d[day] || (v.d[day] = { n: 0, h: 0, w: 0, f: 0 });
+  const t = d.ss && typeof d.ss === 'object' ? d.ss : (d.ss = {});
+  for (const j in ss) t[j] = (Number.isInteger(t[j]) ? t[j] : 0) + ss[j];
+}
 const nowMin = () => Math.floor(Date.now() / 60000);
 
 function sameOrigin(request) {
@@ -61,6 +79,15 @@ export async function onRequestPost({ request, env }) {
   const text = await request.text();
   if (text.length > 512) return json({ error: 'too-large' }, 413);
   let b; try { b = JSON.parse(text); } catch { return json({ error: 'bad-json' }, 400); }
+  if (b && b.a === 'ss') {
+    const ss = shareStats(b.ss);
+    if (!ss) return json({ error: 'invalid', field: 'ss' }, 400);
+    const v = prune(await readLive(kv));
+    addShare(v, thDay(Date.now()), ss);
+    prune(v);
+    await writeLive(kv, v);
+    return json({ ok: true, ss: 1 });
+  }
   if (!b || !okSid(b.sid)) return json({ error: 'sid' }, 400);
   const v = prune(await readLive(kv)), m = nowMin(), f = Number.isInteger(b.f) && b.f >= 1 && b.f <= 101 ? b.f : 1;
   if (b.a === 'start') {
