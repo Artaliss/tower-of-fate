@@ -59,7 +59,11 @@ const DEFS=[
  {id:'drg_spare',n:'สหายมังกร',d:'ตีมังกรจนยอมแพ้ แล้วปล่อยมันไป',icon:'🐉',tier:'legend',hid:1,t:s=>str(s.drg)==='f'},
  {id:'drg_slay',n:'นักล่ามังกร',d:'ฆ่ามังกรบนชั้นลับ',icon:'🐲',tier:'legend',hid:1,t:s=>str(s.drg)==='s'},
  {id:'drg_lift',n:'ดยุกปราบมังกร',d:'ตระกูลล้มมังกรครบ 3 ตัว คำสาปเลยหายไป',icon:'🏰',tier:'legend',hid:1,t:s=>s.lift===true},
- {id:'win_dsl',n:'เลือดมังกรบนคมดาบ',d:'ชนะเกมด้วยนักล่ามังกร',icon:'🔥',tier:'gold',hid:1,cls:'dsl'}
+ {id:'win_dsl',n:'เลือดมังกรบนคมดาบ',d:'ชนะเกมด้วยนักล่ามังกร',icon:'🔥',tier:'gold',hid:1,cls:'dsl'},
+ // ดาบศักดิ์สิทธิ์ในหิน (summary: exT ลองดึงกี่ครั้งในรอบนี้, exG ดึงออกในรอบนี้, sw มีดาบติดตัว)
+ {id:'exc_try',n:'มือแรกบนด้ามดาบ',d:'ลองดึงดาบศักดิ์สิทธิ์ในหินเป็นครั้งแรก',icon:'🪨',tier:'bronze',t:s=>num(s.exT)>0},
+ {id:'exc_got',n:'ผู้ถอนดาบในหิน',d:'ดึงดาบศักดิ์สิทธิ์ออกจากหินได้',icon:'🗡️',tier:'legend',t:s=>s.exG===true},
+ {id:'exc_win',n:'ดาบกับมงกุฎ',d:'ชนะเกมทั้งที่มีดาบในหินติดตัว',icon:'⚜️',tier:'gold',t:s=>!!s.won&&s.sw===true}
 ];
 const BY={};DEFS.forEach(a=>{BY[a.id]=a;});
 
