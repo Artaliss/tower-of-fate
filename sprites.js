@@ -298,5 +298,55 @@ function funeralBg(win){const k=win?'w':'f';if(funC[k])return funC[k];const c=do
 function drawCandle(x,X,Y,t,i){blit(x,CANDLE,X,Y,{key:'candle',noShadow:true});const fl=t?Math.round(Math.sin(t/110+i*2.1)+Math.sin(t/47+i)*.6):0;
  x.fillStyle='rgba(255,200,90,0.16)';x.fillRect(X-2,Y-6,9,8);x.fillStyle='#ff9a2a';x.fillRect(X+1,Y-3-Math.max(0,fl),3,3+Math.max(0,fl));x.fillStyle='#fff2a0';x.fillRect(X+2,Y-2,1,2);}
 const BONE=mk(["................","................","................","................",".....wwww.......","....wkwwkw......","....wwwwww......",".....wtwt.......","......ww....s...","....wwwwww.s....","...w.wwww.ws....","...w.wwww.......",".....w..w.......",".....w..w.......","....ww..ww......","................"],{w:'#e8e0c8',k:'#1a1010',t:'#8a8070',s:'#b0b8c0'});
+// ---- v2.7 wishes after death: a home village backdrop (day / dusk / night) and the scene of a day the hero never had ----
+const homeC={};
+function homeBg(k){k=k==='dusk'||k==='night'?k:'day';if(homeC[k])return homeC[k];const c=document.createElement('canvas');c.width=192;c.height=128;const x=c.getContext('2d');
+ const px=(X,Y,w,h,col)=>{x.fillStyle=col;x.fillRect(X,Y,w,h);};
+ const sky={day:['#6ab0e0','#8ac4ea','#a8d4ee','#c8e4f0'],dusk:['#2a2a4a','#5a3a5a','#a85a5a','#e89a6a'],night:['#0a0e22','#121a34','#1a2440','#22304a']}[k];
+ for(let i=0;i<4;i++)px(0,i*20,192,20,sky[i]);px(0,80,192,20,sky[3]);
+ if(k==='day'){x.fillStyle='#fff2a0';x.beginPath();x.arc(30,22,8,0,7);x.fill();for(let i=0;i<3;i++){const cx0=60+i*48+Math.floor(hash(i*5)*14),cy=14+Math.floor(hash(i*3)*14);px(cx0,cy,18,4,'#ffffff');px(cx0+4,cy-3,10,3,'#ffffff');}}
+ else if(k==='dusk'){x.fillStyle='#ffd08a';x.beginPath();x.arc(40,74,10,0,7);x.fill();}
+ else{for(let i=0;i<50;i++)px(Math.floor(hash(i*13+5)*192),Math.floor(hash(i*7+9)*70),1,1,hash(i)>.7?'#ffffff':'#a8b0d8');x.fillStyle='#f6f0d0';x.beginPath();x.arc(160,20,6,0,7);x.fill();}
+ const hill=k==='day'?['#5a9a4a','#4a8a3a']:k==='dusk'?['#4a4a4a','#3a3a40']:['#1a2a2a','#14201e'];
+ for(let X=0;X<192;X++){const h=12+Math.round(Math.sin(X/26)*6+Math.sin(X/11+2)*2);px(X,92-h,1,h+8,hill[0]);}
+ for(let X=0;X<192;X++){const h=5+Math.round(Math.sin(X/15+1)*3);px(X,97-h,1,h+3,hill[1]);}
+ // house on the right: wall, roof, door, a lit window
+ const wl=k==='day'?'#d8c8a0':k==='dusk'?'#a89878':'#4a4438',rf=k==='day'?'#a8402a':k==='dusk'?'#7a3020':'#3a1e18',lit=k==='day'?'#6a8ab0':'#ffd870';
+ px(146,72,36,28,wl);for(let i=0;i<10;i++)px(142+i*2,62+i,44-i*4,1,rf);px(144,71,40,2,rf);px(160,84,8,16,'#5a3a22');px(150,78,7,7,lit);px(153,78,1,7,wl);px(150,81,7,1,wl);
+ if(k!=='day'){x.fillStyle='rgba(255,216,112,0.12)';x.beginPath();x.arc(153,82,12,0,7);x.fill();}
+ px(0,100,192,28,k==='night'?'#24382a':'#3d5a34');for(let k2=0;k2<24;k2++)px(k2*8,100+(k2%3),8,2,k==='night'?'#2c4432':'#4f7a3a');px(0,100,192,1,'#0006');
+ for(let i=0;i<30;i++){const gx=Math.floor(hash(i*3+1)*192);px(gx,99-Math.floor(hash(i+4)*3),1,3,hash(i+2)>.5?'#6a9a42':'#4f7a34');}
+ if(k==='day')for(let i=0;i<12;i++){const fx=Math.floor(hash(i*11+7)*190),fy=104+Math.floor(hash(i*5+3)*20);px(fx,fy,1,1,['#f4e070','#f08aa8','#ffffff'][i%3]);}
+ px(0,110,192,3,k==='night'?'#3a3a32':'#a8946a');px(0,113,192,1,'#0003');
+ if(k!=='day'){x.fillStyle=k==='night'?'rgba(10,14,40,0.25)':'rgba(60,30,40,0.12)';x.fillRect(0,0,192,128);}
+ homeC[k]=c;return c;}
+// D = {k, b, hc (class id), lk (look), cs [{n,cls,tr,legend}], ps [pet ids], bo (boss id), eg (pet id hatched from the egg)}; t=0 draws a still
+function drawWish(x,D,t){if(!D)return;t=t||0;const bob=t?Math.round(Math.sin(t/260)):0,hs=heroSpr(D.hc||'war',D.lk),cs=(D.cs||[]).slice(0,3),ps=(D.ps||[]).filter(p=>PSPR[p]).slice(0,2);
+ const comp=(c,X,flip)=>{const s=c&&c.cls?compSpr(c):heroSpr('npc');blit(x,s,X,84+bob,{flip,key:'cp:'+compKey(c)});};
+ const pet=(p,X,dy,flip)=>blit(x,PSPR[p],X,91+(dy||0),{flip,key:'p'+p});
+ const glow=(X,col)=>{x.fillStyle=col||'rgba(244,187,74,0.16)';x.fillRect(X-4,40,24,60);};
+ const k=D.k;
+ if(k==='top'){x.drawImage(funeralBg(true),0,0);glow(88);cs.forEach((c,i)=>comp(c,62-i*16,false));ps.forEach((p,i)=>pet(p,112+i*14,0,true));blit(x,hs,88,82+bob,{key:'h'+hs.id});
+  for(let i=0;i<10;i++){const a=i*.63+t/900;x.fillStyle=i%2?'#fff6c0':'#ffd04a';x.fillRect(96+Math.round(Math.cos(a)*26),40+Math.round(Math.sin(a)*12),1,1);}return;}
+ if(k==='boss'){x.drawImage(bgImg(D.b|0),0,0);try{drawOverlay(x,D.b|0,t);}catch(e){}const B=BSPR[D.bo];if(B){x.globalAlpha=.4;blit(x,B,124,70,{key:D.bo,noShadow:true});x.globalAlpha=1;}
+  glow(52);blit(x,hs,52,84+bob,{key:'h'+hs.id});for(let i=0;i<3;i++)blit(x,COIN,96+i*9,104-(i%2)*2,{noShadow:true});for(let i=0;i<6;i++){x.fillStyle='#ffe890';x.fillRect(48+Math.round(hash(i*7)*24),70+Math.round(hash(i*3)*14),1,1);}return;}
+ const tone=k==='meal'||k==='mst'?'dusk':k==='rest'?'night':'day';x.drawImage(homeBg(tone),0,0);
+ if(k==='home'){blit(x,hs,98,84+bob,{key:'h'+hs.id});ps.forEach((p,i)=>pet(p,82-i*14,0,false));drawProp(x,'granny',t);return;}
+ if(k==='meal'){blit(x,hs,50,84+bob,{key:'h'+hs.id});cs.forEach((c,i)=>comp(c,[110,94,126][i],true));
+  x.fillStyle='#6a4a2a';x.fillRect(40,94,100,3);x.fillStyle='#4a321c';x.fillRect(44,97,3,6);x.fillRect(133,97,3,6);
+  for(let i=0;i<4;i++){x.fillStyle='#f1e7d0';x.fillRect(52+i*22,92,8,2);x.fillStyle=['#e8a040','#c84a3a','#6ab04a','#e8d070'][i];x.fillRect(54+i*22,91,4,1);}
+  x.fillStyle='rgba(255,200,100,0.10)';x.beginPath();x.arc(90,88,34,0,7);x.fill();ps.forEach((p,i)=>pet(p,30+i*120,4,i>0));return;}
+ if(k==='pet'||k==='egg'){blit(x,hs,64,84+bob,{key:'h'+hs.id});const p=k==='egg'?D.eg:ps[0];
+  if(k==='egg'){blit(x,PROPS.egg,104,94,{noShadow:true});x.fillStyle='#3a2a1a';x.fillRect(106,94,6,1);}
+  if(p&&PSPR[p]){const hop=t?-Math.abs(Math.round(Math.sin(t/220)*4)):-3;pet(p,k==='egg'?100:104,k==='egg'?-6:hop,true);}
+  if(k==='pet'){x.fillStyle='#d8302a';x.fillRect(124,80,3,3);x.fillStyle='#ff8a7a';x.fillRect(124,80,1,1);}
+  blit(x,ICONS.heart,88,66+(t?Math.round(Math.sin(t/400)*2):0),{noShadow:true});return;}
+ if(k==='mst'){blit(x,hs,64,84+bob,{key:'h'+hs.id});drawProp(x,'knight',t);ps.forEach((p,i)=>pet(p,44-i*14,0,false));return;}
+ if(k==='apr'){blit(x,hs,64,84+bob,{key:'h'+hs.id});drawProp(x,'child',t);blit(x,ICONS.sword,100,88,{noShadow:true});return;}
+ if(k==='rest'){drawProp(x,'fire',t);blit(x,hs,76,84,{key:'h'+hs.id});ps.forEach((p,i)=>pet(p,56-i*14,0,false));
+  x.fillStyle='#e8f2ff';[[94,74],[99,68],[105,61]].forEach(([X,Y],i)=>{const s=2+i;x.fillRect(X,Y,s,1);x.fillRect(X+s-1,Y+1,1,1);x.fillRect(X,Y+s-1,s,1);});return;}
+ if(k==='gold'){blit(x,hs,60,84+bob,{key:'h'+hs.id});drawProp(x,'merchant',t);for(let i=0;i<6;i++)blit(x,COIN,84+(i%3)*9,100-Math.floor(i/3)*5,{noShadow:true});ps.forEach((p,i)=>pet(p,40-i*14,0,false));return;}
+ blit(x,hs,88,84+bob,{key:'h'+hs.id});}
 window.ART={BONE,CANDLE,WREATH,STONE,funeralBg,drawCandle,mk,heroSpr,lookOf,rollLook,heroLook,HERO_ROWS,HP_,MSPR,BSPR,BOSS_ROWS,BOSS_PAL,PSPR,PROPS,NPCS,COIN,ICONS,sprCanvas,blit,BG,hash,bgImg,drawTorch,drawOverlay,drawProp,compSpr,compKey};
+Object.assign(window.ART,{homeBg,drawWish});
 })();

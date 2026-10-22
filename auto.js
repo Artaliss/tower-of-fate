@@ -199,7 +199,7 @@ const fleeCh=R=>clamp(.45+eLuk(R)*.008+(cid(R)==='arc'?.2:0),.1,.92);
 const tameCh=R=>clamp(.12+eLuk(R)*.006,.05,.6);
 const normT=t=>String(t).replace(/[\d.,]+/g,'#');
 // the log never shows the same sentence (numbers ignored) twice in a row
-function say(R,out,t,c){out.msgs.push({t,c:c||'info'});if(R.quiet)return;const p=R.log[0];if(p&&normT(p.t)===normT(t))return;R.log.unshift({f:R.floor,t,c:c||'info'});if(R.log.length>160)R.log.length=160;}
+function say(R,out,t,c){gwSeen(R);out.msgs.push({t,c:c||'info'});if(R.quiet)return;const p=R.log[0];if(p&&normT(p.t)===normT(t))return;R.log.unshift({f:R.floor,t,c:c||'info'});if(R.log.length>160)R.log.length=160;}
 // a line that must survive a quiet stretch's summary (milestones, cohort news, rare finds)
 function sayK(R,out,t,c){say(R,out,t,c);out.msgs[out.msgs.length-1].keep=1;}
 function mkMon(t,f,k){const gr=1+BAL.gr*Math.pow(f/100,BAL.gp),hp=(BAL.mh0+BAL.mh1*f+BAL.mh2*f*f)*t.hp*k*gr;
@@ -1470,6 +1470,11 @@ function secFight(R,way){const en=secEn(R),h=R.h,out=mkOut();R.sec.m0=clanM(R);R
  if(res.win){R.kills++;R.sec.g=Math.round((way?2600:1200)*(R.sec.c==='g'?1.2:1));h.gold+=R.sec.g;if(R.sec.m0==='s')drgFell(R,out);}
  else{R.cause=`ถูก${en.n}ฆ่าบนชั้นลับเหนือยอดหอคอย`;h.hp=0;}
  return out;}
+// v2.7 wishes: everyone who ever walked with the hero (R.gwS), so the end screen can tell who was missing at the end.
+// say() runs right after every party change, so recording here catches each companion and pet once.
+function gwSeen(R){if(!R||!R.comps||!R.pets)return;const g=R.gwS||(R.gwS={c:{},p:{}});
+ for(const c of R.comps)if(c&&c.n&&!g.c[c.n])g.c[c.n]={cls:c.cls,tr:c.tr,legend:!!c.legend,f:R.floor};
+ for(const p of R.pets)if(p&&!g.p[p])g.p[p]=R.floor;}
 /*SIM-END*/
 if(typeof document==='undefined'){window.AUTO_SIM={SPECIAL,ARCS,DRAMA,PATHS,pathTier,MFIT,secPrep,BFIT,DAYS,dayHit,secEn,secFight,secOpts,estimateWin,fight,SEC_K,DRG,rollHero,HZ,LX,pRoll,project,hzM,autoLife,newRun,planFloor,applyKey,mkKey,BAL,RUN_OMENS,STANCES};return;}
 
@@ -1749,7 +1754,8 @@ let memoAll=false;
 function renderMemo(){const a=[...loadMemo(),...loadOldMemo()].sort((x,y)=>(y.t||0)-(x.t||0)),N=12,show=memoAll?a:a.slice(0,N);
  $('memo').innerHTML=a.length?show.map(m=>`<div class="row"><span class="px" style="color:${RANKS[m.rank]?RANKS[m.rank].col:'#fff'}">${esc(RANKS[m.rank]?RANKS[m.rank].k:'?')}</span><span>${esc(m.name)}${m.drg==='f'?' 🐉':m.drg==='s'?' ⚔':''} · ${esc(m.cls)}${m.pth?' · '+esc(m.pth):''}${m.gen>1?` · รุ่นที่ ${m.gen}`:''}${m.old?' <span class="oldtag">โหมดเก่า</span>':''}${m.pat?` <span class="mpat"${patTip(m.pat,m.patN)}>${esc(patEmo(m.pat))}${m.patN?' '+esc(m.patN):''}</span>`:''}<br><span class="x">${esc(m.cause)}</span></span><span class="px">${m.won?'👑 ':''}${m.floor}F</span></div>`).join('')
   +(a.length>N?`<button type="button" class="btn memomore" id="memoMore">${memoAll?'ย่อรายการ':`ดูเพิ่ม (อีก ${a.length-N} คน)`}</button>`:''):'<div class="dim" style="font-size:13px">ยังไม่มีใครนอนอยู่ที่นี่</div>';
- const b=$('memoMore');if(b)b.onclick=()=>{memoAll=!memoAll;renderMemo();};}
+ const b=$('memoMore');if(b)b.onclick=()=>{memoAll=!memoAll;renderMemo();};
+ try{memoGw(show);}catch(e){}}
 // ---- lineage (สายตระกูล): every life is appended to its line; apprentices continue the line, rebirth starts a new one ----
 const LKEY='tof-lineage-v1';
 function loadLin(){try{const v=JSON.parse(localStorage.getItem(LKEY)||'null');if(isObj(v)&&isArr(v.lines))return{v:1,lines:v.lines.filter(x=>isObj(x)&&isArr(x.lives))};}catch(e){}return{v:1,lines:[]};}
@@ -2400,7 +2406,7 @@ function cineStart(){const R=S.R;if(!R)return false;S.cineM=cineMourners(R);S.ci
  if(RM)cineStatic();else{cineGo(0);CINE.raf=requestAnimationFrame(cineLoop);}
  try{CINE.el.querySelector(RM?'#cGo':'#cSkip').focus({preventScroll:true});}catch(e){}
  requestAnimationFrame(()=>CINE.el&&CINE.el.classList.add('open'));return true;}
-function cineClose(quiet){if(!CINE.on)return;CINE.on=false;clearTimeout(CINE.tm);clearTimeout(CINE.armT);clearTimeout(CINE.hushT);CINE.epT.forEach(clearTimeout);CINE.epT=[];cancelAnimationFrame(CINE.raf);
+function cineClose(quiet){if(!CINE.on)return;if(!quiet&&bxTry())return;CINE.on=false;clearTimeout(CINE.tm);clearTimeout(CINE.armT);clearTimeout(CINE.hushT);CINE.epT.forEach(clearTimeout);CINE.epT=[];cancelAnimationFrame(CINE.raf);
  const el=CINE.el;CINE.el=null;if(el){el.classList.remove('open');el.classList.add('closing');setTimeout(()=>el.remove(),RM?0:320);}
  const w=document.querySelector('.wrap');if(w)w.inert=false;try{AUDIO.hush&&AUDIO.hush(false);}catch(e){}
  if(!S)return;S.cineOn=false;S.cineDone=true;if(quiet||S.phase!=='end')return;
@@ -2474,7 +2480,97 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  if(share&&!S.sharePop&&S.cineDone){S.sharePop=true;clearTimeout(S.popT);const run=S.runId,wait=500+(RM?0:Math.min(4000,L.rows.length*250+500));
   S.popT=setTimeout(()=>{if(!S||S.phase!=='end'||S.runId!==run||document.querySelector('dialog[open]'))return;openShare(true);},wait);}
  const bl=$('btnLB2');if(bl)bl.onclick=()=>{try{window.LB.open();}catch(e){}};
+ try{gwMount(R);}catch(e){}
  renderMemo();}
+// ---- v2.7 after death (1in8b REA v3): wishes left undone, the days given to them (kept in the memorial), and a scene nobody saw ----
+// A wish = {k, t: name of the day, m: what was missing, w: handwritten line, + scene fields for ART.drawWish}. Free, no card needed.
+const GW_MAX=3,GW_TILT=[-2,1.5,-1];
+const gwC=c=>({n:c.n,cls:c.cls,tr:c.tr,legend:!!c.legend});
+// companions and pets that walked with the hero at some point but were gone by the end (left, betrayed, released...)
+function gwLost(R){const g=isObj(R.gwS)?R.gwS:{},gc=isObj(g.c)?g.c:{},gp=isObj(g.p)?g.p:{},now=new Set(R.comps.map(c=>c.n)),bt={};
+ R.log.forEach(l=>{const m=/^(.+?)ทรยศ!/.exec(l.t||'');if(m)bt[m[1]]=1;});
+ const cs=Object.keys(gc).filter(n=>!now.has(n)&&isObj(gc[n])).map(n=>Object.assign({n},gc[n],{bt:!!bt[n]})).sort((a,b)=>b.bt-a.bt);
+ return{cs,ps:Object.keys(gp).filter(p=>PETS[p]&&!R.pets.includes(p))};}
+// checked in this order, the first three that fit are shown
+function gwList(R){const h=R.h,won=R.won,fl=won?100:R.floor,b=biome(fl),L=gwLost(R),nm=h.name,W=[];
+ const add=(k,o)=>W.push(Object.assign({k,b,hc:CLASSES[h.cls].id,lk:look(h),cs:R.comps.slice(0,2).map(gwC),ps:R.pets.slice(0,2)},o));
+ if(L.cs.length){const c=L.cs.slice(0,3),bt=c.find(x=>x.bt);
+  add('meal',{cs:c.map(gwC),t:'มื้อเย็นที่ได้พร้อมหน้ากันอีกครั้ง',m:bt?`${bt.n}ทรยศกลางทาง ไม่มีใครได้นั่งกินข้าวด้วยกันอีก`:`${c.map(x=>x.n).join(' กับ ')}แยกทางไปก่อนถึงวันสุดท้าย`,w:'วันนั้นไม่มีใครต้องรีบลุกไปไหน'});}
+ if(L.ps.length){const p=L.ps[0],n=PETS[p].n;add('pet',{ps:[p],t:`วันที่ได้เล่นกับ${n}อีกครั้ง`,m:`${n}ไม่ได้อยู่ด้วยกันจนถึงวันสุดท้าย`,w:'โยนลูกบอลไปกี่ครั้ง มันก็วิ่งคาบกลับมาทุกครั้ง'});}
+ if(R.egg&&!won)add('egg',{eg:PETK[shash(nm)%PETK.length],t:'วันที่ไข่ฟัก',m:'อุ้มไข่มาตลอดทาง แต่ไม่ทันได้เห็นมันฟัก',w:'หน้าแรกที่มันเห็นคือหน้าเรา'});
+ if(isObj(h.inh)&&h.inh.from)add('mst',{t:`วันที่ได้เล่าให้${h.inh.from}ฟัง`,m:`อาจารย์${h.inh.from}ไม่ได้เห็นว่าศิษย์ไปถึงชั้น ${fl}`,w:'อาจารย์พยักหน้าครั้งเดียว ไม่ได้พูดอะไรเลย'});
+ if(R.death==='boss'&&!won){const B=BOSSES[b];add('boss',{bo:B.id,t:`วันที่ล้ม${B.n}ได้`,m:`ล้มลงต่อหน้า${B.n}ที่ชั้น ${fl}`,w:'ครั้งนี้มันเป็นฝ่ายถอยก่อน'});}
+ if(R.scars>=2)add('rest',{t:'วันที่ได้พักจนแผลหายดี',m:`มีแผลเป็น ${R.scars} แผล ยังไม่ทันหายก็ต้องเดินต่อ`,w:'หลับยาวถึงเที่ยง ไม่มีใครมาปลุก'});
+ if(h.gold>=400*scl(fl)/2)add('gold',{t:'วันที่ได้ใช้ทองที่เก็บไว้',m:`ทองเหลืออยู่ ${fmt(h.gold)} เหรียญ ไม่ได้ใช้สักเหรียญ`,w:'ซื้อขนมแจกเด็กทั้งหมู่บ้าน'});
+ if(!won)add('top',{t:'วันที่ได้ยืนบนชั้น 100',m:`ไปถึงชั้น ${fl} ยังเหลืออีก ${100-fl} ชั้น`,w:'ลมบนยอดหอเย็นกว่าที่คิด'});
+ if(!won)add('home',{t:`วันที่ได้กลับ${h.village}`,m:'ออกจากบ้านมาแล้วไม่ได้กลับไปอีก',w:'ที่บ้านยังเว้นที่ไว้ให้ที่โต๊ะ'});
+ if((h.gen||1)<=1)add('apr',{t:'วันที่ได้สอนศิษย์คนแรก',m:'ยังไม่เคยมีใครเรียกว่าอาจารย์',w:'ศิษย์จับดาบกลับด้าน แต่ยิ้มกว้างมาก'});
+ return W.slice(0,GW_MAX);}
+// end screen block: polaroids in sepia; "มอบให้" turns one to colour, keeps it in the memorial and offers the 1080x1350 card
+function gwMount(R){if(!S.gw)S.gw=gwList(R);const W=S.gw,G=S.gwG||(S.gwG={});if(!W.length)return;const old=card.querySelector('.gw');if(old)old.remove();
+ const sec=document.createElement('section');sec.className='gw';sec.setAttribute('aria-labelledby','gwH');
+ sec.innerHTML=`<h2 id="gwH">ความปรารถนาที่ค้างไว้</h2><p class="gwl">สิ่งที่${esc(R.h.name)}ไม่ทันได้ทำ กด "มอบให้" แล้วเราจะวาดวันนั้นให้</p><div class="gws">${W.map((w,i)=>`<figure class="gwc${G[w.k]?' on':''}" style="--r:${GW_TILT[i]||0}deg"><div class="gwp"><canvas width="150" height="100" aria-hidden="true"></canvas></div><figcaption><b>${esc(w.t)}</b><span>${esc(w.m)}</span><i class="gwh"${G[w.k]?'':' hidden'}>${esc(w.w)}</i></figcaption><button type="button" class="btn gwb" data-i="${i}">${G[w.k]?'📤 แชร์วันนี้':'มอบให้'}</button></figure>`).join('')}</div><p class="gwmsg" role="status" aria-live="polite"></p>`;
+ const A=card.querySelectorAll('.endacts'),at=A[A.length-1];if(at&&at.parentNode)at.parentNode.insertBefore(sec,at.nextSibling);else card.appendChild(sec);
+ sec.querySelectorAll('canvas').forEach((c,i)=>gwPaint(c,W[i]));
+ sec.querySelectorAll('.gwb').forEach(b=>b.onclick=()=>{const w=W[+b.dataset.i];if(!w)return;if(G[w.k]){gwShare(w);return;}G[w.k]=1;gwKeep(R,w);
+  const f=b.closest('.gwc');f.classList.add('on');f.querySelector('.gwh').hidden=false;b.textContent='📤 แชร์วันนี้';
+  const m=sec.querySelector('.gwmsg');if(m)m.textContent=`มอบ「${w.t}」ให้${R.h.name}แล้ว เก็บไว้ที่หลุมศพในสุสานด้วย`;});}
+function gwShare(w){if(!S||!S.shareD||!window.SHARE||!window.SHARE.openGift)return;try{window.SHARE.openGift(Object.assign({},S.shareD,{note:'',date:Date.now(),gift:w}));}catch(e){}}
+// the memorial keeps scene data only (no pictures); the grave redraws it
+function gwKeep(R,w){const h=R.h,fl=R.won?100:R.floor;
+ try{const a=loadMemo(),i=a.findIndex(m=>isObj(m)&&m.name===h.name&&m.floor===fl&&m.lv===h.lv);if(i<0)return;const g=isArr(a[i].gw)?a[i].gw.filter(isObj):[];
+  if(g.length>=GW_MAX||g.some(x=>x.k===w.k))return;g.push(Object.assign({},w));a[i].gw=g;localStorage.setItem(MKEY,JSON.stringify(a));}catch(e){}
+ renderMemo();}
+// grave rows: a "วันที่มอบให้" button opens a strip of small pictures under the row
+function memoGw(show){const rows=$('memo').querySelectorAll('.row');
+ rows.forEach((r,i)=>{const m=show[i],g=m&&isArr(m.gw)?m.gw.filter(isObj).slice(0,GW_MAX):[];if(!g.length)return;
+  const b=document.createElement('button');b.type='button';b.className='mgwb';b.textContent=`🕯 วันที่มอบให้ ${g.length}`;b.setAttribute('aria-expanded','false');
+  const box=document.createElement('div');box.className='mgw';box.hidden=true;(r.children[1]||r).appendChild(b);r.after(box);
+  b.onclick=()=>{const op=box.hidden;box.hidden=!op;b.setAttribute('aria-expanded',op?'true':'false');
+   if(op&&!box.childElementCount){box.innerHTML=g.map(w=>`<figure><canvas width="150" height="100" aria-hidden="true"></canvas><figcaption>${esc(w.t||'')}</figcaption></figure>`).join('');
+    box.querySelectorAll('canvas').forEach((c,j)=>gwPaint(c,g[j]));}};});}
+// still picture of a wish, cropped a little closer to the people (the share card uses the same crop)
+let gwOff=null;
+function gwPaint(c,w){try{if(!gwOff){gwOff=document.createElement('canvas');gwOff.width=192;gwOff.height=128;}const o=gwOff.getContext('2d'),x=c.getContext('2d');o.imageSmoothingEnabled=false;x.imageSmoothingEnabled=false;
+ o.clearRect(0,0,192,128);window.ART.drawWish(o,w,0);x.clearRect(0,0,c.width,c.height);x.drawImage(gwOff,22,26,150,100,0,0,c.width,c.height);}catch(e){}}
+// after the epitaph: one short scene nobody saw (10-15 s, skippable, never under reduced motion)
+function bxPick(R){const h=R.h,won=R.won,fl=won?100:R.floor,nm=h.name,L=gwLost(R);
+ if(R.egg&&!won)return{k:'egg',eg:PETK[shash(nm)%PETK.length],a:`คืนนั้นไม่มีใครอยู่ที่หลุมศพของ${nm}`,b:`ไข่ที่${nm}อุ้มมาตลอดทางฟักออกตรงนั้นเอง`};
+ if(R.pets.length&&!won){const p=R.pets[0];return{k:'wait',p,a:`ไม่มีใครเห็นตอนที่${PETS[p].n}เดินกลับขึ้นไปชั้น ${fl}`,b:`มันไปนั่งรอตรงที่${nm}ล้มลงทุกเย็น เผื่อจะมีใครเดินกลับมา`};}
+ const bt=L.cs.find(c=>c.bt);if(bt)return{k:'thief',c:gwC(bt),a:`${bt.n}เอาทองที่ขโมยไปนั่งดื่มที่โรงเตี๊ยม`,b:'สั่งมาสองแก้วทุกครั้ง อีกแก้ววางไว้เฉยๆ ไม่มีใครแตะ'};
+ if(R.comps.length&&!won){const c=R.comps[0];return{k:'carve',c:gwC(c),a:`คืนหนึ่ง${c.n}แอบกลับขึ้นไปชั้น ${fl}`,b:`แล้วสลักชื่อ${nm}ไว้บนกำแพงตรงนั้น ตัวหนังสือเบี้ยวไปหน่อย`};}
+ if(won)return{k:'nap',a:`ก่อนเดินลงจากยอดหอ ${nm}ขอนั่งพักแป๊บเดียว`,b:'แล้วเผลอหลับยาวจนเช้า เรื่องนี้ไม่มีใครรู้'};
+ return{k:'slime',a:`สไลม์ตัวหนึ่งที่ชั้น ${fl} คาบดาบของ${nm}ไป`,b:'ทุกวันนี้มันใช้ดาบเล่มนั้นแคะฟัน'};}
+function drawBx(x,B,t){const R=S.R,h=R.h,fl=R.won?100:R.floor,b=biome(fl),A=window.ART,T=performance.now(),bob=Math.round(Math.sin(t/260));
+ const go=(x0,x1,t0,d)=>Math.round(x0+(x1-x0)*clamp((t-t0)/d,0,1)),hop=(t0,d)=>t>t0&&t<t0+d?-Math.abs(Math.round(Math.sin(t/90)*2)):0;
+ const room=()=>{x.drawImage(bgImg(b),0,0);try{x.drawImage(heroDeco(b,h),0,0);}catch(e){}drawOverlay(x,b,T);};
+ if(B.k==='egg'){x.drawImage(A.funeralBg(false),0,0);blit(x,A.STONE,90,86,{key:'stone',noShadow:true});[[80,94],[106,94]].forEach(([X,Y],i)=>A.drawCandle(x,X,Y,T,i));
+  if(t<7000){const sh=t>3000?Math.round(Math.sin(t/(t>5500?30:60))):0;blit(x,PROPS.egg,118+sh,94,{noShadow:true});}
+  else{x.fillStyle='#e8e0c8';x.fillRect(115,99,5,3);x.fillRect(125,99,5,3);if(PSPR[B.eg])blit(x,PSPR[B.eg],118,91+hop(7000,900),{key:'p'+B.eg});if(t>8800)blit(x,ICONS.heart,120,78+Math.round(Math.sin(t/400)*2),{noShadow:true});}return;}
+ if(B.k==='wait'){room();blit(x,ICONS.sword,100,94,{noShadow:true});const X=go(-12,86,300,3800);if(PSPR[B.p])blit(x,PSPR[B.p],X,91+hop(300,3800),{key:'p'+B.p});
+  if(t>7000){const q=clamp((t-7000)/2500,0,1);x.fillStyle=`rgba(255,240,200,${.10*q})`;x.fillRect(0,0,192,128);}return;}
+ if(B.k==='thief'){x.drawImage(A.homeBg('night'),0,0);const s=cSpr(B.c);blit(x,s.s,66,84+bob,{key:s.k});
+  x.fillStyle='#6a4a2a';x.fillRect(58,94,64,3);x.fillStyle='#4a321c';x.fillRect(62,97,3,6);x.fillRect(115,97,3,6);
+  const lift=t>6000&&t<7400?2:0;x.fillStyle='#c8a050';x.fillRect(84,89-lift,4,5);x.fillRect(106,89,4,5);x.fillStyle='#f4e8c0';x.fillRect(84,89-lift,4,1);x.fillRect(106,89,4,1);
+  for(let i=0;i<3;i++)blit(x,COIN,92+i*5,90,{noShadow:true});return;}
+ if(B.k==='carve'){room();const s=cSpr(B.c),X=go(-16,96,200,2800);blit(x,s.s,X,84+(t<3000?hop(200,2800):bob),{key:s.k});
+  const n=t>3400?Math.min(14,Math.floor((t-3400)/420)):0;x.fillStyle='#d8d0b8';for(let i=0;i<n;i++){const cx0=118+Math.floor(i/2)*5,cy=60+Math.floor(hash(i*7)*3);if(i%2)x.fillRect(cx0,cy+2,3,1);else x.fillRect(cx0+1,cy,1,5);}return;}
+ if(B.k==='nap'){x.drawImage(A.funeralBg(true),0,0);const hs=heroSpr(CLASSES[h.cls].id,look(h));blit(x,hs,88,84,{key:'h'+hs.id});R.pets.forEach((p,i)=>{if(PSPR[p])blit(x,PSPR[p],108+i*14,91,{key:'p'+p});});
+  x.fillStyle='#e8f2ff';for(let i=0;i<3;i++){const q=((t/1600)+i/3)%1,X=104+Math.round(q*14),Y=78-Math.round(q*22),s2=2+i%2;x.globalAlpha=1-q;x.fillRect(X,Y,s2,1);x.fillRect(X+s2-1,Y+1,1,1);x.fillRect(X,Y+s2-1,s2,1);}x.globalAlpha=1;return;}
+ room();const sl=MSPR.slime;const out=t>6200,X=out?go(116,200,6200,3000):go(196,116,300,3200);if(!out&&t<=3500)blit(x,ICONS.sword,100,94,{noShadow:true});
+ if(sl)blit(x,sl,X,84+hop(out?6200:300,3000),{flip:out,key:'slime'+(out?'f':'')});if(out||t>3500){if(!out)blit(x,ICONS.sword,X+4,78,{noShadow:true});else blit(x,ICONS.sword,X+4,78+hop(6200,3000),{noShadow:true});}}
+function bxTry(){if(RM||CINE.static||!CINE.el||CINE.bxS===S||!S||!S.R)return false;const s=CINE.steps[CINE.i];if(!s||s.k!=='e')return false;
+ let B=null;try{B=bxPick(S.R);}catch(e){B=null;}if(!B)return false;CINE.bxS=S;
+ try{CINE.epT.forEach(clearTimeout);CINE.epT=[];clearTimeout(CINE.tm);cancelAnimationFrame(CINE.raf);
+  const el=CINE.el,bx=document.createElement('div');bx.className='cbx';
+  bx.innerHTML=`<div class="cbt">เรื่องที่ไม่มีใครรู้</div><div class="cfr"><canvas width="192" height="128" class="on"></canvas></div><div class="cba"></div><div class="cbb"></div>`;
+  el.querySelector('.cstage').appendChild(bx);el.dataset.mode='b';el.setAttribute('aria-label','เรื่องที่ไม่มีใครรู้');
+  const a=bx.querySelector('.cba'),bb=bx.querySelector('.cbb');a.textContent=B.a;bb.textContent=B.b;
+  const sk=el.querySelector('#cSkip');if(sk){clearTimeout(CINE.armT);CINE.arm=0;sk.classList.remove('arm');sk.textContent='ข้าม ⏭';sk.onclick=e=>{e.stopPropagation();cineClose();};try{sk.focus({preventScroll:true});}catch(e){}}
+  CINE.epT.push(setTimeout(()=>a.classList.add('vis'),900),setTimeout(()=>bb.classList.add('vis'),5200));
+  const x=bx.querySelector('canvas').getContext('2d'),t0=performance.now();x.imageSmoothingEnabled=false;
+  const loop=t=>{CINE.raf=requestAnimationFrame(loop);if(t-(CINE.lt||0)<50)return;CINE.lt=t;try{drawBx(x,B,t-t0);}catch(e){}};try{drawBx(x,B,0);}catch(e){}CINE.raf=requestAnimationFrame(loop);
+  CINE.tm=setTimeout(()=>cineClose(),13500);return true;}catch(e){return false;}}
 function newBirth(bo){clearSave();if(CINE.on)cineClose(true);if(S){clearTimeout(S.popT);try{window.SHARE&&window.SHARE.close&&window.SHARE.isOpen&&window.SHARE.close();}catch(e){}clearTimeout(S.tm);clearInterval(cdI);clearTimeout(dyT);clearTimeout(cbTimer);clearTimeout(S.rvT);}clearFx();music(0,0);
  const sp=S?S.speed:loadSpeed();bo=isObj(bo)?bo:null;S={phase:'birth',hero:rollBirth(bo),bo,rerolled:false,rvDone:false,R:null,K:null,cb:null,cmp:null,saved:false,runId:0,speed:sp,paused:false,tm:0,frame:null};
  snap=null;VIS.coins=[];VIS.show=null;VIS.star=0;render();}
