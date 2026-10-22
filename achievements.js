@@ -101,8 +101,30 @@ const DEFS=[
  // ดาบศักดิ์สิทธิ์ในหิน (summary: exT ลองดึงกี่ครั้งในรอบนี้, exG ดึงออกในรอบนี้, sw มีดาบติดตัว)
  {id:'exc_try',n:'มือแรกบนด้ามดาบ',d:'ลองดึงดาบศักดิ์สิทธิ์ในหินเป็นครั้งแรก',icon:'🪨',tier:'bronze',t:s=>num(s.exT)>0},
  {id:'exc_got',n:'ผู้ถอนดาบในหิน',d:'ดึงดาบศักดิ์สิทธิ์ออกจากหินได้',icon:'🗡️',tier:'legend',t:s=>s.exG===true},
+ // v0.2.23 อีเวนต์ที่ผู้เล่นต้องเลือกเอง (summary.nwA = ผลที่ได้ในรอบนั้น)
+ {id:'orc_save',n:'อัศวินขี่ม้าขาว',d:'ช่วยหญิงสาวจากออร์ค จนเธอมาร่วมทีม',icon:'🪓',tier:'silver',t:s=>nw(s,'orc')},
+ {id:'elf_free',n:'มิตรแห่งป่า',d:'ปลดเอลฟ์ออกจากตาข่ายพรานเถื่อน',icon:'🧝',tier:'silver',t:s=>nw(s,'elf')},
+ {id:'isek_meet',n:'ประตูต่างโลก',d:'เจอคนที่ร่วงลงมาจากต่างโลก',icon:'🌀',tier:'bronze',t:s=>nw(s,'isek')},
+ {id:'isek_pupil',n:'อาจารย์ข้ามมิติ',d:'รับคนจากต่างโลกเป็นศิษย์',icon:'🎓',tier:'silver',t:s=>nw(s,'isek_pupil')},
+ {id:'isek_duel',n:'ดาบไม้ไผ่ก็ต้องแพ้',d:'ชนะดวลนักดาบจากต่างโลก',icon:'🎋',tier:'silver',t:s=>nw(s,'isek_duel')},
+ {id:'isek_foe',n:'จอมมารกลับบ้านไป',d:'ไล่จอมมารจากต่างโลกกลับเข้าประตูมิติ',icon:'👿',tier:'gold',t:s=>nw(s,'isek_foe')},
+ {id:'isek_recall',n:'ยังไม่ทันได้ลา',d:'เพื่อนจากต่างโลกโดนเรียกตัวกลับกลางทาง',icon:'📱',tier:'silver',hid:1,t:s=>nw(s,'isek_recall')},
+ {id:'vgod_meet',n:'ผนังที่แตก',d:'เห็นตัวตนจากนอกโลกเจาะผนังหอเข้ามา',icon:'🕳️',tier:'gold',hid:1,t:s=>nw(s,'vgod')},
+ {id:'vgod_win',n:'ผู้พิชิตเทพ',d:'ล้มตัวตนจากนอกโลกได้',icon:'🌑',tier:'legend',hid:1,t:s=>nw(s,'vgod_win')},
+ {id:'vgod_touch',n:'ฝ่ามือสีดำ',d:'ให้ตัวตนจากนอกโลกแตะมือ แล้วได้เห็นหอคอยนับพันหอ',icon:'🖐️',tier:'gold',hid:1,t:s=>nw(s,'vgod_touch')},
+ {id:'toll_free',n:'ไม่จ่ายสักแดง',d:'ผ่านด่านโจรป่าไปโดยไม่เสียค่าผ่านทาง',icon:'🪵',tier:'bronze',t:s=>nw(s,'toll')},
+ {id:'gmkt',n:'ลูกค้าตลาดผี',d:'ซื้อขายกับแผงในตลาดผีตอนเที่ยงคืน',icon:'🏮',tier:'bronze',t:s=>nw(s,'gmkt')},
+ {id:'siren',n:'เพลงใต้ทะเลสาบ',d:'ได้ของขวัญจากนางเงือกในทะเลสาบใต้ดิน',icon:'🧜',tier:'silver',t:s=>nw(s,'siren')},
+ {id:'summon',n:'ปิดวงเวท',d:'จัดการปีศาจที่ศิษย์จอมเวทเรียกพลาด',icon:'🔮',tier:'bronze',t:s=>nw(s,'summon')},
+ {id:'gwed',n:'แขกคนแรก',d:'ได้ของติดมือกลับจากงานแต่งก็อบลิน',icon:'💒',tier:'bronze',t:s=>nw(s,'gwed')},
+ {id:'giant',n:'ตอบถูกเผง',d:'ตอบปริศนาของยักษ์ขวางบันไดถูก',icon:'🧠',tier:'bronze',t:s=>nw(s,'giant')},
+ {id:'fugit',n:'คนช่วยคนหนี',d:'ช่วยนักโทษหนีคุกพ้นมือทหาร',icon:'⛓️',tier:'bronze',t:s=>nw(s,'fugit')},
+ {id:'mirror',n:'ชนะเงาตัวเอง',d:'ผ่านเงาในกระจกที่ไม่ขยับตามมาได้',icon:'🪞',tier:'silver',t:s=>nw(s,'mirror')},
+ {id:'statue',n:'คำสาปหิน',d:'ปลุกเจ้าหญิงที่กลายเป็นหินให้ฟื้น',icon:'👸',tier:'gold',t:s=>nw(s,'statue')},
+ {id:'dwarf',n:'คอทองแดง',d:'ดื่มชนะคนแคระในโรงเหล้าใต้ดิน',icon:'🍺',tier:'silver',t:s=>nw(s,'dwarf')},
  {id:'exc_win',n:'ดาบกับมงกุฎ',d:'ชนะเกมทั้งที่มีดาบในหินติดตัว',icon:'⚜️',tier:'gold',t:s=>!!s.won&&s.sw===true}
 ];
+function nw(s,id){return Array.isArray(s.nwA)&&s.nwA.includes(id);}
 const BY={};DEFS.forEach(a=>{BY[a.id]=a;});
 
 // ---------- storage: อ่าน-รวม-เขียน ไม่ลบของเก่า ----------

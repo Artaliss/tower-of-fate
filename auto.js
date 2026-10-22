@@ -177,6 +177,7 @@ function newRun(h){const R={h:JSON.parse(JSON.stringify(h)),floor:1,pets:[],comp
   if(I.k>=2)R.hzP*=.94;else if(I.k<=-2)R.hzP*=1.06;}
  // family pet hatched from a secret-floor egg: every new life starts with it, unless left at home on the birth screen (h.petHome)
  const CP=h.clan&&h.clan.pet;if(CP&&!h.petHome&&PETS[CP]&&!R.pets.includes(CP)&&R.pets.length<2)R.pets.push(CP);
+ R.vgF=rnd()<VG.fq?ri(VG.lo,VG.hi):0; // floor from which the otherworld invader (vgod) may break in
  R.exF=!hasSw(R)&&rnd()<EXC.fq?ri(EXC.lo,EXC.hi):0; // floor from which the sword in the stone may show up (0 = not this life)
  return R;}
 // ---- karma ledger: every change of R.karma is written down with the floor and what caused it (R.kctx) ----
@@ -1080,6 +1081,201 @@ Object.assign(SPECIAL,{
 Object.assign(TIER,{nec:'l',ang:'l'});
 Object.assign(TIER,{smith:'c',bard:'c',thief:'c',monk:'c',cat:'c',hunter:'c',scholar:'c',noble:'c',imp:'c',tomb:'c',bridge:'c',crystal:'c',book:'c',campfire:'c',snack:'c',cavein:'c',drill:'c',lantern:'c',bones:'c',fairyq:'c',stars:'c',peddler:'c',snailrace:'c',brew:'c',ruin:'c',harvest:'c',pit:'c',
  cultist:'r',healer:'r',oathk:'r',heist:'r',whale:'r',phoenix:'l',kingless:'l',astral:'l'});
+// ---- v0.2.23: 13 key moments the player always answers (NW_K joins NO_WAY, so SAME_WAY/PLAIN never answer them), plus vgod further down.
+// R.nwA = outcomes for achievements (summary.nwA); companions from another world carry c.isk and may be called home (LATER.isk_recall)
+const nwA=(R,id)=>{const A=Array.isArray(R.nwA)?R.nwA:(R.nwA=[]);if(!A.includes(id))A.push(id);};
+const NW_K=['orc','elf','isek','toll','gmkt','siren','summon','gwed','giant','fugit','mirror','statue','dwarf','vgod'];
+const lukCh=(R,b)=>clamp(b+(eLuk(R)-10-R.floor*.15)*.015,.12,.9);
+const ORC_GN=['มะลิ','จันทร์เพ็ญ','ลำดวน','ดารุณี','การะเกด','บุษบา'],ELF_N=['ลีเอล','เซเรนา','ไอลิน','ฟาเอเรีย'],ISK_N=['ทาคุมิ','ยูกิ','ซาโตชิ','เคนตะ','ฮารุกะ','ริน'];
+const orcEn=(R,k)=>monFit(R,modMon(R,mkMon({id:'orc',n:'ออร์คหัวหน้าเผ่า',hp:1.3*k,atk:1.2*k,def:1.1},R.floor,1),MD(R,'mon',1)));
+const RIDDLE=[['อะไรเอ่ย ยิ่งขุดออกยิ่งใหญ่',['หลุม','ภูเขา','หนี้สิน']],['อะไรเอ่ย มีฟันเต็มปากแต่กัดใครไม่ได้',['หวี','จระเข้แก่','ยักษ์ฟันหลอ']],
+ ['อะไรเอ่ย เดินมาหาทุกวันแต่ไม่เคยมาถึง',['พรุ่งนี้','บุรุษไปรษณีย์','ผีบ้านข้างๆ']],['อะไรเอ่ย ยิ่งเช็ดยิ่งเปียก',['ผ้าเช็ดตัว','ปลาเค็ม','น้ำตา']],['อะไรเอ่ย มีหัวมีก้อยแต่ไม่มีตัว',['เหรียญ','งู','ลูกอ๊อด']]];
+const lost='แพ้ = บาดเจ็บหนัก';
+Object.assign(SPECIAL,{
+ orc:{w:2,mk(R,K){const f=R.floor,en=orcEn(R,1.1),w=estW(R,en),p=lukCh(R,.5),c=gS(R,45),g=pick(ORC_GN),cls=pick(['arc','pri','mag']);K.data={en,w,p,c,g,cls};
+   K.tag=`ชั้น ${f} · เสียงกรีดร้อง`;K.title='ออร์คฉุดหญิงสาว';K.vis={t:'en',en:{id:'orc',n:'ออร์ค'}};
+   K.text=`เสียงผู้หญิงกรีดร้องดังลงมาจากชั้นบน ออร์คตัวเท่าประตูกำลังลากหญิงสาวคนหนึ่งขึ้นบันได เธอยังดิ้นไม่หยุด ชายเสื้อมีตรา${clsName(cls)}ฝึกหัด ปากก็ตะโกนชื่อตัวเองว่า${g} ให้ใครก็ได้ได้ยิน ออร์คหันมาแยกเขี้ยวใส่คุณทีหนึ่ง แล้วลากเธอต่อ`;
+   K.ch=[CH('บุกเข้าไปช่วยตรงๆ',[wPart(w),{t:`ชนะ = ${g}เข้าทีม`,c:'g'},{t:lost,c:'b'},kk(2)]),
+    CH('สะกดรอยไปช่วยตอนมันหลับ',[{t:`โอกาสสำเร็จ ${Math.round(p*100)}% (LUK ${Math.round(eLuk(R))})`,c:pctC(p*100)},{t:`สำเร็จ = ${g}เข้าทีม`,c:'g'},{t:'พลาด = โดนรุมแบบตั้งตัวไม่ทัน',c:'b'},kk(1)]),
+    CH('โยนถุงทองแลกตัวเธอ',[{t:`−${c} ทอง`,c:'w'},{t:`${g}เข้าทีม`,c:'g'},...ngP(R,c)],R.h.gold<c),
+    CH('ทำเป็นไม่เห็น',[{t:'ไม่เสี่ยง',c:''},kk(-3)])];
+   K.ai=w>=55?0:1;},
+  res(R,K,i,out){const f=R.floor,{en,p,c,g,cls}=K.data;
+   const join=()=>{const cp=mkHire(R,g,cls,pick(['loyal','lucky','medic']),1.1);cp.line='"ข้าติดหนี้ชีวิตท่าน ไปไหนข้าไปด้วย"';R.map[f-1]='comp';nwA(R,'orc');
+    say(R,out,`${g}ปาดน้ำตา แล้วเก็บไม้เท้าที่ตกอยู่ขึ้นมา "ข้าติดหนี้ชีวิตท่าน ให้ข้าไปด้วยเถอะ"`,'good');hire(R,out,cp);};
+   if(i===0){R.karma+=2;R.map[f-1]='fight';say(R,out,'คุณกระโจนไปขวางหน้า ออร์คโยนหญิงสาวลงพื้นแล้วคว้าขวานขึ้นมา','info');
+    if(doFight(R,en,out,{cause:`ถูกออร์คฟาดตายตอนเข้าไปช่วยหญิงสาว (ชั้น ${f})`}))join();
+    else say(R,out,`${g}ฉวยจังหวะที่ออร์คหันมาเหยียบคุณ วิ่งหนีลงบันไดไปได้ อย่างน้อยเธอก็รอด`,'info');}
+   else if(i===1){R.karma+=1;if(rnd()<p){say(R,out,'คุณรอจนเสียงกรนของออร์คดังทั้งถ้ำ แล้วค่อยๆ ตัดเชือกที่มัดเธอ ออกมาได้โดยไม่มีตัวไหนตื่น','good');join();}
+    else{R.map[f-1]='fight';say(R,out,'เท้าคุณเตะหม้อดินแตกดังเพล้ง ออร์คทั้งถ้ำลุกขึ้นพร้อมกัน','bad');
+     if(doFight(R,orcEn(R,1.25),out,{ambush:true,cause:`ถูกออร์คทั้งเผ่ารุมตอนลอบเข้าถ้ำ (ชั้น ${f})`}))join();}}
+   else if(i===2){R.h.gold-=c;say(R,out,'ออร์คชั่งถุงทองในมือ แล้วผลักหญิงสาวมาทางคุณ ก่อนเดินหายเข้าไปในความมืด','info');join();}
+   else{R.karma-=3;R.map[f-1]='evil';say(R,out,'คุณหันไปทางอื่น เสียงกรีดร้องค่อยๆ เบาลงจนเงียบ','bad');}}},
+ elf:{w:2,mk(R,K){const f=R.floor,n=pick(ELF_N),g=gG(R,90),a=2+f*.1;K.data={n,g,a};
+   K.tag=`ชั้น ${f} · ตาข่ายพรานเถื่อน`;K.title='เอลฟ์ติดตาข่าย';K.vis=npc('elf');
+   K.text=`ตาข่ายเชือกห้อยลงมาจากคานเพดาน ข้างในเป็นเอลฟ์สาวชื่อ${n} ปลายหูแหลมโผล่ออกมาตามช่องตาข่าย ป้ายที่ผูกไว้เขียนว่า "ของพรานคำแหง ห้ามแตะ จะเอาไปขายตลาดชั้นล่าง" เธอมองคุณแล้วพูดเบาๆ "ปล่อยข้าเถอะ ข้าตอบแทนได้"`;
+   K.ch=[CH('ตัดตาข่ายแล้วชวนมาด้วยกัน',[{t:`${n}เข้าทีม (นักธนู)`,c:'g'},...fullP(R),kk(2)]),
+    CH('ตัดตาข่าย แล้วขอให้สอนยิงธนู',[{t:`ATK +${a.toFixed(1)}`,c:'g'},{t:'LUK +3',c:'g'},kk(2)]),
+    CH('ขายเธอให้พ่อค้าทาส',[{t:`+${g} ทอง`,c:'g'},kk(-4)]),
+    CH('ไม่ยุ่ง ของมีเจ้าของ',[{t:'ไม่เสี่ยง',c:''},kk(-1)])];
+   K.ai=R.comps.length<2&&cid(R)!=='nec'?0:1;},
+  res(R,K,i,out){const f=R.floor,h=R.h,{n,g,a}=K.data;
+   if(i===0){R.karma+=2;R.map[f-1]='comp';nwA(R,'elf');const cp=mkHire(R,n,'arc','lucky',1.15);cp.line='"ลูกธนูของข้าไม่เคยพลาด ยกเว้นตอนติดตาข่าย"';
+    say(R,out,`${n}เดินไปล้วงหลังเสาแล้วหยิบธนูของตัวเองออกมา "พรานคนนั้นซ่อนไม่มิดหรอก"`,'good');hire(R,out,cp);}
+   else if(i===1){R.karma+=2;h.atk+=a;h.luk+=3;R.map[f-1]='good';nwA(R,'elf');say(R,out,`${n}จับมือคุณง้างสายธนูอยู่ครึ่งวัน จนลูกสุดท้ายปักกลางผลแอปเปิลบนหัวรูปปั้น (ATK +${a.toFixed(1)} · LUK +3)`,'good');}
+   else if(i===2){coin(R,out,g);R.karma-=4;R.map[f-1]='evil';say(R,out,`พ่อค้าทาสนับทองให้ ${g} เหรียญ ${n}ไม่ร้องไห้เลย เธอจ้องหน้าคุณอยู่อย่างนั้นจนลับตา`,'bad');}
+   else{R.karma-=1;R.map[f-1]='calm';say(R,out,'คุณเดินผ่านไป ได้ยินเสียงเธอถอนหายใจไล่หลังมา','info');}}},
+ isek:{w:2,mk(R,K){const f=R.floor,n=pick(ISK_N),v=pick(['pupil','duel','follow','foe']),bad=v==='foe',en=foe(R,bad?`จอมมาร${n}`:n,bad?'mag':'war',bad?1.3:1.15),w=estW(R,en),g=gG(R,70),p=lukCh(R,.45);
+   K.data={n,v,en,w,g,p};K.tag=`ชั้น ${f} · ประตูต่างโลก`;K.vis=bad?{t:'comp',cls:'mag'}:npc('isekai');
+   const op='อากาศกลางห้องฉีกออกเป็นวงกลมสีฟ้า คนแต่งตัวประหลาดคนหนึ่งร่วงลงมากระแทกพื้น ไม่มีเกราะสักชิ้น ในมือถือแผ่นกระจกดำที่ส่องแสงได้';
+   if(v==='pupil'){K.title=`${n} คนจากต่างโลก`;K.text=`${op} ${n}ลุกขึ้นปัดฝุ่น แล้วคุกเข่าตรงหน้าคุณทันที "ในเกมที่ข้าเล่น คนแรกที่เจอต้องเป็นอาจารย์! รับข้าเป็นศิษย์เถอะ"`;
+    K.ch=[CH('รับเป็นศิษย์',[{t:`${n}เข้าทีม (ยังอ่อนอยู่)`,c:'g'},{t:'+EXP',c:'g'},{t:'อาจโดนเรียกตัวกลับโลกเดิม',c:'b'},...fullP(R)]),CH('ไล่ไปฝึกเองก่อน',[{t:'+EXP นิดหน่อย',c:'g'}])];K.ai=0;}
+   else if(v==='duel'){K.title=`${n} นักดาบต่างโลก`;K.text=`${op} ${n}ชักดาบไม้ไผ่ออกมาชี้หน้าคุณ "ข้าโดนรถบรรทุกชนแล้วมาเกิดที่นี่พร้อมพลังโกง! ดวลกับข้าสักตาสิ"`;
+    K.ch=[CH('รับคำท้า',[wPart(w),{t:'ชนะ = EXP เยอะ + ของจากต่างโลก',c:'g'},{t:lost,c:'b'}]),CH('ปฏิเสธ',[{t:'ไม่เสี่ยง',c:''}])];K.ai=w>=55?0:1;}
+   else if(v==='follow'){K.title=`${n} ผู้กล้าที่ถูกอัญเชิญผิดที่`;K.text=`${op} ${n}มองไปรอบๆ แล้วเกาหัว "เขาบอกว่าจะอัญเชิญข้าไปปราบจอมมาร ทำไมมาโผล่ในหอคอยล่ะ ขอเดินตามท่านไปก่อนได้ไหม"`;
+    K.ch=[CH('พาไปด้วย',[{t:`${n}เข้าทีม (แรงมาก)`,c:'g'},{t:'อาจโดนเรียกตัวกลับกลางทาง',c:'b'},...fullP(R)]),CH('ชี้ทางลงหอให้',[{t:'LUK +2',c:'g'},kk(1)])];K.ai=0;}
+   else{K.title=`จอมมาร${n}จากต่างโลก`;K.text=`${op} แต่คนนี้คลุมผ้าสีดำ ลายวงเวทเรืองแดงพาดตามแขน "โลกเก่าข้ายึดหมดแล้ว ที่นี่คงไม่ยากกว่ากัน"`;
+    K.ch=[CH('สู้ก่อนมันตั้งตัว',[wPart(w),{t:'ชนะ = EXP เยอะ + ทอง',c:'g'},{t:lost,c:'b'},kk(1)]),CH('ถีบกลับเข้าประตูมิติ',[{t:`โอกาส ${Math.round(p*100)}%`,c:pctC(p*100)},{t:'พลาด = โดนสาป',c:'b'}]),CH('หลบไปทางอื่น',[{t:'HP −10%',c:'b'}])];K.ai=w>=50?0:2;}},
+  res(R,K,i,out){const f=R.floor,h=R.h,{n,v,en,g,p}=K.data;nwA(R,'isek');
+   const join=(k,tr,ln)=>{const cp=mkHire(R,n,'war',tr,k);cp.isk=1;cp.line=ln;R.map[f-1]='comp';hire(R,out,cp);
+    if(R.comps.includes(cp)){laterAt(R,ri(6,15),'isk_recall',{n},`${n}อาจโดนเรียกตัวกลับโลกเดิม`);if(v==='pupil')nwA(R,'isek_pupil');}};
+   if(v==='pupil'){if(i===0){say(R,out,`${n}ก้มหัวจนหน้าผากแทบติดพื้น "ขอฝากตัวด้วยครับอาจารย์!"`,'good');xp(R,out,10,1);join(.7,'loyal','"อาจารย์ สอนท่าใหม่ให้ข้าอีกสิ"');}
+    else{xp(R,out,5,.5);R.map[f-1]='calm';say(R,out,`${n}ทำปากยื่น แต่ก็ยอมเดินไปซ้อมฟันตอไม้คนเดียว`,'info');}}
+   else if(v==='duel'){if(i===0){R.map[f-1]='fight';say(R,out,`ดวลกับ${n}!`,'info');
+     if(doFight(R,en,out,{rw:2,cause:`แพ้ดวลนักดาบจากต่างโลก (ชั้น ${f})`})){const a=1.5+f*.06;h.atk+=a;nwA(R,'isek_duel');say(R,out,`${n}ยอมแพ้ แล้วยื่นมีดพับสีเหลืองให้เล่มหนึ่ง "ที่โลกข้าเรียกว่าคัตเตอร์ คมกว่าที่เห็นนะ" (ATK +${a.toFixed(1)})`,'good');}}
+    else{R.map[f-1]='calm';say(R,out,`${n}ถอนหายใจ "ไม่มีใครรับคำท้าข้าสักคน" แล้วนั่งลงจิ้มแผ่นกระจกดำต่อ`,'info');}}
+   else if(v==='follow'){if(i===0){say(R,out,`${n}ยิ้มกว้าง แสงสีทองไหลออกจากฝ่ามือเขาเองโดยไม่ต้องร่ายคาถา`,'good');join(1.6,'brave','"ปราบจอมมารที่ไหนก็เหมือนกันแหละ"');}
+    else{h.luk+=2;R.karma+=1;R.map[f-1]='good';say(R,out,`${n}โบกมือลาแล้ววิ่งลงบันไดไป ตะโกนกลับมาว่าถ้าได้กลับบ้านจะเล่าเรื่องคุณให้เพื่อนฟัง`,'good');}}
+   else if(i===0){R.karma+=1;R.map[f-1]='fight';if(doFight(R,en,out,{rw:2,cause:`ถูกจอมมารจากต่างโลกสังหาร (ชั้น ${f})`})){coin(R,out,g);nwA(R,'isek_foe');say(R,out,`ร่างของ${n}สลายเป็นละอองแสงแล้วถูกดูดกลับเข้าประตูมิติ ทิ้งถุงทองไว้ ${g}`,'good');}}
+   else if(i===1){if(rnd()<p){h.luk+=2;R.map[f-1]='good';nwA(R,'isek_foe');say(R,out,`คุณถีบเต็มแรง ${n}ร่วงกลับเข้าประตูมิติไปพร้อมคำด่าที่ฟังไม่ออก แล้วประตูก็ปิด`,'good');}
+    else{hurt(R,.25);R.cursed++;R.map[f-1]='bad';say(R,out,`${n}เอี้ยวตัวหลบ แล้วแปะวงเวทแดงไว้กลางหลังคุณ (HP −25% · ติดคำสาป)`,'bad');}}
+   else{hurt(R,.1);R.map[f-1]='calm';say(R,out,'คุณหลบลงบันไดไปทางอื่น ข้อเท้าพลิกไปหนึ่งที (HP −10%)','info');}}},
+ toll:{w:2,mk(R,K){const f=R.floor,c=gS(R,30),en=foe(R,'หัวหน้าโจรป่า','war',1.15),w=estW(R,en),p=lukCh(R,.45),g=gG(R,60);K.data={c,en,w,p,g};
+   K.tag=`ชั้น ${f} · ด่านเถื่อน`;K.title='ด่านเก็บค่าผ่านทางของโจรป่า';K.vis=npc('thief');
+   K.text=`ท่อนซุงขวางบันไดไว้ทั้งแถบ โจรห้าหกคนนั่งแทะเนื้อย่างอยู่ข้างๆ หัวหน้ามันตบป้ายไม้ที่เขียนว่า "ค่าผ่านทาง หัวละ ${c} ทอง ไม่มีก็ถอดรองเท้าไว้"`;
+   K.ch=[CH('จ่ายค่าผ่านทาง',[{t:`−${c} ทอง`,c:'w'},{t:'ผ่านไปแบบไม่มีเรื่อง',c:'g'},...ngP(R,c)],R.h.gold<c),
+    CH('ฟันหัวหน้ามันก่อน',[wPart(w),{t:`ชนะ = ยึดกล่องค่าผ่านทาง +${g} ทอง`,c:'g'},{t:lost,c:'b'}]),
+    CH('โกหกว่าทหารหลวงตามมาติดๆ',[{t:`โอกาสหลอกสำเร็จ ${Math.round(p*100)}%`,c:pctC(p*100)},{t:'พลาด = โดนรุมก่อน',c:'b'}])];
+   K.ai=w>=60?1:2;},
+  res(R,K,i,out){const f=R.floor,{c,en,p,g}=K.data;
+   if(i===0){R.h.gold-=c;R.map[f-1]='calm';say(R,out,'หัวหน้าโจรกัดเหรียญดูทีละเหรียญ แล้วโบกมือให้ลูกน้องยกท่อนซุงออก','info');}
+   else if(i===1||rnd()>=p){R.map[f-1]='fight';if(i===2)say(R,out,'หัวหน้าโจรหัวเราะลั่น "ทหารหลวงไม่ปีนมาถึงชั้นนี้หรอก"','bad');
+    if(doFight(R,en,out,{ambush:i===2,cause:`ถูกโจรป่าดักฆ่าที่ด่านเถื่อน (ชั้น ${f})`})){coin(R,out,g);nwA(R,'toll');say(R,out,`ลูกน้องโจรวิ่งหนีกระเจิง ทิ้งกล่องค่าผ่านทางไว้ ข้างในมีทอง ${g}`,'good');}}
+   else{R.h.luk+=1;R.map[f-1]='good';nwA(R,'toll');say(R,out,'คุณตะโกนลงไปทางบันไดว่า "ทางนี้! เจอแล้ว!" โจรทั้งแก๊งทิ้งเนื้อย่างแล้วปีนหนีขึ้นต้นไม้กันหมด','good');}}},
+ gmkt:{w:2,mk(R,K){const f=R.floor,c=gS(R,40),a=3+f*.18;K.data={c,a};K.tag=`ชั้น ${f} · ตลาดผี`;K.title='ตลาดผีตอนเที่ยงคืน';K.vis=npc('ghostkid');
+   K.text='ตะเกียงสีเขียวจุดเรียงสองข้างทางเดิน แผงขายของตั้งเต็มไปหมด คนขายทุกคนตัวโปร่งจนมองทะลุได้ ป้ายราคาเขียนว่า "หนึ่งความทรงจำ" "หนึ่งเงา" มีแผงเดียวที่ยังรับทองของคนเป็น';
+   K.ch=[CH('ขายเงาของตัวเอง',[{t:`ATK +${a.toFixed(1)}`,c:'g'},{t:'HP สูงสุด −10%',c:'b'}]),
+    CH('แลกความทรงจำวัยเด็ก',[{t:'LUK +6',c:'g'},{t:'ลืมหน้าแม่ไปตลอดกาล',c:'b'}]),
+    CH('ซื้อตะเกียงวิญญาณ',[{t:`−${c} ทอง`,c:'w'},{t:'ชะตายืดออก',c:'g'},...ngP(R,c)],R.h.gold<c),
+    CH('เดินออกไปโดยไม่หันหลัง',[{t:'ไม่เสี่ยง',c:''}])];K.ai=R.h.hp/R.h.mhp>.6?0:3;},
+  res(R,K,i,out){const f=R.floor,h=R.h,{c,a}=K.data;if(i<3)nwA(R,'gmkt');
+   if(i===0){h.atk+=a;h.mhp*=.9;h.hp=Math.min(h.hp,h.mhp);R.map[f-1]='evil';say(R,out,`คนขายม้วนเงาของคุณเก็บใส่ตะกร้าเหมือนผ้าผืนหนึ่ง ตัวคุณเบาหวิว แต่ดาบในมือหนักแน่นขึ้น (ATK +${a.toFixed(1)} · HP สูงสุด −10%)`,'info');}
+   else if(i===1){h.luk+=6;R.map[f-1]='calm';say(R,out,'แม่ค้าผีดึงอะไรบางอย่างออกจากหน้าผากคุณเหมือนดึงเส้นด้าย คุณนึกหน้าแม่ไม่ออกอีกแล้ว แต่รู้สึกว่าโชคเข้าข้าง (LUK +6)','info');}
+   else if(i===2){h.gold-=c;const d=shiftFate(R,4);R.map[f-1]='good';say(R,out,`คนขายยิ้มจนเห็นฟันครบปาก "ทองของคนเป็นนี่หายากนะ" ${fateFeel(d)}`,'good');}
+   else{R.map[f-1]='calm';say(R,out,'มีเสียงเรียกชื่อคุณไล่หลังมาตลอดทาง คุณไม่หันกลับไปดูสักครั้ง','info');}}},
+ siren:{w:2,mk(R,K){const f=R.floor,p=lukCh(R,.5),g=gG(R,80);K.data={p,g};K.tag=`ชั้น ${f} · ทะเลสาบใต้ดิน`;K.title='นางเงือกในทะเลสาบใต้ดิน';K.vis=npc('mermaid');
+   K.text='ถ้ำชั้นนี้มีทะเลสาบน้ำใสจนเห็นคริสตัลที่ก้นบึ้ง หญิงสาวหางปลาสีฟ้าเงินนั่งหวีผมอยู่บนโขดหิน เธอเริ่มร้องเพลง เสียงหวานจนเท้าคุณก้าวลงน้ำไปเองหนึ่งก้าว';
+   K.ch=[CH('ฟังเพลงจนจบ',[{t:`${Math.round(p*100)}% HP เต็ม + LUK +4`,c:pctC(p*100)},{t:'/ ที่เหลือโดนลากลงน้ำ HP −30%',c:'b'}]),
+    CH('ร้องเพลงตอบเธอ',[{t:'ถ้าเธอชอบ ได้ไข่มุก',c:'g'},{t:'ถ้าไม่ชอบ โดนสาดน้ำใส่',c:'w'}]),
+    CH('เอาขี้ผึ้งอุดหูแล้วเดินผ่าน',[{t:'ไม่เสี่ยง',c:''}]),
+    CH('ซัดหอกขูดเกล็ดไปขาย',[{t:`+${g} ทอง`,c:'g'},{t:'HP −10%',c:'b'},kk(-3)])];K.ai=p>=.55?0:2;},
+  res(R,K,i,out){const f=R.floor,h=R.h,{p,g}=K.data;
+   if(i===0){if(rnd()<p){h.hp=h.mhp;h.luk+=4;R.map[f-1]='good';nwA(R,'siren');say(R,out,'เพลงจบลง เธอยิ้มให้แล้วดำน้ำหายไป ร่างกายคุณเบาสบายเหมือนเพิ่งตื่นนอน (HP เต็ม · LUK +4)','good');}
+    else{hurt(R,.3);R.map[f-1]='bad';say(R,out,'รู้ตัวอีกทีน้ำก็ท่วมถึงคอ มือเย็นๆ ดึงข้อเท้าคุณลงไป กว่าจะดิ้นหลุดก็สำลักน้ำไปหลายอึก (HP −30%)','bad');}}
+   else if(i===1){if(rnd()<lukCh(R,.45)+(cid(R)==='pri'?.1:0)){R.potions+=2;const gg=coin(R,out,Math.round(g*.6));nwA(R,'siren');R.map[f-1]='treasure';say(R,out,`เสียงคุณเพี้ยนไปหลายคีย์ แต่เธอหัวเราะจนหางฟาดน้ำ แล้วโยนไข่มุกกับขวดน้ำจากทะเลสาบมาให้ (+${gg} ทอง · +2 ยา)`,'good');}
+    else{R.map[f-1]='calm';say(R,out,'เธอทำหน้าเหมือนได้ยินแมวโดนเหยียบ แล้วสะบัดหางสาดน้ำใส่คุณจนเปียกทั้งตัว','info');}}
+   else if(i===2){R.map[f-1]='calm';say(R,out,'คุณเดินผ่านไปโดยไม่ได้ยินอะไรเลย เห็นแค่ปากเธอขยับกับสีหน้าผิดหวัง','info');}
+   else{coin(R,out,g);hurt(R,.1);R.karma-=3;R.map[f-1]='evil';say(R,out,`เธอกรีดร้องเสียงแหลมจนหูคุณอื้อ เกล็ดที่ขูดได้ขายได้ ${g} ทอง (HP −10%)`,'bad');}}},
+ summon:{w:2,mk(R,K){const f=R.floor,en=monFit(R,mkMon({id:'wraith',n:'ปีศาจจากวงเวท',hp:1.2,atk:1.2,def:1},f,1)),w=estW(R,en),a=4+f*.22,
+   p=clamp(.4+(R.h.lv-f*.33)*.03+(['mag','pri','nec'].includes(cid(R))?.2:0),.15,.9);K.data={en,w,p,a};
+   K.tag=`ชั้น ${f} · วงเวทพัง`;K.title='ศิษย์จอมเวทเรียกปีศาจพลาด';K.vis=npc('imp');
+   K.text='เด็กหนุ่มใส่หมวกแหลมเบี้ยวๆ วิ่งร้องไห้ลงบันไดมาชนคุณ "ข้าแค่จะเรียกแมวมาเป็นสัตว์รับใช้!" ข้างหลังเขามีวงเวทสีม่วงหมุนติ้ว ปีศาจตัวหนึ่งกำลังปีนออกมาทีละแขน';
+   K.ch=[CH('สู้กับปีศาจ',[wPart(w),{t:'ชนะ = EXP เยอะ',c:'g'},{t:lost,c:'b'},kk(1)]),
+    CH('ช่วยเด็กลบวงเวท',[{t:`โอกาสสำเร็จ ${Math.round(p*100)}%`,c:pctC(p*100)},{t:'พลาด = ปีศาจหลุดออกมาทั้งตัว',c:'b'},kk(2)]),
+    CH('ทำสัญญากับปีศาจ',[{t:`ATK +${a.toFixed(1)}`,c:'g'},{t:'ติดคำสาป',c:'b'},kk(-3)]),
+    CH('จูงเด็กวิ่งหนี',[{t:'ไม่เสี่ยง',c:''},kk(1)])];K.ai=w>=60?0:p>=.5?1:3;},
+  res(R,K,i,out){const f=R.floor,h=R.h,{en,p,a}=K.data;
+   const fightIt=amb=>{R.map[f-1]='fight';if(doFight(R,en,out,{ambush:amb,rw:1.6,cause:`ถูกปีศาจจากวงเวทพังฉีกร่าง (ชั้น ${f})`})){nwA(R,'summon');say(R,out,'ปีศาจสลายเป็นควันสีม่วง เด็กหนุ่มกอดขาคุณแน่นจนเดินไม่ได้ไปพักใหญ่','good');}};
+   if(i===0){R.karma+=1;fightIt(false);}
+   else if(i===1){R.karma+=2;if(rnd()<p){nwA(R,'summon');R.map[f-1]='good';xp(R,out,15,1.2);say(R,out,'คุณใช้เท้าลบเส้นวงเวทเส้นสุดท้าย ปีศาจโดนดูดกลับลงไปพร้อมเสียงโวยวาย แล้วมีแมวดำตัวหนึ่งหล่นออกมาแทน','good');}
+    else{say(R,out,'เส้นที่คุณลบดันเป็นเส้นที่ขังปีศาจไว้ มันหลุดออกมาทั้งตัว','bad');fightIt(true);}}
+   else if(i===2){h.atk+=a;R.cursed++;R.karma-=3;R.map[f-1]='evil';say(R,out,`ปีศาจยื่นกรงเล็บมาจับมือ รอยสักสีดำลามขึ้นแขนคุณ (ATK +${a.toFixed(1)} · ติดคำสาป)`,'bad');}
+   else{R.karma+=1;R.map[f-1]='calm';say(R,out,'คุณคว้าคอเสื้อเด็กแล้ววิ่งขึ้นบันได เสียงข้าวของแตกดังไล่หลังมาอีกนาน','info');}}},
+ gwed:{w:2,mk(R,K){const f=R.floor,c=gS(R,20),g=gG(R,70),p=lukCh(R,.5);K.data={c,g,p};K.tag=`ชั้น ${f} · งานมงคล`;K.title='งานแต่งก็อบลิน';K.vis={t:'en',en:{id:'goblin',n:'ก็อบลิน'}};
+   K.text='กลองหนังดังตุ้มๆ ทั้งชั้น ก็อบลินเป็นร้อยตัวคล้องพวงมาลัยดอกเห็ด เจ้าบ่าวเจ้าสาวนั่งบนบัลลังก์ที่ทำจากหม้อคว่ำ ก็อบลินแก่ตัวหนึ่งเดินมาดึงชายเสื้อคุณ "แขกคนแรกที่ไม่ใช่ก็อบลิน! เข้ามาๆ"';
+   K.ch=[CH('ใส่ซองช่วยงาน',[{t:`−${c} ทอง`,c:'w'},{t:'+2 ยา (ของชำร่วย)',c:'g'},{t:'LUK +2',c:'g'},kk(1),...ngP(R,c)],R.h.gold<c),
+    CH('ลงไปเต้นกลางวง',[{t:`${Math.round(p*100)}% ได้รางวัลนักเต้น`,c:pctC(p*100)},{t:'/ พลาด = ล้มคะมำ HP −10%',c:'b'}]),
+    CH('แอบหยิบถุงสินสอด',[{t:`+${g} ทอง`,c:'g'},{t:'อาจโดนจับได้',c:'b'},kk(-2)]),
+    CH('อวยพรแล้วเดินต่อ',[{t:'ไม่เสียอะไร',c:''},kk(1)])];K.ai=1;},
+  res(R,K,i,out){const f=R.floor,h=R.h,{c,g,p}=K.data;
+   if(i===0){h.gold-=c;R.potions+=2;h.luk+=2;R.karma+=1;R.map[f-1]='good';nwA(R,'gwed');say(R,out,'เจ้าสาวก็อบลินหอมแก้มคุณจนน้ำลายเยิ้ม ของชำร่วยเป็นยาสีเขียวสองขวด กลิ่นเหมือนเห็ดหมัก','good');}
+   else if(i===1){if(rnd()<p){const gg=coin(R,out,Math.round(g*.5));h.luk+=2;nwA(R,'gwed');R.map[f-1]='good';say(R,out,`ก็อบลินทั้งงานปรบมือจนหูชา คุณได้มงกุฎดอกเห็ดกับถุงทอง ${gg} เป็นรางวัลนักเต้นยอดเยี่ยม`,'good');}
+    else{hurt(R,.1);R.map[f-1]='calm';say(R,out,'คุณสะดุดหางก็อบลินแล้วหน้าคะมำลงไปในหม้อแกง ทั้งงานหัวเราะจนกลองหยุดตี (HP −10%)','info');}}
+   else if(i===2){R.karma-=2;if(rnd()<.6){coin(R,out,g);R.map[f-1]='evil';say(R,out,`ถุงสินสอดหนักมือ ข้างในมีทอง ${g} กับฟันทองอีกสองซี่`,'info');}
+    else{R.map[f-1]='fight';say(R,out,'แม่เจ้าสาวเห็นพอดี เสียงกลองหยุด ก็อบลินทั้งงานหันมาพร้อมกัน','bad');
+     doFight(R,monFit(R,mkMon({id:'goblin',n:'ญาติเจ้าสาวก็อบลิน',hp:1.4,atk:1.2,def:1},f,1)),out,{ambush:true,cause:`ถูกญาติเจ้าสาวก็อบลินรุมกระทืบ (ชั้น ${f})`});}}
+   else{R.karma+=1;R.map[f-1]='good';say(R,out,'คุณยกมือไหว้คู่บ่าวสาว ก็อบลินแก่น้ำตาซึม บอกว่าไม่มีใครไหว้ก็อบลินมาสามชั่วคนแล้ว','good');}}},
+ giant:{w:2,mk(R,K){const f=R.floor,q=RIDDLE[ri(0,RIDDLE.length-1)],ord=[0,1,2].map(j=>[rnd(),j]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]),
+   en=monFit(R,mkMon({id:'golem',n:'ยักษ์เฝ้าบันได',hp:1.5,atk:1.15,def:1.2},f,1)),w=estW(R,en),a=2+f*.1;K.data={ok:ord.indexOf(0),en,w,a,ans:q[1][0]};
+   K.tag=`ชั้น ${f} · ปริศนาของยักษ์`;K.title='ยักษ์ทายปริศนาขวางบันได';K.vis={t:'en',en:{id:'golem',n:'ยักษ์'}};
+   K.text=`ยักษ์ตัวสูงเท่าสามชั้นนั่งขัดสมาธิขวางบันไดไว้ทั้งแผง มันก้มหน้าลงมาจนลมหายใจพัดผมคุณปลิว "ตอบถูก ข้าให้ผ่านพร้อมของขวัญ ตอบผิด ข้าดีดเจ้ากระเด็น" แล้วถามว่า "${q[0]}"`;
+   K.ch=ord.map(j=>CH(`ตอบว่า "${q[1][j]}"`,[{t:'ถูก = HP เต็ม + EXP + ATK',c:'g'},{t:'ผิด = HP −30%',c:'b'}]));
+   K.ch.push(CH('ไม่ตอบ ขอสู้แทน',[wPart(w),{t:'ชนะ = EXP เยอะ',c:'g'},{t:lost,c:'b'}]));K.ai=0;},
+  res(R,K,i,out){const f=R.floor,h=R.h,{ok,en,a,ans}=K.data;
+   if(i===3){R.map[f-1]='fight';if(doFight(R,en,out,{rw:2,cause:`ถูกยักษ์เฝ้าบันไดเหยียบแบน (ชั้น ${f})`}))say(R,out,'ยักษ์ล้มลงนั่งก้นจ้ำเบ้า หัวเราะจนหอสั่น แล้วหลีกทางให้','good');return;}
+   if(i===ok){h.hp=h.mhp;h.atk+=a;xp(R,out,20,1.5);nwA(R,'giant');R.map[f-1]='good';say(R,out,`ยักษ์ตบเข่าฉาดจนฝุ่นตลบ "ถูกเผง!" มันส่งผลไม้ลูกเท่าหัวคนให้กิน แล้วหยิบตัวคุณข้ามไหล่ไปวางไว้อีกฝั่ง (HP เต็ม · ATK +${a.toFixed(1)})`,'good');}
+   else{hurt(R,.3);R.map[f-1]='bad';say(R,out,`ยักษ์ทำหน้าเบื่อ "ผิด คำตอบคือ${ans}" แล้วดีดนิ้วใส่ คุณกระเด็นไปติดกำแพงอีกฝั่งบันได (HP −30%)`,'bad');}}},
+ fugit:{w:2,mk(R,K){const f=R.floor,g=gG(R,55);K.data={g};K.tag=`ชั้น ${f} · เสียงโซ่ลาก`;K.title='นักโทษหนีคุก';K.vis=npc('thief');
+   K.text='ชายผอมกะหร่องลากโซ่ตรวนวิ่งขึ้นบันไดมา ข้อเท้าเลือดซิบ "ข้าขโมยขนมปังให้ลูกกินก้อนเดียว พรุ่งนี้เขาจะแขวนคอข้า" เสียงฝีเท้าทหารดังตามมาห่างไปไม่กี่ชั้น';
+   K.ch=[CH('ซ่อนเขาไว้หลังกองลัง',[{t:'ทหารอาจสืบรู้ทีหลัง',c:'w'},{t:'เขาอาจตอบแทน',c:'g'},kk(2)]),
+    CH('ตัดโซ่ให้แล้วชี้ทางหนี',[{t:'HP −5% (เศษเหล็กบาด)',c:'b'},{t:'LUK +2',c:'g'},kk(2)]),
+    CH('จับส่งทหาร',[{t:`+${g} ทอง (ค่าหัว)`,c:'g'},kk(-2)])];K.ai=0;},
+  res(R,K,i,out){const f=R.floor,h=R.h,{g}=K.data;
+   if(i===0){R.karma+=2;R.map[f-1]='good';nwA(R,'fugit');laterAt(R,ri(3,7),'fugit',{},'ทหารคุมนักโทษยังตามสืบเรื่องที่ชั้นนั้น');say(R,out,'ทหารวิ่งผ่านกองลังไปโดยไม่ทันเหลียวมอง ชายคนนั้นกระซิบขอบคุณทั้งน้ำตา','good');}
+   else if(i===1){R.karma+=2;hurt(R,.05);h.luk+=2;R.map[f-1]='good';nwA(R,'fugit');say(R,out,'โซ่ขาดดังเป๊าะ เขาวิ่งหายไปทางบันไดหนีไฟโดยไม่ทันหันมาลา','good');}
+   else{coin(R,out,g);R.karma-=2;R.map[f-1]='evil';say(R,out,`ทหารลากเขากลับลงไป เสียงเขาเรียกชื่อลูกดังก้องอยู่ในช่องบันได (+${g} ทอง)`,'bad');}}},
+ mirror:{w:2,mk(R,K){const f=R.floor,id=cid(R),en=foe(R,`เงาของ${R.h.name}`,id,1.1),w=estW(R,en),p=lukCh(R,.5);K.data={en,w,p};
+   K.tag=`ชั้น ${f} · กระจกบานใหญ่`;K.title='เงาในกระจกที่ไม่ขยับตาม';K.vis={t:'comp',cls:id};
+   K.text='กระจกบานสูงจรดเพดานตั้งพิงผนังอยู่ คุณยกมือแล้วแต่เงาในนั้นยังยืนนิ่ง สักพักมันก็ยิ้มทั้งที่คุณไม่ได้ยิ้ม แล้วก้าวขาข้างหนึ่งออกมานอกกระจก';
+   K.ch=[CH('สู้กับตัวเอง',[wPart(w),{t:'ชนะ = ATK และ DEF เพิ่ม',c:'g'},{t:lost,c:'b'}]),
+    CH('ทุบกระจกก่อนมันออกมา',[{t:`${Math.round(p*100)}% ทันพอดี`,c:pctC(p*100)},{t:'/ ไม่ทัน = HP −20% แล้วต้องสู้',c:'b'},{t:'LUK −2 (กระจกแตก)',c:'b'}]),
+    CH('ลองคุยกับมันดีๆ',[{t:'มันอาจเล่าเรื่องที่คุณลืมไป',c:'w'},{t:'หรือแย่งร่างคุณ',c:'b'}])];K.ai=w>=55?0:1;},
+  res(R,K,i,out){const f=R.floor,h=R.h,{en,p}=K.data;
+   const fightIt=()=>{R.map[f-1]='fight';if(doFight(R,en,out,{rw:1.8,cause:`ถูกเงาในกระจกของตัวเองฆ่าตาย (ชั้น ${f})`})){const a=1.5+f*.08,d=1+f*.05;h.atk+=a;h.def+=d;nwA(R,'mirror');
+    say(R,out,`เงาแตกเป็นเสี่ยงๆ ก่อนหายไปมันกระซิบบอกช่องโหว่ในท่าฟันของคุณ (ATK +${a.toFixed(1)} · DEF +${d.toFixed(1)})`,'good');}};
+   if(i===0)fightIt();
+   else if(i===1){h.luk-=2;if(rnd()<p){R.map[f-1]='calm';say(R,out,'กระจกแตกโพละ เงานั้นกรีดร้อง แล้วเหลือแต่กรอบเปล่า (LUK −2)','info');}
+    else{hurt(R,.2);say(R,out,'เงาก้าวออกมาได้ทั้งตัวก่อนกระจกจะแตก เศษแก้วบาดแขนคุณเป็นทาง (HP −20%)','bad');fightIt();}}
+   else if(rnd()<.5){R.map[f-1]='good';xp(R,out,15,1.2);h.luk+=3;nwA(R,'mirror');say(R,out,'เงานั่งลงคุยด้วยเกือบชั่วโมง มันจำทุกเรื่องที่คุณลืมไปแล้วได้หมด พอคุยจบก็โบกมือแล้วถอยกลับเข้ากระจก (LUK +3)','good');}
+   else{say(R,out,'เงายื่นมือมาจับไหล่คุณ แล้วพยายามดันคุณเข้าไปในกระจกแทน','bad');fightIt();}}},
+ statue:{w:2,mk(R,K){const f=R.floor,g=gG(R,100),np=R.potions>=1;K.data={g};K.tag=`ชั้น ${f} · ห้องโถงหิน`;K.title='รูปปั้นเจ้าหญิงที่ร้องไห้';K.vis=npc('statue');
+   K.text='กลางห้องโถงมีรูปปั้นหินเจ้าหญิงสวมมงกุฎ แก้มหินมีน้ำตาไหลเป็นทางจริงๆ ตาข้างหนึ่งเป็นทับทิมเม็ดเท่าไข่นกพิราบ ที่ฐานสลักไว้ว่า "ต้องคำสาปแม่มด ขอใครสักคนช่วย"';
+   K.ch=[CH('รดยาฟื้นฟูลงบนรูปปั้น',[{t:'−1 ยา',c:'w'},{t:'อาจคลายคำสาปได้',c:'g'},kk(2),...(np?[]:[{t:'(ไม่มียา)',c:'b'}])],!np),
+    CH('แคะทับทิมออกมา',[{t:`+${g} ทอง`,c:'g'},{t:'อาจโดนคำสาปแม่มดตาม',c:'b'},kk(-2)]),
+    CH('นั่งสวดให้เธอ',[{t:'LUK +2',c:'g'},kk(1)])];K.ai=np?0:2;},
+  res(R,K,i,out){const f=R.floor,h=R.h,{g}=K.data;
+   if(i===0){R.potions=Math.max(0,R.potions-1);R.karma+=2;if(rnd()<.65){R.map[f-1]='good';nwA(R,'statue');h.mhp*=1.12;h.hp=h.mhp;const d=shiftFate(R,3);
+     say(R,out,`หินร่อนหลุดลงทีละชั้นจนเหลือหญิงสาวตัวจริงยืนตัวสั่นอยู่ เธอแตะหน้าผากคุณ ร่ายพรของราชวงศ์ให้ แล้ววิ่งลงบันไดกลับบ้าน (HP สูงสุด +12% · HP เต็ม) ${fateFeel(d)}`,'good');}
+    else{R.map[f-1]='calm';h.luk+=2;say(R,out,'ยาซึมลงไปในหินหมด น้ำตาของรูปปั้นหยุดไหล แต่เธอยังเป็นหินอยู่ คุณว่าเห็นมุมปากเธอยกขึ้นนิดหนึ่ง (LUK +2)','info');}}
+   else if(i===1){coin(R,out,g);R.karma-=2;R.map[f-1]='evil';if(rnd()<.4){R.cursed++;say(R,out,`ทับทิมหลุดออกมาพร้อมเสียงร้องไห้ดังลั่นห้อง คำสาปแม่มดเกาะมือคุณมาด้วย (+${g} ทอง · ติดคำสาป)`,'bad');}
+    else say(R,out,`ทับทิมหลุดออกมาง่ายๆ เบ้าตาที่ว่างยังมีน้ำตาไหลไม่หยุด (+${g} ทอง)`,'info');}
+   else{h.luk+=2;R.karma+=1;R.map[f-1]='good';say(R,out,'คุณนั่งสวดจนเทียนหมดเล่ม ลมเย็นพัดผ่านห้องทั้งที่ไม่มีหน้าต่าง (LUK +2)','good');}}},
+ dwarf:{w:2,mk(R,K){const f=R.floor,c=gS(R,25),g=gG(R,90),p=clamp(.25+R.h.hp/R.h.mhp*.3+(['war','dra','dsl','far'].includes(cid(R))?.12:0),.15,.85);K.data={c,g,p};
+   K.tag=`ชั้น ${f} · โรงเหล้าใต้ดิน`;K.title='แข่งดื่มกับคนแคระ';K.vis=npc('dwarf');
+   K.text=`โรงเหล้าของคนแคระขุดเข้าไปในผนังหอ ถังเบียร์เรียงสูงจนชนเพดาน คนแคระเคราแดงทุบโต๊ะปัง "ดื่มชนะข้าได้ เอาทองกองนี้ไปเลย! แพ้ก็จ่ายค่าเบียร์ ${c} ทอง"`;
+   K.ch=[CH('แข่งดื่ม',[{t:`โอกาสชนะ ${Math.round(p*100)}% (ดูจาก HP)`,c:pctC(p*100)},{t:`ชนะ +${g} ทอง`,c:'g'},{t:`เดิมพัน: แพ้ −${c} ทอง HP −15%`,c:'w'},...ngP(R,c)],R.h.gold<c),
+    CH('ซื้อเบียร์ดำกลับไป',[{t:`−${c} ทอง`,c:'w'},{t:'+2 ยา',c:'g'},...ngP(R,c)],R.h.gold<c),
+    CH('นั่งฟังเขาเล่าเรื่องเหมือง',[{t:'+EXP',c:'g'},{t:'DEF เพิ่มนิดหน่อย',c:'g'}])];K.ai=2;},
+  res(R,K,i,out){const f=R.floor,h=R.h,{c,g,p}=K.data;
+   if(i===0){if(rnd()<p){coin(R,out,g);nwA(R,'dwarf');R.map[f-1]='treasure';say(R,out,`คนแคระฟุบหน้าลงโต๊ะตอนแก้วที่สิบสาม เสียงกรนดังกว่าเสียงเชียร์ทั้งร้าน คุณกวาดทอง ${g} ใส่ถุงทั้งที่ตายังลาย`,'good');}
+    else{h.gold=Math.max(0,h.gold-c);hurt(R,.15);R.map[f-1]='bad';say(R,out,`คุณจำได้แค่แก้วที่เจ็ด ตื่นมาอีกทีนอนอยู่ในถังเปล่า ถุงทองเบาลง ${c} (HP −15%)`,'bad');}}
+   else if(i===1){h.gold-=c;R.potions+=2;R.map[f-1]='calm';say(R,out,'คนแคระกรอกเบียร์ดำใส่ขวดให้สองขวด "ดื่มตอนใกล้ตายนะ ปลุกคนตายได้ครึ่งตัว"','good');}
+   else{const d=.8+f*.04;h.def+=d;xp(R,out,8,.6);R.map[f-1]='calm';say(R,out,`เขาเล่าเรื่องหินที่แข็งที่สุดในเหมืองไปสามรอบ แล้วสอนผูกเกราะให้แน่นแบบคนแคระ (DEF +${d.toFixed(1)})`,'good');}}}});
+Object.assign(TIER,{orc:'r',elf:'r',isek:'r',gmkt:'r',mirror:'r',toll:'c',siren:'c',summon:'c',gwed:'c',giant:'c',fugit:'c',statue:'c',dwarf:'c'});
+Object.assign(KEY_TG,{orc:[['fight','help'],['sneak','help'],['trade','help'],[]],elf:[['help'],['help','study'],['trade'],[]],isek:[['help'],['fight'],['help'],[]],
+ toll:[['trade'],['fight'],['trick']],gmkt:[['trade','curse'],['trade'],['trade','pray'],[]],siren:[['gamble'],['help'],[],['steal']],summon:[['fight'],['help','study'],['curse'],['help']],
+ gwed:[['trade','help'],['gamble'],['steal'],['help']],giant:[['study'],['study'],['study'],['fight']],fugit:[['help','sneak'],['help'],['trade']],mirror:[['fight'],['scout'],['study']],
+ statue:[['help','pray'],['steal'],['pray']],dwarf:[['gamble'],['trade'],['study']]});
 // tier shares per draw stay at the original mix (~70% common / 23% rare / 7% legendary) however many keys each tier holds
 const TIER_N=Object.values(TIER).reduce((a,t)=>(a[t]=(a[t]||0)+1,a),{});
 const tierW=(R,r)=>{const sh=r==='l'?.07:r==='r'?.23:.7;return 6*(sh/(TIER_N[r]||1))/(.7/(TIER_N.c||1))*(r==='l'?MD(R,'leg',1):1);};
@@ -1112,6 +1308,27 @@ SPECIAL.excal={w:0,ok:excOk,mk(R,K){const f=R.floor,n=excN(R),id=cid(R);K.data={
   excRec(R,false);R.map[f-1]='calm';if(o.hp)h.hp=Math.max(1,h.hp-h.mhp*o.hp);
   say(R,out,`${excLine(EXF,n+1)}${o.hp?` (HP −${Math.round(o.hp*100)}%)`:''} ชาติหน้าคงดึงง่ายขึ้นอีกหน่อย`,'bad');}};
 TIER.excal='l';KEY_TG.excal=[['fight'],[],['fight'],['trick'],['pray']];
+// ---- v0.2.23 the otherworld invader (vgod): about as rare as the sword in the stone (R.vgF rolled in newRun with VG.fq), once per life, forced by genSpecial.
+// The tower wall is torn open (drawShow draws the breach when en.id==='vgod'); en.big gives it the boss-sized sprite without the boss rules. Losing = a scar, not death.
+// Winning: big stat gain, R.godK = floor, title ผู้พิชิตเทพ (runTitle) and a row on the end screen.
+const VG={fq:.32,lo:45,hi:90};
+const vgOk=R=>!!R.vgF&&!R.used['sp:vgod']&&R.floor>=R.vgF&&R.floor<=95;
+SPECIAL.vgod={w:0,ok:vgOk,mk(R,K){const f=R.floor,en=Object.assign(mkMon({id:'vgod',n:'ตัวตนจากนอกโลก',hp:1.9,atk:1.45,def:1.3},f,1),{big:true}),w=estW(R,en),p=lukCh(R,.55);K.data={en,w,p};
+  K.tag=`ชั้น ${f} · ผนังหอแตก`;K.title='ตัวตนจากนอกโลกบุกหอคอย';K.vis={t:'en',en};
+  K.text='เสียงเหมือนฟ้าผ่าดังขึ้นข้างหู ผนังหอทั้งแถบแตกเป็นรูโหว่ หลังรูนั้นไม่ใช่ท้องฟ้า มีแต่ความมืดกับดาวสีม่วงลอยอยู่ ร่างสีดำสนิทร่างหนึ่งก้าวเข้ามาโดยไม่มีเสียงฝีเท้า มันไม่มีหน้า มีแค่แสงม่วงสองจุดตรงที่ควรเป็นตา หอคอยทั้งหลังสั่นเหมือนกำลังกลัว';
+  K.ch=[CH('สู้กับมัน',[wPart(w),{t:'ชนะ = ฉายา ผู้พิชิตเทพ + ค่าสถานะเพิ่มมาก',c:'g'},{t:'แพ้ = บาดเจ็บสาหัส (ไม่ตาย)',c:'b'}]),
+   CH('ซ่อนตัวรอให้มันผ่านไป',[{t:`${Math.round(p*100)}% มันไม่เห็น`,c:pctC(p*100)},{t:'/ เห็น = HP −40% + แผลเป็น',c:'b'}]),
+   CH('ยื่นมือให้มันแตะ',[{t:'ไม่มีใครรู้ว่าจะเกิดอะไรขึ้น',c:'w'}])];K.ai=w>=50?0:1;},
+ res(R,K,i,out){const f=R.floor,h=R.h,{en,p}=K.data;nwA(R,'vgod');
+  if(i===0){R.map[f-1]='fight';say(R,out,'มันเอียงหัวมองคุณ เหมือนเพิ่งรู้ว่ามีสิ่งมีชีวิตอยู่ในหอนี้ แล้วค่อยๆ ยกมือขึ้น','bad');
+   if(doFight(R,en,out,{rw:3,cause:`ถูกตัวตนจากนอกโลกลบหายไป (ชั้น ${f})`})){R.godK=f;nwA(R,'vgod_win');h.atk*=1.15;h.def*=1.15;h.mhp*=1.2;h.hp=h.mhp;h.luk+=8;R.map[f-1]='good';
+    sayK(R,out,'ร่างสีดำแตกเป็นเศษแก้วนับล้านชิ้นแล้วถูกดูดกลับออกไปทางรูโหว่ ผนังหอค่อยๆ ประสานกลับคืน แสงม่วงที่เหลือซึมเข้ามาในตัวคุณ คนทั้งหอรู้แล้วว่ามีคนล้มเทพได้ (ATK/DEF +15% · HP สูงสุด +20% · LUK +8 · ฉายา ผู้พิชิตเทพ)','lv');}
+   else say(R,out,'มันไม่ฆ่าคุณ มันแค่หันหลังเดินกลับออกไปทางรูโหว่ เหมือนคุณไม่สำคัญพอให้ต้องจัดการ','bad');}
+  else if(i===1){if(rnd()<p){R.map[f-1]='calm';say(R,out,'คุณกลั้นหายใจอยู่หลังเสา มันเดินผ่านไปห่างแค่สองก้าว อากาศรอบตัวเย็นจนขนตาจับเป็นน้ำแข็ง แล้วมันก็ออกไปทางรูโหว่','info');}
+   else{hurt(R,.4);R.scars++;R.map[f-1]='bad';say(R,out,`แสงม่วงหันมาทางเสาที่คุณซ่อน มันแค่มองเท่านั้น ผิวคุณก็ไหม้เป็นรอยมือสีดำ (HP −40% · แผลเป็น ${R.scars})`,'bad');}}
+  else if(rnd()<.5){h.mmp+=15;h.mp=h.mmp;h.luk+=5;const d=shiftFate(R,5);R.map[f-1]='good';nwA(R,'vgod_touch');say(R,out,`นิ้วสีดำแตะกลางฝ่ามือคุณ คุณเห็นหอคอยนับพันหอเรียงกันอยู่ในความมืด แล้วมันก็จากไป (MP สูงสุด +15 · LUK +5) ${fateFeel(d)}`,'lv');}
+  else{h.mhp*=.85;h.hp=Math.min(h.hp,h.mhp);R.map[f-1]='evil';say(R,out,'นิ้วสีดำแตะกลางฝ่ามือ ความทรงจำครึ่งชีวิตหายวับไปกับมัน (HP สูงสุด −15%)','bad');}}};
+TIER.vgod='l';KEY_TG.vgod=[['fight'],['sneak'],['pray']];
 // ---- v2.7: the last path tier has to be won. Path 80 -> contest key moment "crown", one retry at 90.
 // Ways: fair / spend gold / a patron's backing (a favour collected a few floors later, key "favor") / cheat (may be caught).
 // R.cw={id,n tries,won,how,f,pat,caught,paid}; the tier itself is R.pathHi=3 (pathTier checks it). {r} = the rival's name.
@@ -1480,8 +1697,9 @@ function hatch(R,out){R.egg=null;if(R.pets.length<2){const p=pick(PETK);R.pets.p
 const SP_BI={starfall:[4],dragon:[1,2,3,4],bard:[0,1,2,3],hunter:[0,1,2,3],noble:[0,1,2],cultist:[2,3,4],imp:[2,3,4],healer:[0,1,2],bridge:[1,2,3],
  crystal:[1],campfire:[0,1,2,3],snack:[0,1],cavein:[1,3],drill:[0,1],lantern:[1,2],bones:[1,2,3],fairyq:[0,2],stars:[4],snailrace:[0,1],brew:[2],
  ruin:[0,1,2],harvest:[0,1,2],pit:[1,3],whale:[4],phoenix:[3],astral:[4]};
+Object.assign(SP_BI,{orc:[0,1,2,3],elf:[0,2],toll:[0,2],gmkt:[2,4],siren:[1],gwed:[0,1,2],mirror:[1,4],statue:[0,1,2,3],dwarf:[1,3]});
 const spFits=(R,k)=>!SP_BI[k]||SP_BI[k].includes(biome(R.floor));
-function genSpecial(R){const ck=crownKey(R);if(ck)return R.lastSp=ck;for(const k of ['nec','ang'])if(!R.used['sp:'+k]&&SPECIAL[k].ok(R))return R.lastSp=k;if(excOk(R))return R.lastSp='excal';const ok=Object.keys(SPECIAL).filter(k=>(!SPECIAL[k].ok||SPECIAL[k].ok(R))&&spFits(R,k));
+function genSpecial(R){const ck=crownKey(R);if(ck)return R.lastSp=ck;for(const k of ['nec','ang'])if(!R.used['sp:'+k]&&SPECIAL[k].ok(R))return R.lastSp=k;if(excOk(R))return R.lastSp='excal';if(vgOk(R))return R.lastSp='vgod';const ok=Object.keys(SPECIAL).filter(k=>(!SPECIAL[k].ok||SPECIAL[k].ok(R))&&spFits(R,k));
  let pool=ok.filter(k=>!R.used['sp:'+k]||(k==='mimic'&&MD(R,'mimic',1)>1&&R.used['sp:mimic']<3));if(!pool.length)pool=ok.filter(k=>k!==R.lastSp);
  const fresh=k=>R.xseen&&!R.xseen['sp:'+k]?1.6:1;
  const sw=ST_SP[R.st]||{};const k=pool[wIdx(pool.map(x=>tierW(R,TIER[x])*(x==='mimic'?MD(R,'mimic',1):1)*(x==='dragon'&&clanM(R)==='s'?12:1)*(x==='promo'?10:1)*dayW(R,x)*fresh(x)*(sw[x]||1)))];R.lastSp=k;return k;}
@@ -1550,7 +1768,7 @@ function finishFloor(R,out){if(!R.alive)return;aiPotion(R);if(R.pend||R.farmLeft
 function omenDue(R){if(R.omens>=3||R.floor<6||R.floor%10===0||R.floor>=99||R.floor-R.lastOmen<6)return false;const p=R.lastP,m=hzM(R),pv=R.pPrev;
  return p>=.03&&(m>=1.7||(pv.length>=4&&p>=pv[0]*1.8));}
 // ---- SAME_WAY / PLAIN: key moments that do not need to stop the clock ----
-const NO_WAY={boss:1,omen:1,shop:1,crown:1,favor:1,brink:1}; // v2.7: the contest retry at 90 and a favour being called in always stop and ask
+const NO_WAY={boss:1,omen:1,shop:1,crown:1,favor:1,brink:1};NW_K.forEach(k=>{NO_WAY[k]=1;}); // v2.7: the contest retry at 90 and a favour being called in always stop and ask
 const sigOf=K=>'cs:'+K.ch.map(c=>c.t).join('|');
 const isGood=p=>p.c==='g'||(p.c==='kk'&&p.t.includes('✦'));
 function dominant(K,en){const good=c=>c.P.some(isGood),clean=c=>c.P.every(p=>isGood(p)||p.c==='');
@@ -1708,6 +1926,12 @@ const LATER={
  cheat(R,out,d){if(rnd()<d.p){sayK(R,out,'ก็อบลินเจ้าหนี้ตามคุณขึ้นมาไม่ถึงชั้นนี้ หนี้ก้อนนั้นหายไปกับลม','info');return;}
   const g=Math.min(Math.floor(R.h.gold),d.x||0);R.h.gold-=g;hurt(R,.25);sayK(R,out,`ก็อบลินเจ้าหนี้ตามมาเจอพร้อมพวกอีกโขลง ริบทองไป ${g} แล้วทิ้งรอยฟกช้ำไว้เต็มตัว`,'bad');},
  train(R,out,d){const a=d.a||1;R.h.atk+=a;sayK(R,out,`ท่าที่ครูดาบสอนไว้เริ่มเข้ามือ ฟันได้เร็วขึ้นโดยไม่ต้องคิด (ATK +${a.toFixed(1)})`,'good');}};
+Object.assign(LATER,{
+ isk_recall(R,out,d){const c=R.comps.find(x=>x.isk&&x.n===d.n);if(!c)return;
+  if(rnd()<.5){R.comps.splice(R.comps.indexOf(c),1);nwA(R,'isek_recall');sayK(R,out,`วงเวทสีฟ้าเปิดขึ้นใต้เท้า${c.n} "เดี๋ยว! ข้ายังไม่ได้ลาเลย" แล้วร่างก็หายไปทั้งที่คำพูดยังค้างอยู่ โลกเดิมเรียกตัวเขากลับแล้ว`,'bad');}
+  else sayK(R,out,`วงเวทสีฟ้าเปิดขึ้นใต้เท้า${c.n} เขากระโดดหนีออกมาทัน แล้วกระทืบวงเวทจนแตก "ข้ายังไม่อยากกลับ!"`,'good');},
+ fugit(R,out){if(rnd()<.5){hurt(R,.15);sayK(R,out,'ทหารคุมนักโทษตามรอยมาจนเจอคุณ ฟาดกระบองใส่ข้อหาซ่อนคนร้าย (HP −15%)','bad');}
+  else{R.h.luk+=3;sayK(R,out,'นักโทษคนที่คุณซ่อนไว้ทิ้งห่อผ้าไว้ข้างบันได ข้างในเป็นเครื่องรางของแม่เขา (LUK +3)','good');}}});
 // ---- tower-wide events (TWE in events.js): once each per run, weighted by class and rank, choices show odds from stats ----
 const twS=R=>R.tw&&typeof R.tw==='object'?R.tw:(R.tw={at:-99});
 const twBase=(R,e)=>Object.assign({},e.m,(e.cm||{})[cid(R)]||{});
@@ -1871,8 +2095,8 @@ function blink(spr,x,y,flip,ph,t){if(RM||!spr||spr.squish)return;const per=2900+
 const CSC=new Map();
 function cSpr(c){const id=c.n+'|'+c.cls+'|'+c.tr+'|'+(c.legend?1:0);let v=CSC.get(id);if(!v){v={s:compSpr(c),k:'c'+compKey(c)};if(CSC.size>40)CSC.clear();CSC.set(id,v);}return v;}
 function enSpr(en){if(!en)return null;if(en.cls)return{spr:heroSpr(en.cls),x:128,y:84,flip:true,key:'c'+en.cls};
- const big=en.boss,spr=big?BSPR[en.id]:MSPR[en.id];if(!spr)return null;if(/^hoard_/.test(en.id))return{spr,x:130,y:62,flip:false,key:en.id};return{spr,x:big?118:128,y:big?70:84,flip:!big&&['wolf','sala'].indexOf(en.id)<0?false:true,key:en.id};}
-const ePos=en=>en&&/^hoard_/.test(en.id||'')?{x:160,y:82}:en&&en.boss?{x:134,y:86}:{x:136,y:92};
+ const big=en.boss||en.big,spr=big?BSPR[en.id]:MSPR[en.id];if(!spr)return null;if(/^hoard_/.test(en.id))return{spr,x:130,y:62,flip:false,key:en.id};return{spr,x:big?118:128,y:big?70:84,flip:!big&&['wolf','sala'].indexOf(en.id)<0?false:true,key:en.id};}
+const ePos=en=>en&&/^hoard_/.test(en.id||'')?{x:160,y:82}:en&&(en.boss||en.big)?{x:134,y:86}:{x:136,y:92};
 const FIRE=['#fff6c0','#ffd04a','#ff8a2a','#ff5a1a'];
 function sprPix(spr,flip){const k=flip?'_pxf':'_px';if(spr[k])return spr[k];const a=[];
  spr.rows.forEach((row,y)=>{for(let i=0;i<row.length;i++){const c=spr.pal[row[i]];if(row[i]!=='.'&&c)a.push([flip?spr.w-1-i:i,y,c]);}});return spr[k]=a;}
@@ -2002,10 +2226,15 @@ const ach=(t,d)=>{try{window.ACH&&window.ACH.onEvent&&window.ACH.onEvent(t,d||{}
 let mileT=0;function showMile(m){const b=$('mileBan');if(!b||!m)return;b.textContent=m.f===1?'นักผจญภัยรุ่นเดียวกันทุกคนยังอยู่ครบ':`ชั้น ${m.f} · นักผจญภัยรุ่นเดียวกันเหลือรอดราว ${pctTxt(m.p)}%`;b.hidden=false;
  clearTimeout(mileT);mileT=setTimeout(()=>{b.hidden=true;},S&&S.speed>=8?1600:2800);}
 const VTINT=[null,'rgba(255,140,60,0.10)','rgba(60,80,200,0.13)'];
+// the hole the otherworld invader (vgod) tears in the tower wall, drawn behind its sprite
+function drawBreach(t){const x=cx,j=RM?0:Math.sin(t/180)*1.5,P=[[112,8],[126,2],[134,12],[150,4],[160,16],[176,10],[172,30],[182,48],[170,62],[178,82],[158,88],[146,98],[130,90],[116,96],[108,76],[114,58],[102,42],[110,26]];
+ x.save();x.beginPath();P.forEach(([a,b],i)=>{const px=a+(i%2?j:-j)*.5;if(i)x.lineTo(px,b);else x.moveTo(px,b);});x.closePath();x.fillStyle='#07040f';x.fill();x.lineWidth=2;x.strokeStyle=`rgba(176,74,255,${RM?.8:.55+.3*Math.sin(t/220)})`;x.stroke();
+ x.clip();const dr=RM?0:Math.floor(t/120);for(let i=0;i<16;i++){x.fillStyle=i%3?'#b04aff':'#f0c8ff';x.fillRect(104+(i*37+dr)%78,4+(i*53)%94,1,1);}x.restore();
+ if(!RM&&Math.random()<.25)pt(fr(104,180),fr(10,90),fr(-.3,.3),fr(.2,.6),Math.random()<.5?'#3a2a5a':'#b04aff',fr(400,800),{g:.02});}
 function drawShow(t,bob){const s=VIS.show;if(!s)return;
  if(s.t==='en'){const en=s.en,E=enSpr(en);if(!E)return;let fl=VIS.ef>t;if(VIS.edead){if(t>=VIS.edead)return;fl=Math.floor(t/50)%2===0;}
   const m=mvOff('e',t),ey=en.cls?84+bob:en.boss?E.y+bob:84+(RM?0:Math.round(Math.sin(t/300+1)));
-  blitM(E.spr,E.x,ey,{flip:E.flip,flash:fl,key:E.key},m);if(en.cls&&!fl)blink(E.spr,E.x+m.dx,ey+m.dy,true,11,t);}
+  if(en.id==='vgod')drawBreach(t);blitM(E.spr,E.x,ey,{flip:E.flip,flash:fl,key:E.key},m);if(en.cls&&!fl)blink(E.spr,E.x+m.dx,ey+m.dy,true,11,t);}
  else if(s.t==='prop'){if(s.pr)drawProp(cx,s.fb&&!(window.ART.NPCS&&window.ART.NPCS[s.pr])?s.fb:s.pr,t);} // story NPC sprite when sprites.js has it, generic npc otherwise
  else if(s.t==='pet')blit(cx,PSPR[s.p],132,91+bob,{key:'p'+s.p});
  else if(s.t==='comp'){if(s.gold){cx.fillStyle=`rgba(244,187,74,${RM?.25:.18+.12*Math.sin(t/300)})`;cx.fillRect(124,76,24,30);}
@@ -2090,9 +2319,10 @@ function renderLog(){const el=$('log');const L=S.R?S.R.log:[];el.innerHTML=L.sli
 const MKEY='tof-auto-memorial-v1',SKEY='tof-auto-seen-v1';
 function loadSeen(){try{const v=JSON.parse(localStorage.getItem(SKEY)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return{};}}
 function saveSeen(R){let n=0;try{const v=loadSeen();R.hist.forEach(x=>{if(!v[x.tid]){v[x.tid]=1;n++;}});localStorage.setItem(SKEY,JSON.stringify(v));}catch(e){}return n;}
+const godRow=R=>R.godK?`<dt>ผู้บุกรุกจากนอกโลก</dt><dd>ล้มตัวตนสีดำที่เจาะผนังหอเข้ามาได้ที่ชั้น ${R.godK}</dd>`:R.nwA&&R.nwA.includes('vgod')?'<dt>ผู้บุกรุกจากนอกโลก</dt><dd>เคยเห็นผนังหอแตกกับตาตัวเอง</dd>':'';
 const excRow=R=>R.exc?`<dt>ดาบในหิน</dt><dd><span data-tip="excal">ถอนออกจากหินได้ที่ชั้น ${R.excF} ทุกชาติต่อไปจะเกิดมาพร้อมดาบเล่มนี้</span></dd>`:hasSw(R)?'<dt>ดาบในหิน</dt><dd><span data-tip="excal">พกติดตัวมาตั้งแต่เกิด</span></dd>':R.exT?`<dt>ดาบในหิน</dt><dd><span data-tip="excal">ลองดึงแล้วแต่ไม่ออก ชาติหน้าโอกาสขึ้นเป็น ${excCh(Math.max(excN(R),(R.h.ex&&R.h.ex.n|0)+1))}%</span></dd>`:'';
 function runTitle(R){const h=R.h,fl=R.won?100:R.floor,leg=R.hist.filter(x=>x.rar==='l').length,T=[];
- if(R.won)T.push([9,'ผู้พิชิตยอดหอ',1]);if(R.sec&&R.sec.res==='s')T.push([11,'นักล่ามังกร',1]);if(R.sec&&R.sec.res==='f')T.push([11,R.sec.m0==='s'?'ผู้ไว้ชีวิตมังกร':'สหายมังกร',1]);if(R.lift)T.push([12,'ดยุกปราบมังกร',1]);if(R.sec&&R.sec.res==='x')T.push([10,'ผู้ท้ามังกร',1]);if(leg>=2)T.push([8,'ผู้เห็นตำนานซ้ำสองครั้ง',1]);if(R.exc)T.push([13,'ผู้ถอนดาบในหิน',1]);else if(hasSw(R))T.push([2,'ผู้ถือดาบในหิน']);
+ if(R.won)T.push([9,'ผู้พิชิตยอดหอ',1]);if(R.sec&&R.sec.res==='s')T.push([11,'นักล่ามังกร',1]);if(R.sec&&R.sec.res==='f')T.push([11,R.sec.m0==='s'?'ผู้ไว้ชีวิตมังกร':'สหายมังกร',1]);if(R.lift)T.push([12,'ดยุกปราบมังกร',1]);if(R.sec&&R.sec.res==='x')T.push([10,'ผู้ท้ามังกร',1]);if(leg>=2)T.push([8,'ผู้เห็นตำนานซ้ำสองครั้ง',1]);if(R.exc)T.push([13,'ผู้ถอนดาบในหิน',1]);else if(hasSw(R))T.push([2,'ผู้ถือดาบในหิน']);if(R.godK)T.push([14,'ผู้พิชิตเทพ',1]);
  if(R.karma>=20)T.push([6,'นักบุญแห่งหอคอย']);if(R.karma<=-20)T.push([6,'ปีศาจในคราบคน']);if(fl<=10)T.push([5,'ดาวที่ดับเร็ว']);
  if(R.fateShift>=8)T.push([6,'คนต่อชะตา']);if(R.fateShift<=-6)T.push([5,'คนขายอายุ']);if(R.pMax>=.15&&fl>R.pMaxF+5)T.push([5,'คนที่ยมทูตมองข้าม']);
  if(R.sameN>=3)T.push([2,'คนไม่เปลี่ยนใจ']);if(R.scars>=3)T.push([5,'คนที่ตายยาก']);
@@ -2830,7 +3060,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  const share=!!(window.SHARE&&window.SHARE.open),lb=!!(window.LB&&window.LB.open);
  card.innerHTML=`<div class="epi"><div class="tag">${won?'ตำนานบทใหม่':'แผ่นจารึกหน้าหลุมศพ'}</div><div class="big">${won?'👑 ':'✝ '}${esc(h.name)}</div><div class="rtitle${S.title.gold?' gold':''}">ฉายา: ${esc(S.title.t)}</div>
  <dl class="kv"><dt>แรงค์/อาชีพ</dt><dd>${RANKS[h.rank].k} · ${R.turned?esc(clsName(R.turned.from)):C.n} (1 ใน ${fmt(h.odds)})</dd>${R.turned?`<dt>เปลี่ยนร่าง</dt><dd>จาก${esc(clsName(R.turned.from))}เป็น${esc(C.n)} ที่ชั้น ${R.turned.f}</dd>`:''}${R.unl?`<dt>ปลดล็อก</dt><dd>ชีวิตต่อไปมีโอกาสเกิดเป็น${esc(clsName(R.unl))}</dd>`:''}${pathOf(R)?`<dt>ทางของอาชีพ</dt><dd><span data-tip="path">${esc(pathOf(R).n)}</span> · ${R.pathHi?`ขั้นสูงสุด "${esc(pathHiName(R))}"`:'ยังไม่ถึงขั้นแรก'} · ${Math.floor(R.path||0)} แต้ม</dd>`:''}${crownArch(R)?`<dt>ชิงตำแหน่ง</dt><dd>「${esc(crownArch(R).t)}」 ${esc(crownArch(R).d)}</dd>`:''}<dt>ชั้นที่ไปถึง</dt><dd class="px">${fl} / 100</dd><dt>เลเวล</dt><dd class="px">${h.lv}</dd>
- <dt>${won?'ผลลัพธ์':'สาเหตุการตาย'}</dt><dd>${esc(won?'พิชิตผู้กลืนดาราและยืนบนยอดหอคอย':R.cause)}</dd>${secSum(R)?`<dt>ชั้นลับ</dt><dd>${esc(secSum(R))}</dd>`:''}${CLAN_T[R.clanM]?`<dt>ตระกูล</dt><dd><span data-tip="clan">${CLAN_T[R.clanM]}</span>${R.clanM==='s'?` · ต้องล้มมังกรอีก ${3-(R.clanN|0)} ตัวคำสาปจึงจะคลาย`:''}</dd>`:''}${excRow(R)}<dt>ดวงชะตา</dt><dd>${esc(fateLine(R))}</dd>
+ <dt>${won?'ผลลัพธ์':'สาเหตุการตาย'}</dt><dd>${esc(won?'พิชิตผู้กลืนดาราและยืนบนยอดหอคอย':R.cause)}</dd>${secSum(R)?`<dt>ชั้นลับ</dt><dd>${esc(secSum(R))}</dd>`:''}${CLAN_T[R.clanM]?`<dt>ตระกูล</dt><dd><span data-tip="clan">${CLAN_T[R.clanM]}</span>${R.clanM==='s'?` · ต้องล้มมังกรอีก ${3-(R.clanN|0)} ตัวคำสาปจึงจะคลาย`:''}</dd>`:''}${excRow(R)}${godRow(R)}<dt>ดวงชะตา</dt><dd>${esc(fateLine(R))}</dd>
  <dt>จุดเปลี่ยน</dt><dd>${R.keys} ครั้ง${R.timeouts?` · ปล่อยให้นิสัย${esc(PERS[h.pers].n)}เลือกแทน ${R.timeouts} ครั้ง`:''}${R.sameN+R.plainN?` · ตอบไปเองโดยไม่ต้องหยุด ${R.sameN+R.plainN} ครั้ง`:''}</dd><dt>ทองที่ทิ้งไว้</dt><dd class="px">${fmt(h.gold)}</dd>
  <dt>ปาร์ตี้</dt><dd>${[...R.pets.map(p=>PETS[p].n),...R.comps.map(c=>c.n+' ('+clsName(c.cls)+')')].join(', ')||'เดินทางคนเดียว'}</dd>
  <dt>กรรม</dt><dd class="px" style="color:var(--karma)">${R.karma>0?'+':''}${R.karma} ${R.karma>=0?'กรรมดี':'กรรมชั่ว'}</dd></dl>
@@ -2861,7 +3091,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
   pathHi:R.pathHi||0,turned:R.turned?1:0,rez:R.rez?1:0,sneaks:R.sneaks||0,caught:R.caught||0,cw:R.cw&&R.cw.id===C.id?{n:R.cw.n||0,won:R.cw.won?1:0,how:R.cw.how||'',caught:R.cw.caught||0,paid:R.cw.paid||''}:null,
   twN:Object.keys(R.used).filter(k=>k.startsWith('sp:tw_')).length,facW:(R.fac&&R.fac.h||[]).filter(x=>x.me===1).length,facB:(R.fac&&R.fac.h||[]).filter(x=>x.b).length,ltG:R.ltG||0,
   dz:R.dZ&&R.dZ.in?(dayZone(R)&&fl>dayZone(R).b?2:1):0,sn:Object.keys(R.sn||{}),stE:Object.keys(R.stE||{}).length,
-  exT:R.exT|0,exG:!!R.exc,sw:hasSw(R),gear:hasSw(R)?['excal']:[]};
+  exT:R.exT|0,exG:!!R.exc,sw:hasSw(R),gear:hasSw(R)?['excal']:[],nwA:Array.isArray(R.nwA)?[...R.nwA]:[],godK:R.godK?1:0};
  if(!S.sent){S.sent=true;try{window.ACH&&window.ACH.onRunEnd&&window.ACH.onRunEnd(sum);}catch(e){}try{window.LB&&window.LB.submit&&window.LB.submit(sum);}catch(e){}
   // day stats come back a moment after this run was submitted
   if(DT&&h.day&&window.LB&&window.LB.live){const run=S.runId;setTimeout(()=>window.LB.live.get(h.day.d).then(g=>{const d=g&&g.day;if(!d||!d.n||!S||S.runId!==run)return;

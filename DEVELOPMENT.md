@@ -23,7 +23,7 @@
 | `audio.js` | ชิปทูน WebAudio สังเคราะห์สด: เพลงตามด่าน + เพลงประจำตัวฮีโร่ + เสียงเอฟเฟกต์ | `window.AUDIO` |
 | `share.js` | การ์ดบันทึกนักผจญภัย 1080×1350 (แผนที่หอ 10×10, % รุ่น, ลวดลายชะตา) + แผ่นแชร์ (รูป/LINE/X/Threads/คัดลอก), ข้อความแชร์จาก hook ที่ให้คะแนน, encode/decode ลิงก์ `/s/<code>` | `window.SHARE` |
 | `tips.js` | tooltip ชี้/แตะคำ (แตะค้าง = หยุดเวลาผ่าน event `tof:pause`), หน้าต่าง "❓ วิธีเล่น" แบบ 8 แท็บ, แถบ "📖 ระบบสำคัญ" บนหน้าเกิด | `window.TIPS` |
-| `achievements.js` | ความสำเร็จ 72 อย่าง เก็บใน localStorage | `window.ACH` |
+| `achievements.js` | ความสำเร็จ 100 อย่าง เก็บใน localStorage | `window.ACH` |
 | `leaderboard.js` | ตารางอันดับรวม (เรียก `/api/scores`) + แท็บความสำเร็จ/ของฉัน | `window.LB` |
 | `functions/api/scores.js` | Cloudflare Pages Function: GET/POST คะแนน เก็บใน KV | — |
 | `functions/api/posts.js` | Pages Function (v2.3): "ชีวิตที่แบ่งปัน" โพสต์/ระลึกถึง/รายงาน ทุกอย่างอยู่ใน KV key `posts` (โพสต์ 200 อัน + โควตาต่อ IP) ตัวกรองลิงก์/เบอร์/คำหยาบ; รายละเอียดใน tools/LEADERBOARD.md | — |
@@ -174,6 +174,13 @@
 - ทอยชะตาที่จะฆ่า (`rollFloor` ใน `planFloor0`, หรือกลางช่วงสงบใน `quietTick` ผ่าน `R.pend='brink'`) กลายเป็นจุดเปลี่ยน `SPECIAL.brink` แทน ตราบที่ `R.brink < BRINK_MAX` (3) · ทางเลือก: ยา (ยา −1 แผลเป็น +1), เพื่อนคนแรกตายแทน, ทอง `45*scl(f)`, กรรม −12 (ต้องมี ≥6), ยอมรับชะตา (`fateDie`) · รอดแล้ว `R.hzP *= BRINK_HZ` (1.4) · `NO_WAY` มี brink, หมดเวลาเลือก `K.ai` (ทางแรกที่เลือกได้) ไม่ใช่ตาย
 - ปรับ `HZ_NORM` 1.3 → 2.1 ให้ความยากรวมใกล้เดิม · autosim 2000 ชีวิต: ก่อน median 50 ชนะ ~3% ตายจากทอยชะตา 74% → หลัง median ~70 ชนะ ~4.2% ตายจากทอยชะตา ~57% (ส่วนใหญ่หลังใช้จุดเฉียดตายหมดหรือไม่มีอะไรจ่าย) แพ้บอส ~38%
 - ความสำเร็จ `brink1` รอดครั้งแรก, `brink3` รอดครบ 3 ครั้งในชีวิตเดียว (event `brink`)
+
+## อีเวนต์ที่ผู้เล่นต้องเลือกเอง (v0.2.23)
+
+- SPECIAL ใหม่ 13 อันใน auto.js (บล็อกก่อน `TIER_N`): `orc elf isek toll gmkt siren summon gwed giant fugit mirror statue dwarf` ทุก key อยู่ใน `NW_K` ซึ่งถูกใส่เข้า `NO_WAY` เลยหยุดถามผู้เล่นทุกครั้ง (SAME_WAY/PLAIN ไม่ตอบแทน) · biome อยู่ใน `SP_BI`
+- `isek` สุ่มแบบใน `K.data.v` (pupil/duel/follow/foe) คนต่างโลกที่เข้าทีมมี `c.isk=1` และตั้ง `laterAt(...'isk_recall')` 6–15 ชั้น โอกาส 50% โดนเรียกกลับ · `fugit` ซ่อนนักโทษแล้วมี `LATER.fugit`
+- `vgod` ตัวตนจากนอกโลก: `R.vgF` ทอยใน newRun (`VG.fq` .32 ชั้น 45–90 เท่ากับความถี่ดาบในหิน) บังคับขึ้นใน `genSpecial` ครั้งเดียวต่อชีวิต · ศัตรูใช้ `en.big` (สไปรต์ขนาดบอส `BSPR.vgod` แต่ไม่ใช่กติกาบอส แพ้ = แผลเป็น) · `drawBreach` วาดรูโหว่ผนังหลังตัวมัน · ชนะ = `R.godK` ฉายา ผู้พิชิตเทพ (`runTitle` 14) + แถว `godRow` บนหน้าจบ
+- ผลที่ปลดความสำเร็จเก็บใน `R.nwA` ส่งเป็น `summary.nwA` (achievements.js ใช้ `nw(s,id)`) · สไปรต์ใหม่: `MSPR.orc`, NPCS `elf isekai mermaid statue`, `BOSS_ROWS.vgod`
 
 ## งานถัดไป
 
