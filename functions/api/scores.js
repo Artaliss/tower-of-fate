@@ -4,10 +4,13 @@
 // POST -> body = entry JSON (see LEADERBOARD.md) -> {ok:true, id, rank, v, day, ss} | {error}
 //         optional 'ss' = share counters (v2.3), summed into live.d[day].ss; response ss:1 means they were counted (v2.7 clients send them to /api/live instead)
 //         optional 'dv' = device id (v2.7): at most DV_MAX posts per device per Thai day ('rd:<hash>'), on top of the per-IP limit
+//         optional 'lk' / 'gear' = hero look + carried gear for the hall of fame (v0.2.8), stored on the row, not part of canon()
+//         a ticketed win (ok:1) is also kept in 'hof' (newest HOF_N winners): one extra write, only on won runs; response hof:1
+// GET ?hof=1 -> {hof:[...]} winners from 'hof' + any won rows still in 'top'/'recent' (covers wins from before 'hof' existed)
 
 import { store } from './store.js';
 import { readLive, prune, writeLive, okDay, okDv, thDay, shareStats, addShare } from './live.js';
-const TOP_N = 100, RECENT_N = 50;
+const TOP_N = 100, RECENT_N = 50, HOF_N = 100;
 const RL_MAX = 10, RL_WIN = 600;          // 10 posts / 10 min / IP
 const DV_MAX = 150;                       // posts / Thai day / device (v2.7)
 const DUP_TTL = 86400;
@@ -17,6 +20,9 @@ const CLS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra', 'dsl', 'nec', 'ang
 const DRG = ['', 'n', 'f', 's', 'x'];   // secret dragon floor result (v2.1) — not part of canon()
 const CLAN = ['', 'f', 's', 'd'];       // family dragon mark (v2.1) — not part of canon()
 const FORMS = ['slime', 'human', ''];
+// hall of fame (v0.2.8): pet ids that may appear in lk.p (append new pets here and in leaderboard.js) and gear ids
+const PETS = ['slime', 'fox', 'owl', 'wolf', 'drk', 'drs', 'drg'];
+const GEAR = ['excal'];   // excal = Excalibur carried across lives
 const SALT = 'tof-v1';
 // a ticketed run must have lasted at least this long on the server clock before it may enter 'top' (v2.2 anti-cheat)
 const minMs = e => e.floor * 250;
@@ -31,6 +37,20 @@ function clean(v, max) {
   return Array.from(s).slice(0, max).join('').trim();
 }
 function canon(e) { return [e.name, e.village, e.rankK, e.clsId, e.form, e.floor, e.won ? 1 : 0, e.title, e.score, e.karma, e.gen, e.ach, e.date].join('|'); }
+// lk = {f:'s'|'h', s:uint32 seed, p?:[pet id, max 2]} (v0.2.8), gear = [gear id, max 4]; anything else -> null (field dropped)
+function lookIn(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  if (v.f !== 's' && v.f !== 'h') return null;
+  if (typeof v.s !== 'number' || !Number.isInteger(v.s) || v.s < 0 || v.s > 4294967295) return null;
+  const o = { f: v.f, s: v.s };
+  if (Array.isArray(v.p)) { const p = [...new Set(v.p.slice(0, 4).filter(x => typeof x === 'string' && PETS.includes(x)))].slice(0, 2); if (p.length) o.p = p; }
+  return o;
+}
+function gearIn(v) {
+  if (!Array.isArray(v)) return null;
+  const g = [...new Set(v.slice(0, 8).filter(x => typeof x === 'string' && GEAR.includes(x)))].slice(0, 4);
+  return g.length ? g : null;
+}
 // -----------------------------------------------------
 
 const isInt = (v, lo, hi) => typeof v === 'number' && Number.isInteger(v) && v >= lo && v <= hi;
@@ -59,6 +79,9 @@ export function validate(b, now = Date.now()) {
   if (!isInt(e.ach, 0, 500)) return { err: 'ach' };
   if (!isInt(e.date, now - 30 * 86400e3, now + 86400e3)) return { err: 'date' };
   e.clan = CLAN.includes(b.clan) ? b.clan : '';
+  const lk = lookIn(b.lk), gear = gearIn(b.gear);
+  if (lk) e.lk = lk;
+  if (gear) e.gear = gear;
   // v2.2 run ticket / presence id / daily theme (not stored, not part of canon)
   const x = { tk: typeof b.tk === 'string' && /^[a-f0-9]{20}$/.test(b.tk) ? b.tk : '', sid: typeof b.sid === 'string' && /^[a-z0-9]{6,24}$/.test(b.sid) ? b.sid : '',
     day: okDay(b.day) ? b.day : '', dh: b.dh === 1 ? 1 : 0, ss: shareStats(b.ss), dv: okDv(b.dv) ? b.dv : '' };
@@ -69,6 +92,18 @@ export function validate(b, now = Date.now()) {
 }
 
 // share analytics (v2.3): old clients piggyback share counters on a score post, summed into live.d[day].ss (shareStats/addShare live in live.js since v2.7)
+
+// hall of fame row: what a card needs, nothing more
+const HOF_K = ['id', 'name', 'village', 'rankK', 'clsId', 'clsN', 'form', 'floor', 'won', 'title', 'score', 'gen', 'date', 'drg', 'clan', 'lk', 'gear'];
+const hofRow = e => { const o = {}; for (const k of HOF_K) if (e[k] !== undefined) o[k] = e[k]; return o; };
+export function hofMerge(hof, top, recent) {
+  const seen = new Set(), out = [];
+  for (const y of [...hof, ...top, ...recent]) {
+    if (!y || typeof y !== 'object' || !y.won || y.ok === 0 || seen.has(y.id)) continue;
+    seen.add(y.id); out.push(hofRow(y));
+  }
+  return out.sort((a, b) => b.date - a.date).slice(0, HOF_N);
+}
 
 export const cmp = (a, b) => (b.won - a.won) || (b.floor - a.floor) || (b.score - a.score) || (a.date - b.date);
 
@@ -99,6 +134,10 @@ export async function onRequestGet({ request, env }) {
   if (!kv) return json({ error: 'kv-not-configured' }, 503);
   const o = request.headers.get('Origin');
   if (o && o !== new URL(request.url).origin) return json({ error: 'forbidden' }, 403);
+  if (new URL(request.url).searchParams.get('hof') === '1') {
+    const [hof, top, recent] = await Promise.all([getList(kv, 'hof'), getList(kv, 'top'), getList(kv, 'recent')]);
+    return json({ hof: hofMerge(hof, top, recent) }, 200, { 'Cache-Control': 'public, max-age=60' });
+  }
   const [top, recent] = await Promise.all([getList(kv, 'top'), getList(kv, 'recent')]);
   return json({ top, recent }, 200, { 'Cache-Control': 'public, max-age=30' });
 }
@@ -158,6 +197,16 @@ export async function onRequestPost({ request, env }) {
   const rec = [e, ...recent.filter(x => x && x.id !== e.id)].slice(0, RECENT_N);
   await kv.put('recent', JSON.stringify(rec));
 
+  // hall of fame (v0.2.8): only ticketed wins, so this write happens on ~3-4% of runs
+  let hofOk = 0;
+  if (e.won && e.ok) {
+    const hof = await getList(kv, 'hof');
+    if (!hof.some(y => y && y.id === e.id)) {
+      await kv.put('hof', JSON.stringify([hofRow(e), ...hof].slice(0, HOF_N)));
+      hofOk = 1;
+    }
+  }
+
   // presence ends with the run; the run counts toward its day's stats
   // share counters (x.ss) ride along only when 'live' is written anyway, so they never cost a write of their own
   let day = null, ss = 0;
@@ -176,5 +225,5 @@ export async function onRequestPost({ request, env }) {
       ss = x.ss ? 1 : 0;
     } catch { }
   }
-  return json({ ok: true, id: e.id, rank, v: e.ok, day, ss });
+  return json({ ok: true, id: e.id, rank, v: e.ok, day, ss, hof: hofOk });
 }

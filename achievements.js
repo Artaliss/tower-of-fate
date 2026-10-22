@@ -1,5 +1,5 @@
 // achievements.js — ความสำเร็จของหอคอยโชคชะตา
-// API: window.ACH = { onEvent(type,data), onRunEnd(summary), list(), panelHTML(), count() }
+// API: window.ACH = { onEvent(type,data), onRunEnd(summary), list(), panelHTML(), count(), grant(id) }  grant ปลดได้เฉพาะอันที่มี ext:1
 // เก็บใน localStorage 'tof-ach-v1' แบบรวมของเดิมทุกครั้ง (ไม่ลบของที่ปลดล็อกแล้ว)
 (function(){
 'use strict';
@@ -91,7 +91,9 @@ const DEFS=[
  {id:'credits',n:'นั่งดูจนไฟเปิด',d:'อยู่ดูเรื่องที่ไม่มีใครรู้หลังคำจารึก',icon:'🎬',tier:'bronze',hid:1,ev:1},
  {id:'memo',n:'ป้ายหลุมศพออนไลน์',d:'ตั้งอนุสรณ์ออนไลน์ให้ชีวิตที่จบไป',icon:'🪦',tier:'bronze',ev:1},
  {id:'candle',n:'เทียนให้คนแปลกหน้า',d:'จุดเทียนที่อนุสรณ์ของคนอื่น',icon:'🕯',tier:'bronze',ev:1},
- {id:'move',n:'ขนเซฟย้ายบ้าน',d:'ย้ายเซฟข้ามเครื่องด้วยโค้ด 9 ตัว',icon:'📦',tier:'bronze',ev:1}
+ {id:'move',n:'ขนเซฟย้ายบ้าน',d:'ย้ายเซฟข้ามเครื่องด้วยโค้ด 9 ตัว',icon:'📦',tier:'bronze',ev:1},
+ // v0.2.8 หอเกียรติยศ: ext = ปลดจากข้างนอกผ่าน ACH.grant(id) เท่านั้น (leaderboard.js เรียกเมื่อเซิร์ฟเวอร์ตอบ hof:1)
+ {id:'hof',n:'ขึ้นหอเกียรติยศ',d:'พิชิตยอดหอ แล้วชื่อได้ขึ้นหอเกียรติยศบนเว็บหลัก',icon:'🖼️',tier:'gold',ext:1}
 ];
 const BY={};DEFS.forEach(a=>{BY[a.id]=a;});
 
@@ -186,5 +188,6 @@ function panelHTML(){injectCSS();const L=list(),g=L.filter(a=>a.got).length;
  return `<p class="ach-sum">ปลดล็อกแล้ว <b>${g}/${L.length}</b> · เล่นจบไปแล้ว ${M.runs} รอบ</p><div class="ach-grid">`+
   L.map(a=>{const T=TIER[a.tier];if(a.hid&&!a.got)a=Object.assign({},a,{n:'???',d:'ความสำเร็จลับ'});return `<div class="ach-c${a.got?'':' lock'}" title="${esc(a.d)}"><span class="ic" aria-hidden="true">${a.got?a.icon:'🔒'}</span><span style="min-width:0"><b>${esc(a.n)}</b><span class="dd">${esc(a.d)}</span><br><span class="tr" style="color:${T.c}">${T.n}${a.got&&a.at?' · '+fd(a.at):''}</span></span></div>`;}).join('')+'</div>';}
 
-window.ACH={onEvent,onRunEnd,list,panelHTML,count,TIERS:TIER};
+const grant=id=>{try{return !!(BY[id]&&BY[id].ext)&&unlock(id);}catch(e){return false;}};
+window.ACH={onEvent,onRunEnd,list,panelHTML,count,grant,TIERS:TIER};
 })();

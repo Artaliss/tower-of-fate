@@ -3,6 +3,10 @@
 'use strict';
 // newest first. v: version, d: date (YYYY-MM-DD), t: headline, i: items
 const LOG=[
+{v:'0.2.8',d:'2026-10-22',t:'หอเกียรติยศ',i:[
+ '👑 ตารางอันดับมีแท็บ "ผู้พิชิตยอด" แล้ว คนที่ชนะชั้น 100 หรือผ่านชั้นลับ 101 จะขึ้นเป็นการ์ดพร้อมหน้าตาฮีโร่ตอนชนะ ทั้งร่าง สี อาชีพ และสัตว์เลี้ยง',
+ '🏅 ความสำเร็จใหม่ "ขึ้นหอเกียรติยศ"',
+ '🕯 เปิดลิงก์อนุสรณ์ของเพื่อนแล้วหน้าต่าง "มีอะไรใหม่" จะไม่เด้งบังอีก']},
 {v:'0.2.7.2',d:'2026-10-22',t:'ความสำเร็จเพิ่มอีก 30',i:[
  '🏆 ความสำเร็จเพิ่มขึ้นเป็น 72 อย่าง มีทั้งของกลายร่าง ทางอาชีพ ชิงตำแหน่ง แอบอ้อมบอส ภาคี ภัยประจำวัน อนุสรณ์ และย้ายเซฟ บางอันซ่อนไว้จนกว่าจะปลดล็อก',
  '🎨 ของตกแต่งในหอ แสงไฟ หิ่งห้อย ฉากงานศพ ฉากบ้าน และภาพในหน้าอนุสรณ์ วาดใหม่ให้ละเอียดเท่าฉากหลังแล้ว',
@@ -154,6 +158,7 @@ function init(){
  btn.innerHTML=`📜 อัปเดต v${esc(CUR)}${norm(seen)!==norm(CUR)&&old?'<span class="dot" aria-label="มีของใหม่"></span>':''}`;btn.onclick=open;
  document.body.appendChild(btn);
  if(seen&&vnum(seen)>=vnum(CUR))return;
+ if(/^\/m\//.test(location.pathname)||/[?&]m=/.test(location.search))return; // a memorial link opened by a friend: don't cover it, the dot on the button is enough
  if(!old&&!seen){set(KEY,CUR);return;} // brand-new player: nothing to compare with
  setTimeout(open,700);}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
