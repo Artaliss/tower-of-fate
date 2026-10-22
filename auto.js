@@ -424,6 +424,8 @@ function resolve(R,ev,i){const h=R.h,f=R.floor;const out={msgs:[],combat:null,af
    else{R.caught=(R.caught||0)+1;h.hp=Math.max(1,h.hp-h.mhp*SNK.hp);R.map[f-1]='boss';say(R,out,`ก้อนหินใต้เท้าหลุดดังก๊อก ${en.n}หันมาเห็นพอดี คุณถลอกไปทั้งตัวตอนถอยหนี และยังตั้งหลักไม่ทัน`,'bad');
     if(doFight(R,en,out,{ambush:true,cause:`${en.n}จับได้ตอนแอบย่องผ่าน (ชั้น ${f})`})){R.bosses++;pathTg(R,isDrg(en)?['fight','dragon']:['fight'],out);out.after='shop';}}}}
  if(R.alive&&h.hp<=0)mortal(R,out,out.cause||`สิ้นใจที่ชั้น ${f}`);
+ // revived after losing the floor-100 boss: the top has to be won, so the boss is still there next floor tick (finishFloor never climbs past 100)
+ if(ev.kind==='boss'&&f>=100&&R.alive&&!R.won)say(R,out,`${ev.en.n}ยังยืนขวางบันไดขั้นสุดท้ายอยู่ ต้องชนะมันก่อนถึงจะขึ้นยอดหอได้`,'bad');
  if(R.won)R.alive=false;
  return out;}
 function die(R,c){R.alive=false;R.cause=c;R.ck=R.ck||'boss';R.h.hp=0;R.map[R.floor-1]='death';}
@@ -1542,7 +1544,7 @@ function applyKey(R,K,i,auto){const f=R.floor;if(!K.ch[i]||K.ch[i].dis)return nu
 function quietFarm(R,out){let n=0;const g0=R.h.gold,l0=R.h.lv;R.quiet=true;
  while(R.alive&&n<2&&R.h.hp/R.h.mhp>.6){const o=farm(R);n++;aiPotion(R);if(o.saved){R.quiet=false;say(R,out,o.msgs[o.msgs.length-1].t,'lv');R.quiet=true;}}
  R.quiet=false;if(n)say(R,out,`ล่ามอนสเตอร์แถวนั้นต่ออีก ${n} ตัว ได้ทอง ${Math.round(R.h.gold-g0)}${R.h.lv>l0?` · เลเวลอัปเป็น Lv.${R.h.lv}`:''}`,'info');}
-function finishFloor(R,out){if(!R.alive)return;aiPotion(R);if(R.pend||R.farmLeft>0)return;
+function finishFloor(R,out){if(!R.alive)return;aiPotion(R);if(R.pend||R.farmLeft>0||R.floor>=100)return;
  R.kctx='';const c=climb(R);out.msgs.push(...c.msgs);if(c.mile)out.mile=c.mile;R.sinceKey++;if(R.egg&&R.floor>=R.egg.at)hatch(R,out);}
 // omen key moment: today's hazard is high for this floor (m well above normal) or rising fast
 function omenDue(R){if(R.omens>=3||R.floor<6||R.floor%10===0||R.floor>=99||R.floor-R.lastOmen<6)return false;const p=R.lastP,m=hzM(R),pv=R.pPrev;
