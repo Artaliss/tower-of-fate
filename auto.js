@@ -2089,8 +2089,9 @@ function unlApply(R){const U=loadUnl(),t=R.turned?cid(R):'';let ch=0;
  if(t==='ang'&&!U.ang){U.ang=1;ch=1;R.unl=R.unl||'ang';}
  if(ch)try{localStorage.setItem(UKEY,JSON.stringify(U));}catch(e){}}
 const CKEY='tof-clan-v1',CLAN_T={f:'ตระกูลสหายมังกร',s:'ตระกูลนักล่ามังกร',d:'ตระกูลดยุกปราบมังกร'},EGGP={k:'drk',s:'drs',g:'drg'};
-const clan0=()=>({v:1,m:'',n:0,egg:'',pet:'',cls:0,fresh:'',log:[]});
-function loadClan(){try{const v=JSON.parse(localStorage.getItem(CKEY)||'null');if(isObj(v))return Object.assign(clan0(),v);}catch(e){}return clan0();}
+const clan0=()=>({v:1,m:'',n:0,egg:'',pet:'',cls:0,fresh:'',log:[],g2:1});
+// g2: saves from before v0.2.14 that already carry a mark get every mark at once (they could not switch before)
+function loadClan(){try{const v=JSON.parse(localStorage.getItem(CKEY)||'null');if(isObj(v)){const C=Object.assign(clan0(),v);if(!v.g2){if(['f','s','d'].includes(C.m))C.got='fsd';saveClan(C);}return C;}}catch(e){}return clan0();}
 function saveClan(C){try{localStorage.setItem(CKEY,JSON.stringify(C));}catch(e){}}
 // birth: an egg brought back from the secret floor hatches (once) into the family pet
 function clanBirth(){const C=loadClan();if(C.egg){const c=C.egg;C.pet=Math.random()<.6?EGGP[c]||'drk':pick(PETK);C.fresh=c;C.egg='';saveClan(C);}return C;}
