@@ -16,7 +16,7 @@ const P={paper:'#efe4c8',paper2:'#e4d5b0',card:'#f6eedb',ink:'#2b2118',ink2:'#5c
  band:'#15232a',band2:'#0b1215',gold:'#f4bb4a',gold2:'#9a6418',red:'#a3322a',stamp:'#2f6b5c'};
 const fT="'Mitr','Kanit','Noto Sans Thai',system-ui,sans-serif",fP="'DotGothic16','Mitr',monospace";
 // append only: the index goes into share codes (3 bits, max 8 classes)
-const CLS_IDS=['war','mag','arc','pri','rog','far','dra','dsl'],CLS_N=['นักรบ','จอมเวท','นักธนู','นักบวช','โจร','ชาวไร่','อัศวินมังกร','นักล่ามังกร'];
+const CLS_IDS=['war','mag','arc','pri','rog','far','dra','dsl','nec','ang'],CLS_N=['นักรบ','จอมเวท','นักธนู','นักบวช','โจร','ชาวไร่','อัศวินมังกร','นักล่ามังกร','เนโครแมนเซอร์','ทูตสวรรค์'];
 const RANK_K=['F','E','D','C','B','A','S','SS'];
 const MAPC={fight:'#c0503a',treasure:'#e0aa2c',trap:'#8a4ab0',good:'#4fae5a',evil:'#6a1a2a',pet:'#e58bb2',comp:'#3f94d0',boss:'#ff8a2a',warp:'#5fc8d2',flee:'#8a9aa0',calm:'#6f7f84',bad:'#8a6a4a',farm:'#2a6a5a',death:'#14100c'};
 
@@ -46,19 +46,20 @@ function encode(d){
  const name=cleanTxt(d.name,16)||'?',title=cleanTxt(d.title,18);
  let n=packThai(name),t=packThai(title),ver=1;
  if(!n||!t){const te=new TextEncoder();n=[...te.encode(name)];t=[...te.encode(title)];ver=2;}
+ if(cls>7)ver+=4; // v2.5: classes 8+ ride in ver 5/6 with cls-8 in the 3-bit slot
  const dg=won?(d.drg==='f'?1:d.drg==='s'?2:0):0;
- const b=[ver,dg*64+rank*8+cls,floor|(won?128:0),pct|(d.form==='human'?128:0),...n,0,...t];b.push(fnv8(b));return b64u(b);}
+ const b=[ver,dg*64+rank*8+(cls&7),floor|(won?128:0),pct|(d.form==='human'?128:0),...n,0,...t];b.push(fnv8(b));return b64u(b);}
 function decode(code){
  try{code=String(code||'');if(!/^[A-Za-z0-9_-]{8,120}$/.test(code))return null;
   const b=unb64u(code);if(b.length<7)return null;const body=b.subarray(0,b.length-1);if(fnv8(body)!==b[b.length-1])return null;
-  const ver=b[0];
+  let ver=b[0],cx=0;if(ver>=5&&ver<=8){ver-=4;cx=8;}
   if(ver===3||ver===4){if(b.length<11||b[1]>>6||b[2]>>1||b[3]<1)return null;
-   const rank=(b[1]>>3)&7,cls=b[1]&7,human=!!(b[2]&1),gen=b[3],odds=b[4]*16777216+b[5]*65536+b[6]*256+b[7];
+   const rank=(b[1]>>3)&7,cls=(b[1]&7)+cx,human=!!(b[2]&1),gen=b[3],odds=b[4]*16777216+b[5]*65536+b[6]*256+b[7];
    const rest=body.subarray(8),z=rest.indexOf(0);if(z<1)return null;
    const dec=x=>ver===3?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
    const name=cleanTxt(dec(rest.subarray(0,z)),16),village=cleanTxt(dec(rest.subarray(z+1)),20);if(!name)return null;
    return{birth:true,rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],form:human?'human':'slime',gen,odds,name,village};}
-  if(ver!==1&&ver!==2)return null;const rank=(b[1]>>3)&7,cls=b[1]&7,dg=b[1]>>6,floor=b[2]&127,won=!!(b[2]&128),pct=b[3]&127,human=!!(b[3]&128);
+  if(ver!==1&&ver!==2)return null;const rank=(b[1]>>3)&7,cls=(b[1]&7)+cx,dg=b[1]>>6,floor=b[2]&127,won=!!(b[2]&128),pct=b[3]&127,human=!!(b[3]&128);
   if(dg>2||(dg&&!won)||floor<1||floor>100||pct>100||(won&&floor!==100))return null;
   const rest=body.subarray(4),z=rest.indexOf(0);if(z<1)return null;
   const dec=x=>ver===1?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
@@ -72,7 +73,8 @@ function encodeBirth(d){
  let name=cleanTxt(d.name,16)||'?',vil=cleanTxt(d.village,20);
  for(;;){let n=packThai(name),v=packThai(vil),ver=3;
   if(!n||!v){const te=new TextEncoder();n=[...te.encode(name)];v=[...te.encode(vil)];ver=4;}
-  const b=[ver,rank*8+cls,d.form==='human'?1:0,gen,(odds>>>24)&255,(odds>>>16)&255,(odds>>>8)&255,odds&255,...n,0,...v];b.push(fnv8(b));const c=b64u(b);
+  if(cls>7)ver+=4;
+  const b=[ver,rank*8+(cls&7),d.form==='human'?1:0,gen,(odds>>>24)&255,(odds>>>16)&255,(odds>>>8)&255,odds&255,...n,0,...v];b.push(fnv8(b));const c=b64u(b);
   if(c.length<=120||(!vil&&graphemes(name).length<=1))return c;
   if(vil)vil='';else name=clip(name,graphemes(name).length-1).trim()||'?';}}
 function shareUrl(d){return ORIGIN+'/s/'+(d&&d.birth?encodeBirth(d):encode(d));}

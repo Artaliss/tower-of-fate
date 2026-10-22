@@ -7,7 +7,7 @@
 const API='/api/scores',VER='tof-1';
 const K_Q='tof-lb-queue-v1',K_MINE='tof-lb-mine-v1',K_IDS='tof-lb-ids-v1';
 const RANKC={F:'#9aa0a6',E:'#a7c48f',D:'#6fc0a8',C:'#74acdf',B:'#c39be8',A:'#f0a64e',S:'#f6d84e',SS:'#ff7a5a'};
-const CLSN={war:'นักรบ',mag:'จอมเวท',arc:'นักธนู',pri:'นักบวช',rog:'โจร',far:'ชาวไร่',dra:'อัศวินมังกร',dsl:'นักล่ามังกร'};
+const CLSN={war:'นักรบ',mag:'จอมเวท',arc:'นักธนู',pri:'นักบวช',rog:'โจร',far:'ชาวไร่',dra:'อัศวินมังกร',dsl:'นักล่ามังกร',nec:'เนโครแมนเซอร์',ang:'ทูตสวรรค์'};
 const DRG=['','n','f','s','x'],CLAN=['','f','s','d']; // ชั้นลับมังกร (v2.1) ไม่อยู่ใน canon() เพื่อให้ client เก่ายังส่งผ่าน
 const RANKS=Object.keys(RANKC),FORMS=['slime','human'];
 
@@ -158,7 +158,7 @@ function isMine(e,ids,mine){if(ids.has(e.id))return true;return mine.some(m=>m.n
 function fdate(t){try{return new Date(t).toLocaleDateString('th-TH',{day:'numeric',month:'short'});}catch(e){return '';}}
 function row(e,i,me){const rk=RANKC[e.rankK]?e.rankK:'?';
  const cls0=CLSN[e.clsId]||esc(e.clsN)||'';
- const cls=e.clsId==='dsl'?`<span class="lb-hid"><em>อาชีพลับ</em>${cls0}</span>`:cls0;
+ const cls=['dsl','nec','ang'].includes(e.clsId)?`<span class="lb-hid"><em>อาชีพลับ</em>${cls0}</span>`:cls0;
  const drg=e.drg==='f'?'<span class="lb-drg f" title="ไว้ชีวิตมังกรบนชั้นลับ">🐉 สหายมังกร</span>':e.drg==='s'?'<span class="lb-drg s" title="ล้มมังกรบนชั้นลับ">⚔ นักล่ามังกร</span>':'';
  const sub=[cls+(e.form==='slime'?' (สไลม์)':''),e.village?'จาก'+esc(e.village):'','รุ่นที่ '+int(e.gen,1,9999),e.ach?`<span title="ความสำเร็จที่ปลดล็อกแล้ว ${int(e.ach,0,500)} อย่าง">🏅${int(e.ach,0,500)}</span>`:''].filter(Boolean).join(' · ');
  return `<li class="lb-row${me?' me':''}${e.won?' win':''}"><span class="no">${i==null?'':i+1}</span><span class="lb-rk" style="background:${RANKC[rk]||'#888'}">${esc(rk)}</span>

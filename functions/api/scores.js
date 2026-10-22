@@ -10,7 +10,7 @@ const RL_MAX = 10, RL_WIN = 600;          // 10 posts / 10 min / IP
 const DUP_TTL = 86400;
 const MAX_BODY = 4096;
 const RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'];
-const CLS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra', 'dsl'];
+const CLS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra', 'dsl', 'nec', 'ang'];
 const DRG = ['', 'n', 'f', 's', 'x'];   // secret dragon floor result (v2.1) — not part of canon()
 const CLAN = ['', 'f', 's', 'd'];       // family dragon mark (v2.1) — not part of canon()
 const FORMS = ['slime', 'human', ''];

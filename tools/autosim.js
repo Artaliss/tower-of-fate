@@ -28,6 +28,7 @@ console.log(`per run: key moments (paused) ${(keys/M).toFixed(1)} · SAME_WAY ${
 const mins=sp=>((tk/M)*5/sp+(keys/M)*15)/60;console.log(`est. real time per run (all timers expire): 1x ${mins(1).toFixed(0)} min · 4x ${mins(4).toFixed(1)} min · 16x ${mins(16).toFixed(1)} min (floor ticks ${(tk/M).toFixed(1)}/run)`);
 console.log('by personality: '+Object.keys(pers).map(k=>`${k} n${pers[k].n} avgFloor ${(pers[k].f/pers[k].n).toFixed(1)} won ${pct(pers[k].w,pers[k].n)}`).join(' | '));
 console.log('by class:\n'+Object.keys(cls).map(k=>{const o=cls[k];o.e.sort((x,y)=>x-y);const sT=Object.values(o.st).reduce((a,b)=>a+b,0)||1,top=Object.keys(o.st).sort((a,b)=>o.st[b]-o.st[a])[0];return `  ${k.padEnd(3)} n${String(o.n).padStart(5)} median ${q(o.e,.5)} won ${pct(o.w,o.n).padStart(6)} karma ${(o.k/o.n).toFixed(1).padStart(5)} bossDeath ${pct(o.b,o.n).padStart(6)} path ${(o.pt/o.n).toFixed(1).padStart(5)} tiers ${o.t.map(x=>pct(x,o.n)).join('/')} topStance ${top} ${pct(o.st[top]||0,sT)}`;}).join('\n'));
+console.log('turned mid-run: '+['nec','ang'].map(k=>k+' '+(cls[k]?cls[k].n:0)).join(' · '));
 console.log('won by rank: '+Object.keys(rkS).sort().map(k=>`${k} ${pct(rkS[k].w,rkS[k].n)}`).join(' · '));
 console.log(`distinct key-moment templates across first ${RUNS} runs: ${tids.size} (excluding boss/omen: ${[...tids].filter(x=>!['boss','omen'].includes(x)).length})`);
 if(process.argv.includes('-v'))console.log([...tids].sort().join(' '));

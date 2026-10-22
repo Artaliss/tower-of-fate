@@ -21,7 +21,7 @@ ghost:{r:["................","................",".....YYYYYY.....","....Y......Y
 // eyes: offsets [dr,dc,ch] from anchors (10,7) and (10,11); m = mirror dc for 2nd eye
 const EYES=[[[0,0,'k'],[1,0,'k']],[[0,0,'w'],[0,1,'k'],[1,0,'k'],[1,1,'k']],[[0,0,'k'],[1,-1,'k'],[1,1,'k']],[[1,0,'k'],[1,1,'k']],[[0,0,'k'],[1,0,'w']],[[-1,-1,'k'],[0,0,'k'],[1,0,'k']],[[0,0,'w'],[1,0,'k'],[0,1,'k']],'wink'];
 const MOUTHS=[[[12,8,'k'],[13,9,'k'],[12,10,'k']],[[12,9,'m'],[12,10,'m'],[13,9,'p'],[13,10,'p']],[[12,7,'k'],[13,8,'k'],[12,9,'k'],[13,10,'k'],[12,11,'k']],[[12,9,'m']],[[12,9,'k'],[12,10,'k']],[[12,8,'k'],[13,9,'k'],[12,10,'k'],[13,10,'w']],[[12,8,'k'],[12,9,'k'],[12,10,'k'],[13,9,'p']]];
-const CLS_HUE={war:4,mag:220,arc:105,pri:48,rog:270,far:30,dra:345,npc:35,ghost:205};
+const CLS_HUE={nec:280,ang:50,war:4,mag:220,arc:105,pri:48,rog:270,far:30,dra:345,npc:35,ghost:205};
 // v2.1 hidden class: dsl = dragon slayer (dark leather, red trophy cape, big greatsword); slime form = horned dragon-skull helm + greatsword
 HP_.dsl={h:'#3a2218',a:'#6a3a24',b:'#3a1e12',c:'#a01e1e',w:'#d8e0ea'};
 ACC.dsl={r:['..............SL','.H..........H.SL','.HH........HH.SL','..HKKKKKKKKH..SL','...KBBKKBBK...SL','...KBEKKBEK...SL','....KKKKKK....SL','....T.T..T.T..SL','..............SL','..............SL','.............GGG','..............W.','..............W.','..............P.'],p:{H:'#a08868',K:'#e8dcc0',B:'#2a1a14',E:'#ff4a2a',T:'#fff8e8',S:'#b8c2d0',L:'#f4f8ff',G:'#b02a22',W:'#4a2a1a',P:'#e0b040'}};
@@ -45,7 +45,15 @@ function slimeRows(k,L){const G=SL_BODY.map(r=>r.split(''));const put=(y,x,c)=>{
  const A=ACC[k];if(A)A.r.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]!=='.')G[y][x]=row[x];});
  return G.map(r=>r.join(''));}
 const heroCache=new Map();
+// v2.5 karma classes keep their own body whatever the look: a hooded skeleton, or a winged human with a halo
+const NEC_ROWS=["................",".....oooooo.....","....oowwwwo.....","....owkwwkw...g.","....owwwwww..gyg","....oowtwto....y","....orrrrroo..y.","...orrbrrrro.y..","..o.rrbrrr.wy...","....rrbrrr..y...","....rrrrrr..y...","....rrrrrr......",".....w..w.......",".....w..w.......","....ww..ww......","................"];
+const NEC_PAL={o:'#2a1a3a',w:'#e8e4d8',k:'#120c18',t:'#6a6070',r:'#3e2a52',b:'#e8e4d8',g:'#7af08a',y:'#6a5a4a'};
+const ANG_ROWS=(function(){const G=HERO_ROWS.map(r=>r.split(''));G[0]=".....yyyyy......".split('');
+ const W=[[4,1,2],[5,0,3],[6,0,3],[7,0,2],[8,0,1],[9,0,0]];for(const [y,a,b] of W)for(let x=a;x<=b;x++)if(G[y][x]==='.')G[y][x]='f';return G.map(r=>r.join(''));})();
+const ANG_PAL={h:'#f4e2a0',a:'#f6f4ee',b:'#d8d0b8',c:'#e8c060',w:'#fff3a0',f:'#ffffff',y:'#ffd84a'};
 function heroSpr(k,look){
+ if(k==='nec'||k==='ang'){const L=look==null?null:lookOf(look),sk=L?SKINS[L.skin%SKINS.length]:'#f1c49a',id='kc:'+k+':'+(k==='ang'?sk:'');let s=heroCache.get(id);if(s)return s;
+  s=k==='nec'?mk(NEC_ROWS,NEC_PAL):mk(ANG_ROWS,Object.assign({s:sk,e:'#1a1010',l:'#c8c0a8'},ANG_PAL));s.id=id;s.sh=true;heroCache.set(id,s);return s;}
  if(look==null||lookOf(look).form==='human'){const L=look==null?null:lookOf(look),sk=L?SKINS[L.skin%SKINS.length]:'#f1c49a',id='hu:'+k+':'+sk;let s=heroCache.get(id);if(s)return s;
   const pal=Object.assign({s:sk,e:'#1a1010',l:'#3a2e24'},HP_[k]||HP_.npc);s=mk(HERO_ROWS,pal);s.id=id;s.sh=k!=='ghost';heroCache.set(id,s);return s;}
  const L=lookOf(look);
@@ -289,5 +297,6 @@ function funeralBg(win){const k=win?'w':'f';if(funC[k])return funC[k];const c=do
 // candle flame flickers with t (static when t is 0)
 function drawCandle(x,X,Y,t,i){blit(x,CANDLE,X,Y,{key:'candle',noShadow:true});const fl=t?Math.round(Math.sin(t/110+i*2.1)+Math.sin(t/47+i)*.6):0;
  x.fillStyle='rgba(255,200,90,0.16)';x.fillRect(X-2,Y-6,9,8);x.fillStyle='#ff9a2a';x.fillRect(X+1,Y-3-Math.max(0,fl),3,3+Math.max(0,fl));x.fillStyle='#fff2a0';x.fillRect(X+2,Y-2,1,2);}
-window.ART={CANDLE,WREATH,STONE,funeralBg,drawCandle,mk,heroSpr,lookOf,rollLook,heroLook,HERO_ROWS,HP_,MSPR,BSPR,BOSS_ROWS,BOSS_PAL,PSPR,PROPS,NPCS,COIN,ICONS,sprCanvas,blit,BG,hash,bgImg,drawTorch,drawOverlay,drawProp,compSpr,compKey};
+const BONE=mk(["................","................","................","................",".....wwww.......","....wkwwkw......","....wwwwww......",".....wtwt.......","......ww....s...","....wwwwww.s....","...w.wwww.ws....","...w.wwww.......",".....w..w.......",".....w..w.......","....ww..ww......","................"],{w:'#e8e0c8',k:'#1a1010',t:'#8a8070',s:'#b0b8c0'});
+window.ART={BONE,CANDLE,WREATH,STONE,funeralBg,drawCandle,mk,heroSpr,lookOf,rollLook,heroLook,HERO_ROWS,HP_,MSPR,BSPR,BOSS_ROWS,BOSS_PAL,PSPR,PROPS,NPCS,COIN,ICONS,sprCanvas,blit,BG,hash,bgImg,drawTorch,drawOverlay,drawProp,compSpr,compKey};
 })();
