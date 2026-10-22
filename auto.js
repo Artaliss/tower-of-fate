@@ -2305,10 +2305,10 @@ const dayKey=()=>new Date(Date.now()+7*3600e3).toISOString().slice(0,10); // Tha
 const dayPick=d=>DAYS.length?DAYS[shash('tof-day|'+d)%DAYS.length]:null;
 const newSid=()=>(Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-6)).replace(/[^a-z0-9]/g,'');
 // the server hands out a run ticket at the start; only ticketed runs can reach the global top list. Silent no-op where /api/live is missing
+// "playing now" is counted from tickets that have no score yet, so there is no heartbeat any more (it cost 1-3 D1 writes a run).
+// A resumed run whose ticket request failed asks once more when it loads.
 function liveStart(R){const L=window.LB&&window.LB.live;if(!L||!R.net)return;L.start(R.net.sid).then(j=>{if(j&&j.tk&&R.net)R.net.tk=j.tk;}).catch(()=>{});}
-function liveBeat(){const L=window.LB&&window.LB.live,R=S&&S.R;if(!L||!R||!R.net||!R.alive||document.hidden||!['flow','decide','combat'].includes(S.phase))return;
- if(!R.net.tk){liveStart(R);return;}L.beat(R.net.sid,R.floor).catch(()=>{});}
-setInterval(liveBeat,5.5*60e3);
+function liveBeat(){const L=window.LB&&window.LB.live,R=S&&S.R;if(!L||!R||!R.net||!R.alive||R.net.tk||!['flow','decide','combat'].includes(S.phase))return;liveStart(R);}
 const agoT=ms=>ms<9e4?'เมื่อสักครู่':ms<36e5?`${Math.round(ms/6e4)} นาทีก่อน`:`${Math.round(ms/36e5)} ชั่วโมงก่อน`;
 // birth screen: how many people are climbing right now + a rotating line about recent lives
 function liveBox(){const L=window.LB&&window.LB.live;if(!L||S.liveAsk)return;S.liveAsk=1;const run=S;

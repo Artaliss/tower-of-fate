@@ -1,18 +1,21 @@
 // Cloudflare Pages Function: /api/scores
-// storage: store(env) = D1 TOF_DB or KV TOF_KV (keys: 'top' = top 100, 'recent' = last 50, 'rl:<ip>' rate limit, 'dup:<id>' dedupe)
+// storage: store(env) = D1 TOF_DB or KV TOF_KV (keys: 'top' = top 100, 'recent' = last 50, 'rl:<ip>' rate limit for posts without a D1 ticket)
+//          run tickets: D1 table tix (store.js tix()), stamped used by the score = the dedupe; KV-only mode: 'tk:<id>' + 'dup:tk:<id>'
 // GET  -> {top:[...], recent:[...]}  (Cache-Control: max-age=30)
 // POST -> body = entry JSON (see LEADERBOARD.md) -> {ok:true, id, rank, v, day, ss} | {error}
 //         optional 'ss' = share counters (v2.3), summed into live.d[day].ss; response ss:1 means they were counted (v2.7 clients send them to /api/live instead)
-//         optional 'dv' = device id (v2.7): at most DV_MAX posts per device per Thai day ('rd:<hash>'), on top of the per-IP limit
+//         optional 'dv' = device id (v2.7): must match the dv the ticket was issued to; posts without a D1 ticket also meet
+//         DV_MAX per device per Thai day, counted inside the same 'rl:<ip>' row as the per-IP limit
 //         optional 'lk' / 'gear' = hero look + carried gear for the hall of fame (v0.2.8), stored on the row, not part of canon()
+//         ok:0 rows carry nok = why: 'tk' no ticket, 'time' too fast, 'dv' other device, 'score' / 'drg' does not add up
 //         a ticketed win (ok:1) is also kept in 'hof' (newest HOF_N winners): one extra write, only on won runs; response hof:1
 // GET ?hof=1 -> {hof:[...]} winners from 'hof' + any won rows still in 'top'/'recent' (covers wins from before 'hof' existed)
 
-import { store } from './store.js';
+import { store, tix } from './store.js';
 import { readLive, prune, writeLive, okDay, okDv, thDay, shareStats, addShare } from './live.js';
 const TOP_N = 100, RECENT_N = 50, HOF_N = 100;
 const RL_MAX = 10, RL_WIN = 600;          // 10 posts / 10 min / IP
-const DV_MAX = 150;                       // posts / Thai day / device (v2.7)
+const DV_MAX = 150;                       // posts / Thai day / device, per IP row (v2.7)
 const DUP_TTL = 86400;
 const MAX_BODY = 4096;
 const RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'];
@@ -24,8 +27,23 @@ const FORMS = ['slime', 'human', ''];
 const PETS = ['slime', 'fox', 'owl', 'wolf', 'drk', 'drs', 'drg'];
 const GEAR = ['excal'];   // excal = Excalibur carried across lives
 const SALT = 'tof-v1';
-// a ticketed run must have lasted at least this long on the server clock before it may enter 'top' (v2.2 anti-cheat)
-const minMs = e => e.floor * 250;
+// anti-cheat for 'top' (v2.2, tightened with the D1 cut). Each check is lenient on purpose: a real run must never fail it.
+// Time: a ticketed run must have lasted this long on the server clock. At the top speed (16x) a floor tick lasts 312 ms, a quiet
+// stretch 1.6 ticks, a key moment at least one tick; the fastest of 20,000 simulated lives (tools/autosim.js logic) needed 4.9 s
+// for 20 floors, 13.8 s for 50 and 28 s for a win, so 280 ms a floor minus 3 s stays below every one of them.
+const minMs = e => Math.max(0, Math.min(e.floor, 100) * 280 - 3000);
+// Score: auto.js ledgerRoll() gives score = max(0, base + karma points), base = floor (100 on a win) + 3 per boss + 30 for a win
+// + round(level / 2) + 10 or 15 for the secret floor, karma points = at most 14 ledger rows of +-2..6 (so within +-84).
+// Bounds use more bosses (floor/10 + 2) and higher levels (floor + 30) than any simulated life reached.
+const KPTS = 14 * 6;
+export function implausible(e) {
+  const fl = e.won ? 100 : e.floor, s101 = e.floor === 101;
+  const hi = fl + 3 * (Math.floor(fl / 10) + 2) + (e.won ? 30 : 0) + Math.ceil((fl + 30) / 2) + (s101 ? 15 : 0) + KPTS;
+  const lo = Math.max(0, fl + (e.won ? 30 : 0) + (s101 ? 10 : 0) - KPTS);
+  if (e.score > hi || e.score < lo) return 'score';
+  if (e.drg && e.floor < 100) return 'drg';   // the dragon floor only opens after floor 100
+  return '';
+}
 
 // ---- shared with leaderboard.js (keep identical) ----
 function fnv(s) { let h = 2166136261 >>> 0; s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
@@ -105,6 +123,22 @@ export function hofMerge(hof, top, recent) {
   return out.sort((a, b) => b.date - a.date).slice(0, HOF_N);
 }
 
+// one row per IP for posts without a D1 ticket: {t, c} = posts in the current RL_WIN window, {d, k:{devHash: n}} = posts per device today
+async function limited(kv, ip, dv, now) {
+  const key = 'rl:' + fnv(ip);
+  let rl = null; try { rl = JSON.parse(await kv.get(key) || 'null'); } catch { }
+  if (!rl || typeof rl !== 'object' || Array.isArray(rl)) rl = {};
+  if (typeof rl.t !== 'number' || typeof rl.c !== 'number' || now - rl.t >= RL_WIN * 1000) { rl.t = now; rl.c = 0; }
+  if (rl.d !== thDay(now) || !rl.k || typeof rl.k !== 'object') { rl.d = thDay(now); rl.k = {}; }
+  if (rl.c >= RL_MAX) return { wait: Math.max(1, Math.ceil((rl.t + RL_WIN * 1000 - now) / 1000)) };
+  const dk = dv ? fnv('tof-dv|' + dv) : '';
+  if (dk && (rl.k[dk] | 0) >= DV_MAX) return { wait: 3600, dev: 1 };
+  rl.c++;
+  if (dk) { rl.k[dk] = (rl.k[dk] | 0) + 1; const ks = Object.keys(rl.k); if (ks.length > 64) delete rl.k[ks[0]]; }
+  await kv.put(key, JSON.stringify(rl), { expirationTtl: 2 * 86400 });
+  return null;
+}
+
 export const cmp = (a, b) => (b.won - a.won) || (b.floor - a.floor) || (b.score - a.score) || (a.date - b.date);
 
 const SEC = {
@@ -156,38 +190,34 @@ export async function onRequestPost({ request, env }) {
   const { e, x, err } = validate(body);
   if (err) return json({ error: 'invalid', field: err }, 400);
 
-  // rate limit per IP (fixed window stored with TTL)
   const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
-  const rlKey = 'rl:' + fnv(ip);
-  const now = Date.now();
-  let rl = null; try { rl = JSON.parse(await kv.get(rlKey) || 'null'); } catch { }
-  if (!rl || typeof rl.t !== 'number' || now - rl.t >= RL_WIN * 1000) rl = { c: 0, t: now };
-  if (rl.c >= RL_MAX) {
-    const wait = Math.ceil((rl.t + RL_WIN * 1000 - now) / 1000);
-    return json({ error: 'rate-limited', retryAfter: wait }, 429, { 'Retry-After': String(Math.max(1, wait)) });
-  }
-  // per device per Thai day (v2.7); clients without dv only meet the IP limit
-  let rd = null, rdKey = '';
-  if (x.dv) {
-    rdKey = 'rd:' + fnv('tof-dv|' + x.dv);
-    try { rd = JSON.parse(await kv.get(rdKey) || 'null'); } catch { }
-    if (!rd || rd.d !== thDay(now)) rd = { d: thDay(now), c: 0 };
-    if (rd.c >= DV_MAX) return json({ error: 'rate-limited', scope: 'dev', retryAfter: 3600 }, 429, { 'Retry-After': '3600' });
-  }
-  rl.c++;
-  await kv.put(rlKey, JSON.stringify(rl), { expirationTtl: Math.max(60, Math.ceil((rl.t + RL_WIN * 1000 - now) / 1000)) });
-  if (rd) { rd.c++; await kv.put(rdKey, JSON.stringify(rd), { expirationTtl: 2 * 86400 }); }
-
-  // dedupe identical submissions (one score per run ticket)
-  const dupKey = x.tk ? 'dup:tk:' + x.tk : 'dup:' + e.id;
-  if (await kv.get(dupKey)) return json({ ok: true, dup: true, id: e.id });
-  await kv.put(dupKey, '1', { expirationTtl: DUP_TTL });
-
-  // only runs that carry a server ticket and lasted plausibly long reach 'top'; the rest still show in 'recent'
-  let tkv = null; if (x.tk) { try { tkv = JSON.parse(await kv.get('tk:' + x.tk) || 'null'); } catch { } }
-  e.ok = tkv && typeof tkv.t0 === 'number' && now - tkv.t0 >= minMs(e) ? 1 : 0;
+  const now = Date.now(), T = tix(env);
+  // which ticket: a D1 row (tix), else a KV ticket 'tk:<id>' (KV-only mode, or issued before the D1 cut)
+  let tkv = null, how = '';
+  if (x.tk && T) { try { tkv = await T.get(x.tk); } catch { } if (tkv) how = 'd1'; }
+  if (x.tk && !tkv) { try { tkv = JSON.parse(await kv.get('tk:' + x.tk) || 'null'); } catch { } if (tkv && typeof tkv.t0 === 'number') how = 'kv'; else tkv = null; }
 
   const [top, recent] = await Promise.all([getList(kv, 'top'), getList(kv, 'recent')]);
+  if (how === 'd1') {
+    // one score per ticket: the stamp is the dedupe, and tickets are already limited per IP when issued (live.js)
+    if (tkv.u || !await T.use(x.tk)) return json({ ok: true, dup: true, id: e.id });
+  } else {
+    // no D1 ticket: the same entry again is a dup (0 writes), otherwise one limiter row per IP
+    if (!x.tk && (recent.some(y => y && y.id === e.id) || top.some(y => y && y.id === e.id))) return json({ ok: true, dup: true, id: e.id });
+    const lim = await limited(kv, ip, x.dv, now);
+    if (lim) return json(lim.dev ? { error: 'rate-limited', scope: 'dev', retryAfter: lim.wait } : { error: 'rate-limited', retryAfter: lim.wait }, 429, { 'Retry-After': String(lim.wait) });
+    if (how === 'kv') {
+      const dupKey = 'dup:tk:' + x.tk;
+      if (await kv.get(dupKey)) return json({ ok: true, dup: true, id: e.id });
+      await kv.put(dupKey, '1', { expirationTtl: DUP_TTL });
+    }
+  }
+
+  // only runs that carry a server ticket and pass the checks reach 'top'; the rest still show in 'recent' with ok:0
+  const why = !tkv ? 'tk' : now - tkv.t0 < minMs(e) ? 'time' : tkv.dv && tkv.dv !== x.dv ? 'dv' : implausible(e);
+  e.ok = why ? 0 : 1;
+  if (why) e.nok = why;
+
   let rank = null;
   if (e.ok && !top.some(y => y && y.id === e.id)) {
     top.push(e); top.sort(cmp); top.length = Math.min(top.length, TOP_N);
@@ -207,14 +237,15 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
-  // presence ends with the run; the run counts toward its day's stats
+  // the run counts toward its day's stats; KV-only mode also ends its presence in 'live'.u
   // share counters (x.ss) ride along only when 'live' is written anyway, so they never cost a write of their own
   let day = null, ss = 0;
-  if (x.sid || x.day) {
+  const dayFresh = !!x.day && Math.abs(Date.parse(x.day) - now) < 3 * 86400e3;
+  if (T ? dayFresh || x.ss : x.sid || x.day) {
     try {
       const v = prune(await readLive(kv));
       if (x.sid) delete v.u[x.sid];
-      const fresh = x.day && Math.abs(Date.parse(x.day) - now) < 3 * 86400e3;
+      const fresh = dayFresh;
       if (fresh) {
         const d = v.d[x.day] || (v.d[x.day] = { n: 0, h: 0, w: 0, f: 0 });
         d.n++; d.h += x.dh; d.w += e.won ? 1 : 0; d.f += e.floor; day = d;
