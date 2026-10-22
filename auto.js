@@ -2250,7 +2250,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  <button class="btn" id="btnLook" data-k="3" type="button">🎲 สุ่มหน้าตาใหม่<span class="kb">[3]</span></button>
  <button class="btn pri" id="btnEnter" data-k="2" data-enter>เข้าหอ ▲<span class="kb">[Enter]</span></button></div>
  <p class="lookn">สุ่มหน้าตาได้ไม่จำกัด แรงค์ อาชีพ และนิสัยยังเหมือนเดิม</p>${birthExtras(h)}`;
- if(!S.rvDone){S.rvDone=true;
+ if(!S.rvDone){S.rvDone=true;if(RANKS[h.rank]&&RANKS[h.rank].k==='SS')ach('birth_ss'); // SS counts the moment it is rolled, even if re-rolled away
   if(RM)sting('birth');else{if(h.rank>=5)VIS.star=performance.now()+1400;clearTimeout(S.rvT);S.rvT=setTimeout(()=>{if(S.phase==='birth')sting('birth');},1400);}}
  const fb=$('formBox');fb.innerHTML=[['slime','สไลม์'],['human','คน']].map(([f,n])=>`<button class="btn${look(h).form===f?' on':''}" type="button" data-form="${f}" aria-pressed="${look(h).form===f}">ร่าง: ${n}</button>`).join('');
  fb.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{const f=b.dataset.form;rollHero.form=f;S.hero.look=Object.assign({},look(S.hero),{form:f});S.themeId=heroTheme(S.hero);render();});

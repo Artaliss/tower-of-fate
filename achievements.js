@@ -37,7 +37,7 @@ const DEFS=[
  {id:'win_dra',n:'ปีกเหนือหอคอย',d:'ชนะเกมด้วยอัศวินมังกร',icon:'🐉',tier:'silver',cls:'dra'},
  {id:'win_all',n:'ครบทุกอาชีพ',d:'ชนะเกมครบทั้ง 7 อาชีพ',icon:'🌟',tier:'legend',t:(s,R,M)=>BASE7.every(k=>M.clsWins[k])},
  {id:'slime',n:'เยลลี่ผู้พิชิต',d:'ชนะเกมในร่างสไลม์',icon:'🟢',tier:'gold',t:s=>s.won&&str(s.form)==='slime'},
- {id:'ss',n:'เกิดมาพร้อมดาว',d:'เกิดมาได้แรงค์ SS',icon:'✨',tier:'legend',t:s=>str(s.rankK)==='SS'},
+ {id:'ss',n:'เกิดมาพร้อมดาว',d:'สุ่มเกิดได้แรงค์ SS (ได้ทันทีตอนสุ่มเจอ)',icon:'✨',tier:'legend',t:s=>str(s.rankK)==='SS'},
  {id:'fwin',n:'แรงค์ F ก็ถึงยอด',d:'ชนะเกมทั้งที่เกิดมาแรงค์ F',icon:'🥔',tier:'legend',t:s=>s.won&&str(s.rankK)==='F'},
  {id:'odds',n:'หนึ่งในพัน',d:'เกิดมาด้วยโอกาสต่ำกว่า 1 ใน 1,000',icon:'🎲',tier:'silver',t:s=>num(s.odds)>=1000},
  {id:'pets2',n:'สวนสัตว์เคลื่อนที่',d:'มีสัตว์เลี้ยงพร้อมกัน 2 ตัว',icon:'🐾',tier:'silver',t:(s,R)=>Math.max(R.pets.size,cnt(s.pets))>=2},
@@ -174,6 +174,7 @@ function onEvent(type,data){try{const d=(data&&typeof data==='object')?data:{};
   case 'lineage':{const g=Math.floor(num(d.gen));R.gen=Math.max(R.gen,g);if(g>=3)unlock('gen3');if(g>=10)unlock('gen10');break;}
   case 'gw':unlock('gw');break;
   case 'credits':unlock('credits');break;
+  case 'birth_ss':unlock('ss');break;
   case 'clan':unlock('clan_pick');break;
   case 'clanpet':unlock('clanpet_pick');break;
   case 'memo':unlock('memo');break;
