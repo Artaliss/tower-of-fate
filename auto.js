@@ -328,10 +328,11 @@ function doFight(R,en,out,o){o=o||{};const h=R.h,f=R.floor;
   h.gold+=gd;say(R,out,`ปราบ${en.n}! +${Math.round(ex)} EXP · +${gd} ทอง`,'good');gainExp(R,ex,out);if(en.boss){out.coins=gd;bossPerks(R,gd,out);}if(clanM(R)==='s'&&isDrg(en)&&(en.boss||en.drg))drgFell(R,out);}
  else{out.cause=o.cause||`ถูก${en.n}สังหารที่ชั้น ${f}`;say(R,out,`พ่ายแพ้ต่อ${en.n}…`,'bad');}
  return res.win;}
-function genEvent(R){const f=R.floor;if(f%10===0){const en=modMon(R,mkBoss(f),MD(R,'boss',1)),k=BLATE[f]||1;en.hp*=k;en.mhp=en.hp;en.atk*=k;return{kind:'boss',en:bossFit(R,en,BFIT.t)};}
+// np: no pet/companion encounters (floors nobody gets to answer)
+function genEvent(R,np){const f=R.floor;if(f%10===0){const en=modMon(R,mkBoss(f),MD(R,'boss',1)),k=BLATE[f]||1;en.hp*=k;en.mhp=en.hp;en.atk*=k;return{kind:'boss',en:bossFit(R,en,BFIT.t)};}
  let r=rnd();if(r<.3)return{kind:'mon',en:genMonster(f,R)};r-=.3;
- const hk=R.st==='help'?1.3:1,pr=.05*MD(R,'pet',1)*hk;if(r<pr&&R.pets.length<2)return{kind:'pet',pet:pick(PETK)};r-=pr;
- if(r<.06*hk&&R.comps.length<2)return{kind:'comp',comp:genComp(f,R)};
+ const hk=R.st==='help'?1.3:1,pr=.05*MD(R,'pet',1)*hk;if(r<pr&&!np&&R.pets.length<2)return{kind:'pet',pet:pick(PETK)};r-=pr;
+ if(r<.06*hk&&!np&&R.comps.length<2)return{kind:'comp',comp:genComp(f,R)};
  const b=biome(f);let pool=[];EVENTS.forEach((e,i)=>{if((e.b===b||e.b===-1)&&!R.seen.includes(i)&&evW(R,e)>0)pool.push(i);});
  if(!pool.length)EVENTS.forEach((e,i)=>{if((e.b===b||e.b===-1)&&evW(R,e)>0)pool.push(i);});
  let x=rnd()*pool.reduce((a,i)=>a+evW(R,EVENTS[i]),0),ti=pool[pool.length-1];for(const i of pool){x-=evW(R,EVENTS[i]);if(x<0){ti=i;break;}}
@@ -1457,7 +1458,7 @@ const QUIET=['ทุ่งหญ้าเงียบจนได้ยินเ
 function quietLen(R){let n=0;const tg=ri(3,6)+(MD(R,'quiet',1)>1?1:0);
  for(let k=0;k<tg;k++){const fl=R.floor+k;if(fl%10===0||fl>=100||pRoll(fl,hzM(R))>=.045)break;let arcD=false;for(const id in R.arcs){const A=R.arcs[id];if(!A.done&&A.due<=fl)arcD=true;}if(arcD||(R.egg&&R.egg.at<=fl+1))break;n++;}return n;}
 function quietTick(R,n){const out=mkOut(),f0=R.floor,g0=R.h.gold,l0=R.h.lv,k0=R.kills,keep=[];R.quiet=true;let k=0;
- let dead=false;const qb=[];for(;k<n&&R.alive;k++){if(rollFloor(R)){dead=true;break;}const ev=genEvent(R);if(ev.kind==='boss')break;const fg=R.h.gold,fh=R.h.hp,ff=R.floor;const o=resolve(R,ev,aiPick(R,ev))||mkOut();aiPotion(R);finishFloor(R,o);
+ let dead=false;const qb=[];for(;k<n&&R.alive;k++){if(rollFloor(R)){dead=true;break;}const ev=genEvent(R,1);if(ev.kind==='boss')break;const fg=R.h.gold,fh=R.h.hp,ff=R.floor;const o=resolve(R,ev,aiPick(R,ev))||mkOut();aiPotion(R);finishFloor(R,o);
   qb.push({f:ff,g:Math.round(R.h.gold-fg),hp:Math.round(R.h.hp-fh)});if(o.mile)out.mile=o.mile;
   o.msgs.forEach(m=>{if(m.keep||(m.c==='lv'&&!/^เลเวลอัป/.test(m.t))||/ทรยศ/.test(m.t))keep.push(m);});}
  R.quiet=false;R.quietN++;R.lastQuiet=R.floor;if(cid(R)==='far'&&pathTier(R)>=2&&k&&rnd()<.5){R.potions++;keep.push({t:'เก็บสมุนไพรข้างทางมาต้มเป็นยาได้หนึ่งขวด',c:'good'});}const dg=Math.round(R.h.gold-g0),dk=R.kills-k0;
@@ -1572,12 +1573,15 @@ function planFloor0(R){
   if(R.sinceKey>=1&&crownKey(R))return{type:'key',K:mkKey(R,genSpecial(R))}; // v2.7: a contest or a favour being called in does not wait for the usual key gap
   if(R.sinceKey>=1&&R.floor-R.lastQuiet>=8&&R.floor>2&&rnd()<.09*MD(R,'quiet',1)){const n=quietLen(R);if(n>=3)return{type:'quiet',n};}
   if(R.floor>3&&R.floor-R.lastDrama>=7&&rnd()<.07)return{type:'drama',D:pick(DRAMA.filter(d=>d.id!==R.lastDramaId))};}
- const ev=genEvent(R);
+ let ev=genEvent(R);
  if(ev.kind==='boss'){const K=mkKey(R,'boss',ev);const again=R.bossAt===R.floor;R.bossAt=R.floor;if(again&&K.ai!==0){K.auto=1;return{type:'autokey',K};}return{type:'key',K};}
+ // a pet or companion only shows up when the player actually gets to choose; otherwise roll something else
+ if(ev.kind==='pet'||ev.kind==='comp'){const t=ev.kind==='pet'?'pet:'+ev.pet:'comp:'+ev.comp.tr;
+  if(!R.used[t]&&R.sinceKey>=2){const K=mkKey(R,ev.kind,ev);if(!autoAns(R,K))return{type:'key',K};}ev=genEvent(R,1);}
  const risky=ev.kind==='ev'&&EVENTS[ev.ti].c.some(c=>c.p);
- const tid=ev.kind==='ev'?'ev:'+ev.ti:ev.kind==='pet'?'pet:'+ev.pet:ev.kind==='comp'?'comp:'+ev.comp.tr:'';
+ const tid=ev.kind==='ev'?'ev:'+ev.ti:'';
  if(tid&&R.way[tid]!==undefined&&rnd()<.6)return{type:'key',K:mkKey(R,ev.kind,ev)}; // repeat: answered the same way without pausing
- if(tid&&!R.used[tid]&&((R.sinceKey>=2&&(ev.kind==='pet'||ev.kind==='comp'))||(R.sinceKey>=4&&risky&&rnd()<.2)))return{type:'key',K:mkKey(R,ev.kind,ev)};
+ if(tid&&!R.used[tid]&&R.sinceKey>=4&&risky&&rnd()<.2)return{type:'key',K:mkKey(R,ev.kind,ev)};
  if(R.sinceKey>=R.keyGap)return{type:'key',K:mkKey(R,genSpecial(R))};
  return{type:'auto',ev};}
 function autoTick(R,ev){const out=resolve(R,ev,aiPick(R,ev));if(R.alive)quietFarm(R,out);finishFloor(R,out);return out;}
