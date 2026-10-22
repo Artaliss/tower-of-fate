@@ -76,6 +76,7 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
 .main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:12px;align-items:start}
 .sceneBox{position:relative;background:#05080a;border:2px solid var(--line);box-shadow:0 0 0 2px #070c0e;border-radius:4px;overflow:hidden}
 #scene{display:block;width:100%;aspect-ratio:3/2;image-rendering:pixelated;image-rendering:crisp-edges}
+.tnow{font-size:12px;color:var(--gold);padding:4px 2px 0;line-height:1.5}
 .biome{position:absolute;left:8px;top:8px;font-size:12px;background:#000a;padding:2px 8px;border-radius:2px;color:var(--gold)}
 .card{background:var(--panel);border:2px solid var(--line);box-shadow:0 0 0 2px #070c0e,inset 0 2px 0 #24383f;border-radius:4px;padding:14px;min-height:200px}
 .card h3{margin:0 0 4px;font-size:19px;font-weight:500;color:var(--gold)}
@@ -430,7 +431,7 @@ body.eb-on .helpbtn{bottom:calc(74px + env(safe-area-inset-bottom,0px))}
    <div class="chip" id="c-gold" title="เหรียญทอง"><canvas class="ico" data-ico="coin" width="8" height="8"></canvas><span class="px v" id="v-gold"></span></div>
    <div class="chip fate" id="c-fate" title="ดวงชะตา: โอกาสตายในชั้นนี้">☽ <span class="v" id="v-fate"></span></div>
   </div>
-<div class="mileban" id="mileBan" hidden role="status"></div></div><div class="biome" id="biomeTag"></div><div class="forms" id="formBox" hidden aria-label="เลือกร่างของฮีโร่"></div></section>
+<div class="mileban" id="mileBan" hidden role="status"></div></div><div class="biome" id="biomeTag"></div><div class="tnow" id="towerNow" hidden></div><div class="forms" id="formBox" hidden aria-label="เลือกร่างของฮีโร่"></div></section>
   <section class="card" id="card" aria-live="polite"></section>
  </main>
  <section class="lower">
