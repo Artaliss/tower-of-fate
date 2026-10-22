@@ -1740,7 +1740,7 @@ Object.assign(TIER,{invest:'c',thorn:'c',seed:'c',letter:'r',loan:'c',tutor:'c'}
 if(typeof document==='undefined'){window.AUTO_SIM={SPECIAL,ARCS,DRAMA,PATHS,pathTier,MFIT,secPrep,BFIT,DAYS,dayHit,secEn,secFight,secOpts,estimateWin,fight,SEC_K,DRG,rollHero,HZ,LX,pRoll,project,hzM,autoLife,newRun,planFloor,applyKey,mkKey,BAL,RUN_OMENS,STANCES};return;}
 
 // ================= UI =================
-const {heroSpr,MSPR,BSPR,PSPR,PROPS,COIN,ICONS,sprCanvas,blit,bgImg,drawOverlay,drawProp,compSpr,compKey}=window.ART;
+const {heroSpr,MSPR,BSPR,PSPR,PROPS,COIN,ICONS,sprCanvas,blit,bgImg,bgDraw,drawOverlay,drawProp,compSpr,compKey}=window.ART;
 const AUDIO=window.AUDIO;
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $=id=>document.getElementById(id);
@@ -1757,7 +1757,7 @@ let S=null;
 const VIS={hf:0,ef:0,nums:[],coins:[],shake:0,edead:false,walk0:0,show:null,dieAt:0};
 const THF='600 9px '+((getComputedStyle(document.documentElement).getPropertyValue('--fT')||'sans-serif').trim());
 const PXF='8px '+((getComputedStyle(document.documentElement).getPropertyValue('--fP')||'monospace').trim());
-const sc=$('scene'),cx=sc.getContext('2d');cx.imageSmoothingEnabled=false;
+const sc=$('scene'),cx=sc.getContext('2d');cx.setTransform(2,0,0,2,0,0);cx.imageSmoothingEnabled=false; // 384x256 backing store, drawn in 192x128 coordinates
 const look=h=>window.ART.heroLook(h);
 // ---- FX: lunges/recoil, hit sparks, class skills, death dissolve, ambient life. Canvas-drawn at 192x128; skipped under RM.
 // Particles live in a fixed ring-buffer pool; shaped effects (slash, ring, projectile, column...) are capped too.
@@ -1916,7 +1916,7 @@ function drawShow(t,bob){const s=VIS.show;if(!s)return;
 function drawScene(t){const R=S.R,h=R?R.h:S.hero;const b=R?biome(R.floor):0;const ph=S.phase;
  if(VIS.q.length)runQ(t);
  cx.save();if(VIS.shake>t&&!RM){const a=VIS.shA||1;cx.translate(Math.round((Math.random()*2-1)*a),a>1?Math.round((Math.random()*2-1)*(a-1)):0);}
- cx.drawImage(bgImg(b),0,0);if(h)try{cx.drawImage(heroDeco(b,h),0,0);}catch(e){}drawOverlay(cx,b,RM?0:t);
+ bgDraw(cx,b);if(h)try{cx.drawImage(heroDeco(b,h),0,0);}catch(e){}drawOverlay(cx,b,RM?0:t);
  if(ph==='decide'&&VIS.show&&VTINT[VIS.show.vr]){cx.fillStyle=VTINT[VIS.show.vr];cx.fillRect(0,0,192,128);}
  // birth reveal: one shooting star over the village for rank A and above
  if(ph==='birth'&&VIS.star&&!RM&&t>=VIS.star&&t<VIS.star+1200){const q=(t-VIS.star)/1200,sx=16+q*150,sy=6+q*44;for(let j=0;j<14;j++){cx.fillStyle=`rgba(255,${230-j*6},${160-j*8},${(1-j/14)*(1-q*.6)})`;cx.fillRect(Math.floor(sx-j*2.6),Math.floor(sy-j*.8),j<2?2:1,j<2?2:1);}
@@ -2589,7 +2589,7 @@ function drawFuneral(x,t){const R=S.R,h=R.h,won=R.won,A=window.ART,bob=t?Math.ro
   const r=(q-.22)/.78,R0=4+r*16;x.globalAlpha=Math.max(0,1-r*1.1);x.fillStyle=col;for(let j=0;j<14;j++){const a=j/14*6.283;x.fillRect(Math.round(cx0+Math.cos(a)*R0),Math.round(cy0+Math.sin(a)*R0+r*r*6),1,1);}x.globalAlpha=1;}}}
 function drawCineFrame(x,fr,t){if(!fr)return;if(fr.kind==='fun'){drawFuneral(x,t);return;}
  const R=S.R,h=R.h,b=fr.kind==='birth'?0:biome(fr.f),hs=heroSpr(CLASSES[h.cls].id,look(h)),bob=t?Math.round(Math.sin(t/260)):0;
- x.drawImage(bgImg(b),0,0);try{x.drawImage(heroDeco(b,h),0,0);}catch(e){}drawOverlay(x,b,t||0);
+ bgDraw(x,b);try{x.drawImage(heroDeco(b,h),0,0);}catch(e){}drawOverlay(x,b,t||0);
  if(fr.kind==='birth'){x.fillStyle='rgba(244,187,74,0.14)';x.fillRect(84,0,24,100);x.fillStyle='#5a4a3a';x.fillRect(80,100,32,4);blit(x,hs,88,84+bob,{key:'h'+hs.id});return;}
  if(fr.kind==='death'){blit(x,PROPS.grave,88,84);x.globalAlpha=.55;blit(x,heroSpr('ghost',look(h)),88,60+(t?Math.round(Math.sin(t/500)*3):0),{key:'ghost'});x.globalAlpha=1;if(fr.v)drawVis(x,fr.v,t,bob);return;}
  if(fr.kind==='win'){R.comps.forEach((c,i)=>{const v=cSpr(c);blit(x,v.s,62-i*16,84+bob,{key:v.k});});R.pets.forEach((p,i)=>{if(PSPR[p])blit(x,PSPR[p],112+i*14,91,{key:'p'+p});});
@@ -2620,10 +2620,10 @@ function cineBuild(){const R=S.R,h=R.h,fl=R.won?100:R.floor;let el=CINE.el;if(el
  el=document.createElement('div');el.className='cine';el.id='cine';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label',`ฉากจบชีวิตของ ${h.name}`);
  el.innerHTML=`<button type="button" class="cskip" id="cSkip">ข้าม ⏭</button><div class="cstage">
   <div class="ct" aria-live="polite"><div class="cta"></div><div class="ctb"></div></div>
-  <div class="cm"><div class="cfr"><canvas width="192" height="128"></canvas><canvas width="192" height="128"></canvas></div><div class="cfl px"></div><div class="ccap" aria-live="polite"></div><div class="csub"></div>
+  <div class="cm"><div class="cfr"><canvas width="384" height="256"></canvas><canvas width="384" height="256"></canvas></div><div class="cfl px"></div><div class="ccap" aria-live="polite"></div><div class="csub"></div>
    <div class="cstrip" aria-hidden="true">${Array.from({length:100},(_,i)=>`<i${(i+1)%10===0?' class="b"':''}></i>`).join('')}</div></div>
   <div class="ce"><div class="cen">${esc(h.name)}</div><div class="cey px">ชั้น 1 – ชั้น ${fl}</div><div class="cel"></div><div class="cec"></div><button type="button" class="btn pri cgo" id="cGo">ดูบันทึก</button></div></div>`;
- document.body.appendChild(el);CINE.el=el;CINE.cv=[...el.querySelectorAll('.cfr canvas')].map(c=>{const x=c.getContext('2d');x.imageSmoothingEnabled=false;return{c,x};});
+ document.body.appendChild(el);CINE.el=el;CINE.cv=[...el.querySelectorAll('.cfr canvas')].map(c=>{const x=c.getContext('2d');x.setTransform(2,0,0,2,0,0);x.imageSmoothingEnabled=false;return{c,x};});
  el.querySelector('#cSkip').onclick=e=>{e.stopPropagation();cineSkip();};el.querySelector('#cGo').onclick=e=>{e.stopPropagation();cineClose();};
  el.addEventListener('click',e=>{if(e.target.closest('button,a,details'))return;cineTap();});
  return el;}
@@ -2655,9 +2655,9 @@ function cineLoop(t){CINE.raf=requestAnimationFrame(cineLoop);if(t-(CINE.lt||0)<
 function cineStatic(){const el=CINE.el;CINE.static=true;el.dataset.mode='s';el.classList.add('static');const st=el.querySelector('.cstage'),s=CINE.steps;
  const T=s.filter(x=>x.k==='t'),F=s.filter(x=>x.k==='m'),E=s.find(x=>x.k==='e');
  const list=document.createElement('div');list.className='cslist';
- list.innerHTML=T.map(x=>`<div class="cst"><b>${esc(x.a)}</b>${x.b?`<span>${esc(x.b)}</span>`:''}</div>`).join('')+F.map((x,i)=>`<figure class="csf"><canvas width="192" height="128" data-i="${i}"></canvas><figcaption><span class="px">${x.fr.kind==='fun'?(S.R.won?'ยอดหอคอย':'เชิงหอคอย'):'ชั้น '+x.fr.f}</span><b>${esc(x.fr.cap||'')}</b><span>${esc(x.fr.sub||'')}</span></figcaption></figure>`).join('');
+ list.innerHTML=T.map(x=>`<div class="cst"><b>${esc(x.a)}</b>${x.b?`<span>${esc(x.b)}</span>`:''}</div>`).join('')+F.map((x,i)=>`<figure class="csf"><canvas width="384" height="256" data-i="${i}"></canvas><figcaption><span class="px">${x.fr.kind==='fun'?(S.R.won?'ยอดหอคอย':'เชิงหอคอย'):'ชั้น '+x.fr.f}</span><b>${esc(x.fr.cap||'')}</b><span>${esc(x.fr.sub||'')}</span></figcaption></figure>`).join('');
  st.querySelector('.ct').remove();st.querySelector('.cm').remove();st.insertBefore(list,st.firstChild);
- list.querySelectorAll('canvas').forEach(c=>{const x=c.getContext('2d');x.imageSmoothingEnabled=false;try{drawCineFrame(x,F[+c.dataset.i].fr,0);}catch(e){}});
+ list.querySelectorAll('canvas').forEach(c=>{const x=c.getContext('2d');x.setTransform(2,0,0,2,0,0);x.imageSmoothingEnabled=false;try{drawCineFrame(x,F[+c.dataset.i].fr,0);}catch(e){}});
  el.querySelector('.cel').innerHTML=E.lines.map(t=>`<div class="vis">${esc(t)}</div>`).join('');const cc=el.querySelector('.cec');cc.textContent=E.close;cc.classList.add('vis');el.querySelector('#cGo').classList.add('vis');}
 function cineKey(e){if(!CINE.on)return;const k=e.key;if(k==='Tab')return;e.stopPropagation();
  if(k==='Escape'||k==='Esc'){e.preventDefault();cineClose();return;}
@@ -2777,7 +2777,7 @@ function gwList(R){const h=R.h,won=R.won,fl=won?100:R.floor,b=biome(fl),L=gwLost
 // end screen block: polaroids in sepia; "มอบให้" turns one to colour, keeps it in the memorial and offers the 1080x1350 card
 function gwMount(R){if(!S.gw)S.gw=gwList(R);const W=S.gw,G=S.gwG||(S.gwG={});if(!W.length)return;const old=card.querySelector('.gw');if(old)old.remove();
  const sec=document.createElement('section');sec.className='gw';sec.setAttribute('aria-labelledby','gwH');
- sec.innerHTML=`<h2 id="gwH">ความปรารถนาที่ค้างไว้</h2><p class="gwl">สิ่งที่${esc(R.h.name)}ไม่ทันได้ทำ กด "มอบให้" แล้วเราจะวาดวันนั้นให้</p><div class="gws">${W.map((w,i)=>`<figure class="gwc${G[w.k]?' on':''}" style="--r:${GW_TILT[i]||0}deg"><div class="gwp"><canvas width="150" height="100" aria-hidden="true"></canvas></div><figcaption><b>${esc(w.t)}</b><span>${esc(w.m)}</span><i class="gwh"${G[w.k]?'':' hidden'}>${esc(w.w)}</i></figcaption><button type="button" class="btn gwb" data-i="${i}">${G[w.k]?'📤 แชร์วันนี้':'มอบให้'}</button></figure>`).join('')}</div><p class="gwmsg" role="status" aria-live="polite"></p>`;
+ sec.innerHTML=`<h2 id="gwH">ความปรารถนาที่ค้างไว้</h2><p class="gwl">สิ่งที่${esc(R.h.name)}ไม่ทันได้ทำ กด "มอบให้" แล้วเราจะวาดวันนั้นให้</p><div class="gws">${W.map((w,i)=>`<figure class="gwc${G[w.k]?' on':''}" style="--r:${GW_TILT[i]||0}deg"><div class="gwp"><canvas width="300" height="200" aria-hidden="true"></canvas></div><figcaption><b>${esc(w.t)}</b><span>${esc(w.m)}</span><i class="gwh"${G[w.k]?'':' hidden'}>${esc(w.w)}</i></figcaption><button type="button" class="btn gwb" data-i="${i}">${G[w.k]?'📤 แชร์วันนี้':'มอบให้'}</button></figure>`).join('')}</div><p class="gwmsg" role="status" aria-live="polite"></p>`;
  const A=card.querySelectorAll('.endacts'),at=A[A.length-1];if(at&&at.parentNode)at.parentNode.insertBefore(sec,at.nextSibling);else card.appendChild(sec);
  sec.querySelectorAll('canvas').forEach((c,i)=>gwPaint(c,W[i]));
  sec.querySelectorAll('.gwb').forEach(b=>b.onclick=()=>{const w=W[+b.dataset.i];if(!w)return;if(G[w.k]){gwShare(w);return;}G[w.k]=1;gwKeep(R,w);
@@ -2795,12 +2795,12 @@ function memoGw(show){const rows=$('memo').querySelectorAll('.row');
   const b=document.createElement('button');b.type='button';b.className='mgwb';b.textContent=`🕯 วันที่มอบให้ ${g.length}`;b.setAttribute('aria-expanded','false');
   const box=document.createElement('div');box.className='mgw';box.hidden=true;(r.children[1]||r).appendChild(b);r.after(box);
   b.onclick=()=>{const op=box.hidden;box.hidden=!op;b.setAttribute('aria-expanded',op?'true':'false');
-   if(op&&!box.childElementCount){box.innerHTML=g.map(w=>`<figure><canvas width="150" height="100" aria-hidden="true"></canvas><figcaption>${esc(w.t||'')}</figcaption></figure>`).join('');
+   if(op&&!box.childElementCount){box.innerHTML=g.map(w=>`<figure><canvas width="300" height="200" aria-hidden="true"></canvas><figcaption>${esc(w.t||'')}</figcaption></figure>`).join('');
     box.querySelectorAll('canvas').forEach((c,j)=>gwPaint(c,g[j]));}};});}
 // still picture of a wish, cropped a little closer to the people (the share card uses the same crop)
 let gwOff=null;
-function gwPaint(c,w){try{if(!gwOff){gwOff=document.createElement('canvas');gwOff.width=192;gwOff.height=128;}const o=gwOff.getContext('2d'),x=c.getContext('2d');o.imageSmoothingEnabled=false;x.imageSmoothingEnabled=false;
- o.clearRect(0,0,192,128);window.ART.drawWish(o,w,0);x.clearRect(0,0,c.width,c.height);x.drawImage(gwOff,22,26,150,100,0,0,c.width,c.height);}catch(e){}}
+function gwPaint(c,w){try{if(!gwOff){gwOff=document.createElement('canvas');gwOff.width=384;gwOff.height=256;}const o=gwOff.getContext('2d'),x=c.getContext('2d');o.setTransform(2,0,0,2,0,0);o.imageSmoothingEnabled=false;x.imageSmoothingEnabled=false;
+ o.clearRect(0,0,192,128);window.ART.drawWish(o,w,0);x.clearRect(0,0,c.width,c.height);x.drawImage(gwOff,44,52,300,200,0,0,c.width,c.height);}catch(e){}}
 // after the epitaph: one short scene nobody saw (10-15 s, skippable, never under reduced motion)
 function bxPick(R){const h=R.h,won=R.won,fl=won?100:R.floor,nm=h.name,L=gwLost(R);
  if(R.egg&&!won)return{k:'egg',eg:PETK[shash(nm)%PETK.length],a:`คืนนั้นไม่มีใครอยู่ที่หลุมศพของ${nm}`,b:`ไข่ที่${nm}อุ้มมาตลอดทางฟักออกตรงนั้นเอง`};
@@ -2811,7 +2811,7 @@ function bxPick(R){const h=R.h,won=R.won,fl=won?100:R.floor,nm=h.name,L=gwLost(R
  return{k:'slime',a:`สไลม์ตัวหนึ่งที่ชั้น ${fl} คาบดาบของ${nm}ไป`,b:'ทุกวันนี้มันใช้ดาบเล่มนั้นแคะฟัน'};}
 function drawBx(x,B,t){const R=S.R,h=R.h,fl=R.won?100:R.floor,b=biome(fl),A=window.ART,T=performance.now(),bob=Math.round(Math.sin(t/260));
  const go=(x0,x1,t0,d)=>Math.round(x0+(x1-x0)*clamp((t-t0)/d,0,1)),hop=(t0,d)=>t>t0&&t<t0+d?-Math.abs(Math.round(Math.sin(t/90)*2)):0;
- const room=()=>{x.drawImage(bgImg(b),0,0);try{x.drawImage(heroDeco(b,h),0,0);}catch(e){}drawOverlay(x,b,T);};
+ const room=()=>{bgDraw(x,b);try{x.drawImage(heroDeco(b,h),0,0);}catch(e){}drawOverlay(x,b,T);};
  if(B.k==='egg'){x.drawImage(A.funeralBg(false),0,0);blit(x,A.STONE,90,86,{key:'stone',noShadow:true});[[80,94],[106,94]].forEach(([X,Y],i)=>A.drawCandle(x,X,Y,T,i));
   if(t<7000){const sh=t>3000?Math.round(Math.sin(t/(t>5500?30:60))):0;blit(x,PROPS.egg,118+sh,94,{noShadow:true});}
   else{x.fillStyle='#e8e0c8';x.fillRect(115,99,5,3);x.fillRect(125,99,5,3);if(PSPR[B.eg])blit(x,PSPR[B.eg],118,91+hop(7000,900),{key:'p'+B.eg});if(t>8800)blit(x,ICONS.heart,120,78+Math.round(Math.sin(t/400)*2),{noShadow:true});}return;}
@@ -2831,12 +2831,12 @@ function bxTry(){if(RM||CINE.static||!CINE.el||CINE.bxS===S||!S||!S.R)return fal
  let B=null;try{B=bxPick(S.R);}catch(e){B=null;}if(!B)return false;CINE.bxS=S;
  try{CINE.epT.forEach(clearTimeout);CINE.epT=[];clearTimeout(CINE.tm);cancelAnimationFrame(CINE.raf);
   const el=CINE.el,bx=document.createElement('div');bx.className='cbx';
-  bx.innerHTML=`<div class="cbt">เรื่องที่ไม่มีใครรู้</div><div class="cfr"><canvas width="192" height="128" class="on"></canvas></div><div class="cba"></div><div class="cbb"></div>`;
+  bx.innerHTML=`<div class="cbt">เรื่องที่ไม่มีใครรู้</div><div class="cfr"><canvas width="384" height="256" class="on"></canvas></div><div class="cba"></div><div class="cbb"></div>`;
   el.querySelector('.cstage').appendChild(bx);el.dataset.mode='b';el.setAttribute('aria-label','เรื่องที่ไม่มีใครรู้');
   const a=bx.querySelector('.cba'),bb=bx.querySelector('.cbb');a.textContent=B.a;bb.textContent=B.b;
   const sk=el.querySelector('#cSkip');if(sk){clearTimeout(CINE.armT);CINE.arm=0;sk.classList.remove('arm');sk.textContent='ข้าม ⏭';sk.onclick=e=>{e.stopPropagation();cineClose();};try{sk.focus({preventScroll:true});}catch(e){}}
   CINE.epT.push(setTimeout(()=>a.classList.add('vis'),900),setTimeout(()=>bb.classList.add('vis'),5200));
-  const x=bx.querySelector('canvas').getContext('2d'),t0=performance.now();x.imageSmoothingEnabled=false;
+  const x=bx.querySelector('canvas').getContext('2d'),t0=performance.now();x.setTransform(2,0,0,2,0,0);x.imageSmoothingEnabled=false;
   const loop=t=>{CINE.raf=requestAnimationFrame(loop);if(t-(CINE.lt||0)<50)return;CINE.lt=t;try{drawBx(x,B,t-t0);}catch(e){}};try{drawBx(x,B,0);}catch(e){}CINE.raf=requestAnimationFrame(loop);
   CINE.tm=setTimeout(()=>cineClose(),13500);return true;}catch(e){return false;}}
 // ---- online memorial (v2.7, memorial.js): the run as a small JSON with scene descriptors (no pictures), button on the end screen ----
