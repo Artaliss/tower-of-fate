@@ -2187,8 +2187,10 @@ const CHIPK=[[/กรรมชั่ว/,'karma_bad'],[/กรรมดี/,'kar
  [/EXP/,'exp'],[/ATK/,'atk'],[/DEF/,'def'],[/LUK/,'luk'],[/HP/,'hp'],[/ทอง/,'gold']];
 function chipKey(p){const t=String(p.t||'');if(p.c==='pt')return'path';if(p.c==='kk')return /ชั่ว/.test(t)?'karma_bad':'karma_good';for(const [re,k] of CHIPK)if(re.test(t))return k;return'';}
 function partsHTML(P){return P.map(p=>{const k=chipKey(p);return`<span class="${p.c||''}"${k?` data-tip="${k}"`:''}>${esc(p.t)}</span>`;}).join(' ');}
-function focusPrimary(){const b=card.querySelector('[data-enter]')||card.querySelector('button:not(:disabled)');if(b&&document.activeElement&&document.activeElement!==document.body&&!card.contains(document.activeElement))return;if(b)try{b.focus({preventScroll:true});}catch(e){}}
-function render(){if(S.phase!=='decide')card.classList.remove('legend');$('formBox').hidden=S.phase!=='birth';renderHUD();renderParty();renderLog();renderCtl();renderLineage();saveRun();
+const actQ=sel=>card.querySelector(sel)||(S&&S.phase==='end'&&!$('sceneActs').hidden?$('sceneActs').querySelector(sel):null);
+const inActs=el=>card.contains(el)||$('sceneActs').contains(el);
+function focusPrimary(){const b=actQ('[data-enter]')||card.querySelector('button:not(:disabled)');if(b&&document.activeElement&&document.activeElement!==document.body&&!inActs(document.activeElement))return;if(b)try{b.focus({preventScroll:true});}catch(e){}}
+function render(){if(S.phase!=='decide')card.classList.remove('legend');$('formBox').hidden=S.phase!=='birth';if(S.phase!=='end')$('sceneActs').hidden=true;renderHUD();renderParty();renderLog();renderCtl();renderLineage();saveRun();
  const ph=S.phase;
  if(ph==='birth')renderBirth();else if(ph==='flow'){renderFlow();revealArm();}else if(ph==='decide')renderDecide();else if(ph==='combat')renderCombat();else if(ph==='dying')renderDying();else if(ph==='end')renderEnd();else if(ph==='secret')renderSecret();
  if(ph!=='end')endBar(false);try{window.SHARE&&window.SHARE.onPhase&&window.SHARE.onPhase(ph);}catch(e){}
@@ -2567,11 +2569,11 @@ function openShare(auto){if(!S||!S.shareD||!window.SHARE)return;try{window.SHARE
 let ebIO=null;
 function endBar(on){const b=$('endBar');if(!b)return;if(ebIO){ebIO.disconnect();ebIO=null;}
  if(!on){b.hidden=true;document.body.classList.remove('eb-on');return;}
- const acts=[...card.querySelectorAll('.endacts')],vis=new Set();
+ const acts=[...document.querySelectorAll('#card .endacts,#sceneActs .endacts')],vis=new Set();
  const upd=()=>{const show=S&&S.phase==='end'&&!S.cineOn&&vis.size===0;b.hidden=!show;document.body.classList.toggle('eb-on',show);};
  if(!('IntersectionObserver' in window)||!acts.length){upd();return;}
  ebIO=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)vis.add(e.target);else vis.delete(e.target);});upd();},{threshold:.4});acts.forEach(a=>ebIO.observe(a));
- if(!b._w){b._w=1;$('ebShare').onclick=()=>openShare(false);$('ebReborn').onclick=()=>{const r=$('btnReborn');if(r)r.click();};}}
+ if(!b._w){b._w=1;$('ebShare').onclick=()=>openShare(false);}}
 // ---- ลวดลายชะตา: 16 patterns from four two-pole axes (log-ratio lean with a prior, so short runs stay near the middle) ----
 // cL/cR: the letters stored in saves and share links (keep them), eL/eR: what players see
 const PAX=[{L:'บุก',R:'ระวังตัว',cL:'บ',cR:'ร',eL:'⚔️',eR:'🛡️'},{L:'หาของ',R:'ช่วยเหลือ',cL:'ห',cR:'ช',eL:'💰',eR:'🤝'},{L:'ไปคนเดียว',R:'มีเพื่อน',cL:'ด',cR:'พ',eL:'🚶',eR:'👥'},{L:'กรรมดี',R:'กรรมชั่ว',cL:'☀',cR:'☾',eL:'☀️',eR:'🌙'}];
@@ -2778,8 +2780,6 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  ${certH}
  ${patHTML(S.pat)}
  ${dayH}
- <div class="acts endacts"><button class="btn pri" id="btnHeir" data-k="1" data-enter data-tip="lineage">สืบทอดโดยลูกศิษย์ ↗<span class="kb">[Enter]</span></button><button class="btn" id="btnReborn" data-k="2" data-tip="reborn">เกิดใหม่ ↻<span class="kb">[2]</span></button></div>
- <p class="dim" style="font-size:12px;margin:4px 0 10px">ลูกศิษย์ได้ทอง ${fmt(Math.min(600,Math.round(h.gold*.3)))}${R.pets.length?` กับ${esc(PETS[R.pets[0]].n)}`:''} และรับกรรมของคุณไปบางส่วน · เกิดใหม่ได้เริ่มสายใหม่ แต่กรรมชาตินี้จะติดไปกับดวงเกิดนิดหน่อย</p>
  ${share||lb?`<div class="acts endacts" style="margin-top:0">${share?'<button class="btn shr" id="btnShare" type="button">📤 แชร์ชีวิตนี้<small>การ์ด + ลิงก์ให้เพื่อนมาลองบ้าง</small></button>':''}${lb?'<button class="btn" id="btnLB2" type="button">🏆 อันดับ & ความสำเร็จ</button>':''}</div>`:''}
  ${ledgerHTML(R)}
  ${S.mont.length?`<h2>ช่วงเวลาที่ยังจำได้</h2><ol class="mont">${S.mont.map(m=>`<li class="${m.rar}"><span class="px">${m.f}F</span><span><b>${esc(m.t)}</b> · เลือก "${esc(m.c)}"${m.res?`<br><span class="x">${esc(m.res)}</span>`:''}</span></li>`).join('')}</ol>`:''}
@@ -2788,6 +2788,9 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  <h2>แผนที่การไต่หอ</h2><div class="grid100">${cells}</div>
  <div class="legend">${Object.keys(MAPN).map(k=>`<span><i style="background:${MAPC[k]}"></i>${MAPN[k]}</span>`).join('')}<span><i style="background:#2a6a5a"></i>จุดเขียว = ฟาร์ม</span></div>
  <h2 style="margin-top:12px">เทียบกับนักผจญภัย 2,000 คนที่ทอยชะตาจากตารางเดียวกัน</h2>${cmpH}`;
+ // heir / reborn sit right under the scene so they can be pressed without scrolling down the card
+ const SA=$('sceneActs');SA.innerHTML=`<div class="acts endacts"><button class="btn pri" id="btnHeir" data-k="1" data-enter data-tip="lineage">สืบทอดโดยลูกศิษย์ ↗<span class="kb">[Enter]</span></button><button class="btn" id="btnReborn" data-k="2" data-tip="reborn">เกิดใหม่ ↻<span class="kb">[2]</span></button></div>
+ <p class="dim">ลูกศิษย์ได้ทอง ${fmt(Math.min(600,Math.round(h.gold*.3)))}${R.pets.length?` กับ${esc(PETS[R.pets[0]].n)}`:''} และรับกรรมของคุณไปบางส่วน · เกิดใหม่ได้เริ่มสายใหม่ แต่กรรมชาตินี้จะติดไปกับดวงเกิดนิดหน่อย</p>`;SA.hidden=false;
  const P={name:h.name,village:h.village,gen:h.gen||1,lin:h.lin,house:h.house||h.name,gold:h.gold,pet:R.pets[0]||null,karma:R.karma};
  $('btnHeir').onclick=()=>newBirth({heir:P});
  $('btnReborn').onclick=()=>newBirth({kShift:clamp(R.karma/5,-6,6),prev:{name:h.name}});
@@ -2811,9 +2814,6 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  endBar(share);
  // first visit to the end screen plays the cinematic over it; "ดูบันทึก" (or skip) re-renders this screen
  if(!S.cineDone&&!CINE.on){let ok=false;try{ok=cineStart();}catch(e){ok=false;}if(!ok){CINE.on=true;cineClose(true);}}
- // the share sheet opens by itself once per run, after the cinematic and the karma ledger reveal
- if(share&&!S.sharePop&&S.cineDone){S.sharePop=true;clearTimeout(S.popT);const run=S.runId,wait=500+(RM?0:Math.min(4000,L.rows.length*250+500));
-  S.popT=setTimeout(()=>{if(!S||S.phase!=='end'||S.runId!==run||document.querySelector('dialog[open]'))return;openShare(true);},wait);}
  const bl=$('btnLB2');if(bl)bl.onclick=()=>{try{window.LB.open();}catch(e){}};
  try{gwMount(R);}catch(e){}
  memoBtn();
@@ -2934,9 +2934,9 @@ $('btnPause').onclick=togglePause;
 {const b=$('btnDT');if(b)b.onclick=()=>setDTime(dTime?0:30);}
 document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.speed));
 document.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;if(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return;const k=e.key;
- if(/^[1-4]$/.test(k)){const b=card.querySelector(`button[data-k="${k}"]`);if(b&&!b.disabled){e.preventDefault();b.click();}}
+ if(/^[1-4]$/.test(k)){const b=actQ(`button[data-k="${k}"]`);if(b&&!b.disabled){e.preventDefault();b.click();}}
  else if(k===' '||k==='Spacebar'){if(['flow','decide','combat'].includes(S.phase)){e.preventDefault();togglePause();}}
- else if(k==='Enter'){if(document.activeElement&&document.activeElement.tagName==='BUTTON'&&card.contains(document.activeElement))return;const b=card.querySelector('[data-enter]');if(b&&!b.disabled){e.preventDefault();b.click();}}});
+ else if(k==='Enter'){if(document.activeElement&&document.activeElement.tagName==='BUTTON'&&inActs(document.activeElement))return;const b=actQ('[data-enter]');if(b&&!b.disabled){e.preventDefault();b.click();}}});
 document.querySelectorAll('canvas.ico').forEach(c=>{const s=ICONS[c.dataset.ico];if(s)c.getContext('2d').drawImage(sprCanvas(s,false,false,'i'+c.dataset.ico),0,0);});
 // ---- audio wiring ----
 let audioInit=false;

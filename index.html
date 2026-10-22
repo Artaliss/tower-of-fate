@@ -233,6 +233,9 @@ canvas.ico{width:16px;height:16px;image-rendering:pixelated;flex:none}
 #nextTxt{flex:none;min-width:118px;text-align:right}
 .forms{display:flex;gap:6px;padding:6px;background:var(--panel);border-top:2px solid var(--line)}
 .forms .btn{flex:1 1 0;min-height:38px}
+.sceneacts{padding:8px;background:var(--panel);border-top:2px solid var(--line)}
+.sceneacts .acts{margin-top:0}.sceneacts .btn{min-height:40px}
+.sceneacts .dim{font-size:12px;margin:6px 0 0}
 .forms .btn.on{border-color:var(--gold);background:#2a2a1c;color:var(--gold)}
 .ledger{list-style:none;margin:0 0 6px;padding:0;font-size:13px}
 .ledger li{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:6px;align-items:start;padding:4px 0;border-bottom:1px dashed #2a3e46;animation:lgIn .3s ease-out both}
@@ -455,7 +458,7 @@ body.eb-on .helpbtn{bottom:calc(74px + env(safe-area-inset-bottom,0px))}
    <div class="chip" id="c-gold" title="เหรียญทอง"><canvas class="ico" data-ico="coin" width="8" height="8"></canvas><span class="px v" id="v-gold"></span></div>
    <div class="chip fate" id="c-fate" title="ดวงชะตา: โอกาสตายในชั้นนี้">☽ <span class="v" id="v-fate"></span></div>
   </div>
-<div class="mileban" id="mileBan" hidden role="status"></div></div><div class="biome" id="biomeTag"></div><div class="tnow" id="towerNow" hidden></div><div class="forms" id="formBox" hidden aria-label="เลือกร่างของฮีโร่"></div></section>
+<div class="mileban" id="mileBan" hidden role="status"></div></div><div class="biome" id="biomeTag"></div><div class="tnow" id="towerNow" hidden></div><div class="forms" id="formBox" hidden aria-label="เลือกร่างของฮีโร่"></div><div class="sceneacts" id="sceneActs" hidden aria-label="เริ่มชีวิตถัดไป"></div></section>
   <section class="card" id="card" aria-live="polite"></section>
  </main>
  <section class="lower">
@@ -466,7 +469,7 @@ body.eb-on .helpbtn{bottom:calc(74px + env(safe-area-inset-bottom,0px))}
  <section class="panel memo"><h2>สุสานนักผจญภัย</h2><div id="memo"></div></section>
  <footer class="keys">ปุ่มลัด: 1–4 เลือก · Space หยุด/เดินต่อ · Enter ดำเนินต่อ</footer>
 </div>
-<div class="endbar" id="endBar" hidden role="region" aria-label="แชร์หรือเริ่มชีวิตใหม่"><button type="button" class="shb" id="ebShare">📤 แชร์ชีวิตนี้</button><button type="button" class="pri" id="ebReborn">เกิดใหม่ ↻</button></div>
+<div class="endbar" id="endBar" hidden role="region" aria-label="แชร์ชีวิตนี้"><button type="button" class="shb" id="ebShare">📤 แชร์ชีวิตนี้</button></div>
 <script src="sprites.js"></script>
 <script src="share.js"></script>
 <script src="achievements.js"></script>
