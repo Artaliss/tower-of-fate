@@ -175,7 +175,7 @@ function drawPortrait(ctx,d,X,Y,FW,FH){
  rect(ctx,X-6,Y-6,FW+12,FH+12,P.ink);rect(ctx,X-2,Y-2,FW+4,FH+4,P.gold2);
  ctx.save();ctx.beginPath();ctx.rect(X,Y,FW,FH);ctx.clip();ctx.imageSmoothingEnabled=false;
  const bi=clampN(Math.floor((d.floor-1)/20),0,4),sc=3;
- try{const bg=A&&A.bgImg&&A.bgImg(bi);if(bg){const sw=FW/sc,sh=FH/sc;ctx.drawImage(bg,(192-sw)/2,128-sh,sw,sh,X,Y,FW,FH);}else rect(ctx,X,Y,FW,FH,P.band);}catch(e){rect(ctx,X,Y,FW,FH,P.band);}
+ try{const hi=A&&A.bgHi,bg=hi?A.bgHi(bi):A&&A.bgImg&&A.bgImg(bi),k=hi?2:1;if(bg){const sw=FW/sc,sh=FH/sc;ctx.drawImage(bg,(192-sw)/2*k,(128-sh)*k,sw*k,sh*k,X,Y,FW,FH);}else rect(ctx,X,Y,FW,FH,P.band);}catch(e){rect(ctx,X,Y,FW,FH,P.band);}
  const floorY=Y+FH-(128-100)*sc; // bg floor line sits at y=100 of 128
  if(!d.won&&!d.birth){ctx.fillStyle='rgba(20,16,12,.28)';ctx.fillRect(X,Y,FW,FH);}
  else{const g=ctx.createRadialGradient(X+FW/2,floorY-80,10,X+FW/2,floorY-80,200);g.addColorStop(0,'rgba(255,220,120,.45)');g.addColorStop(1,'rgba(255,220,120,0)');ctx.fillStyle=g;ctx.fillRect(X,Y,FW,FH);}
@@ -326,12 +326,12 @@ async function renderGift(d){
  if(g.m){y+=58;y+=para(ctx,g.m,W/2,y,{size:30,min:22,col:P.ink2,maxW:W-200,lines:2,lh:1.3,align:'center'})-30*1.3;}
  // the photo: a slightly tilted print with the handwritten line under the picture
  const top=y+40,footY=1232,iH=Math.round(Math.min(512,footY-top-24-96-150)),iW=Math.round(iH*1.5),fw=iW+48,fh=iH+24+96,fx=(W-fw)/2;
- const sc=document.createElement('canvas');sc.width=192;sc.height=128;const sx=sc.getContext('2d');sx.imageSmoothingEnabled=false;
+ const sc=document.createElement('canvas');sc.width=384;sc.height=256;const sx=sc.getContext('2d');sx.setTransform(2,0,0,2,0,0);sx.imageSmoothingEnabled=false;
  let ok=false;try{if(A&&A.drawWish){A.drawWish(sx,g,0);ok=true;}}catch(e){}
  ctx.save();ctx.translate(W/2,top+fh/2);ctx.rotate(-.022);
  ctx.fillStyle='rgba(43,33,24,.22)';ctx.fillRect(-fw/2+8,-fh/2+12,fw,fh);
  rect(ctx,-fw/2,-fh/2,fw,fh,'#fbf7ec');ctx.strokeStyle=P.rule;ctx.lineWidth=2;ctx.strokeRect(-fw/2+1,-fh/2+1,fw-2,fh-2);
- ctx.imageSmoothingEnabled=false;if(ok)ctx.drawImage(sc,22,26,150,100,-iW/2,-fh/2+24,iW,iH);else rect(ctx,-iW/2,-fh/2+24,iW,iH,P.band);
+ ctx.imageSmoothingEnabled=false;if(ok)ctx.drawImage(sc,44,52,300,200,-iW/2,-fh/2+24,iW,iH);else rect(ctx,-iW/2,-fh/2+24,iW,iH,P.band);
  if(g.w)line(ctx,g.w,0,fh/2-36,{size:34,min:22,weight:'italic 400',col:'#2c3c6c',maxW:fw-60,align:'center'});
  ctx.restore();
  const ny=top+fh+64;
