@@ -228,6 +228,10 @@ function genComp(f,R){const c=pick(['war','mag','arc','pri']),T=pick(TRAITS);ret
 const visC=c=>({n:c.n,cls:c.cls,tr:c.tr||'',legend:!!c.legend}); // card visual for compSpr (JSON-safe)
 const compCost=(R,c)=>Math.round(25*scl(R.floor)*MD(R,'cc',1)*(c&&c.cm||1));
 const warpCost=R=>Math.round(70*scl(R.floor));
+// boss sneak (v2.5.1): a roll, not a free pass. LUK, class and path tier raise it, higher floors lower it; caught = boss fight at −25% HP and the boss strikes first
+const SNK={b:.5,f:.0025,c:{rog:.15,arc:.1,ang:.05},hp:.25,ai:.05};
+const sneakCh=R=>{const id=cid(R),T=pathTier(R);return clamp(SNK.b+clamp((eLuk(R)-8)*.01,-.05,.2)+(SNK.c[id]||0)+(id==='rog'||id==='arc'?.05:.02)*T-SNK.f*R.floor,.1,.9);};
+function sneakWin(R,en,n){const h=R.h,hp0=h.hp;h.hp=Math.max(1,hp0-h.mhp*SNK.hp);const w=estimateWin(R,en,n,{ambush:true});h.hp=hp0;return w;}
 function power(a,d,hp){return Math.round(a*1.6+d*1.2+hp*.15);}
 const heroPower=R=>power(eAtk(R)+R.comps.reduce((s,c)=>s+c.pw*.6,0)+(cid(R)==='nec'?boneN(R)*bonePw(R)*.6:0),eDef(R),R.h.mhp);
 function fight(R,en,o){o=o||{};const h=R.h,id=cid(R),T=pathTier(R),A=eAtk(R)*(id==='war'?1+.02*T:id==='ang'?1+.03*Math.min(2,T):1),D=eDef(R),cc=critCh(R),dg=dodgeCh(R),rec=!o.dry;
@@ -323,7 +327,7 @@ function genEvent(R){const f=R.floor;if(f%10===0)return{kind:'boss',en:bossFit(R
  const ti=pick(pool);R.seen.push(ti);if(R.seen.length>6)R.seen.shift();return{kind:'ev',ti};}
 const chRisk=(R,ch)=>riskAdj(R,ch.p)*(cid(R)==='mag'&&pathTier(R)>=3&&ch.tg&&ch.tg.includes('curse')?.5:1);
 function chDis(R,ch){const c=ch.c?Math.round(ch.c*scl(R.floor)):0;if(c&&R.h.gold<c)return`ทองไม่พอ ขาด ${Math.ceil(c-R.h.gold)}`;if(ch.req==='pot'&&R.potions<1)return'ไม่มียา';return'';}
-function estCached(R,ev,n){const k=Math.round(R.h.hp)+'|'+Math.round(R.h.atk)+'|'+R.comps.length+'|'+R.pets.join();if(ev.ek!==k){ev.ek=k;ev.est=estimateWin(R,ev.en,n);}return ev.est;}
+function estCached(R,ev,n){const k=Math.round(R.h.hp)+'|'+Math.round(R.h.atk)+'|'+R.comps.length+'|'+R.pets.join();if(ev.ek!==k){ev.ek=k;ev.est=estimateWin(R,ev.en,n);ev.sw=sneakWin(R,ev.en,n);}return ev.est;}
 function choicesOf(R,ev){const h=R.h,f=R.floor,s=scl(f);
  if(ev.kind==='ev')return EVENTS[ev.ti].c.map(ch=>{if(ch.cl&&ch.cl!==cid(R))return{t:ch.t,P:[],dis:true,hide:true};const P=[];if(ch.c)P.push({t:`−${Math.round(ch.c*s)} ทอง`,c:'w'});
   if(ch.p){const pp=Math.round(chRisk(R,ch)*100);
@@ -344,7 +348,8 @@ function choicesOf(R,ev){const h=R.h,f=R.floor,s=scl(f);
  if(ev.kind==='boss'){const w=Math.round(estCached(R,ev,150)*100),wc=warpCost(R);
   return[{t:'สู้กับบอส!',P:[{t:`โอกาสชนะ ~${w}%`,c:w>=65?'g':w>=35?'w':'b'},{t:`+ทองก้อนโต`,c:'g'},{t:'แพ้ = ตาย',c:'b'}]},
    {t:'ใช้ม้วนวาร์ป',dis:f===100||(R.warps<1&&h.gold<wc),P:f===100?[{t:'(ชั้นสุดท้ายวาร์ปข้ามไม่ได้)',c:'b'}]:R.warps>0?[{t:`ใช้ม้วนที่มี (${R.warps})`,c:'w'},{t:'ข้ามบอส ไม่ได้รางวัล',c:''}]:[{t:`ซื้อฉุกเฉิน −${wc} ทอง`,c:'w'},{t:'ข้ามบอส ไม่ได้รางวัล',c:''}]},
-   {t:'หาทางลัดอ้อมบอส',dis:f===100,P:f===100?[{t:'(ชั้นสุดท้ายไม่มีทางอ้อม)',c:'b'}]:[{t:'ข้ามบอส ไม่ได้รางวัล',c:''},{t:'HP −25%',c:'b'},{t:'ชะตาสั้นลงนิดหน่อย',c:'b'}]}];}
+   {t:'หาทางลัดอ้อมบอส',dis:f===100,P:f===100?[{t:'(ชั้นสุดท้ายไม่มีทางอ้อม)',c:'b'}]:(()=>{const p=Math.round(sneakCh(R)*100),sw=Math.round((ev.sw||0)*100);
+    return[{t:`${p}% แอบผ่านได้`,c:p>=60?'g':p>=35?'w':'b'},{t:'ข้ามบอส ไม่ได้รางวัล · ชะตาสั้นลงนิดหน่อย',c:''},{t:`/ ถ้าบอสเห็น ต้องสู้ทั้งที่ HP −25% และโดนตีก่อน (ชนะ ~${sw}%)`,c:'b'}];})()}];}
  return[];}
 const SAVED=['เกือบตายไปแล้ว แต่ชะตายังไม่ถึงฆาต','ล้มลงไปรอบหนึ่ง ลืมตาขึ้นมาอีกทีก็ยังหายใจอยู่','ภาพตรงหน้ามืดไปครู่หนึ่ง พอรู้สึกตัวก็ลุกขึ้นเดินต่อได้','ร่างกายพังไปครึ่งหนึ่ง แต่หอคอยยังไม่ยอมรับวิญญาณคุณ'];
 // death only when the fight was a chosen lethal one (boss); otherwise survive scarred (scars raise the floor hazard)
@@ -384,7 +389,10 @@ function resolve(R,ev,i){const h=R.h,f=R.floor;const out={msgs:[],combat:null,af
   if(i===0){say(R,out,`ท้าชิงบอส ${en.n}!`,'info');R.map[f-1]='boss';
    if(doFight(R,en,out,{cause:`พ่ายแพ้ต่อบอส ${en.n} (ชั้น ${f})`})){R.bosses++;pathTg(R,isDrg(en)?['fight','dragon']:['fight'],out);R.retreats=0;if(f===100){R.won=true;R.sec=rnd()<SEC_P?{st:'ask',c:pick(['k','s','g'])}:{st:'none'};out.after='end';say(R,out,'พิชิตยอดหอคอยโชคชะตา!','lv');}else out.after='shop';}}
   else if(i===1){if(R.warps>0)R.warps--;else h.gold-=warpCost(R);R.map[f-1]='warp';R.retreats=0;say(R,out,`ฉีกม้วนวาร์ป ข้าม${en.n}ไปอย่างเงียบๆ`,'info');out.after='shop';}
-  else{R.sneaks=(R.sneaks||0)+1;R.retreats=0;pathTg(R,['sneak'],out);h.hp=Math.max(1,h.hp-h.mhp*.25);shiftFate(R,-2);R.map[f-1]='flee';say(R,out,`ลัดเลาะช่องแคบหลังห้องบอส ผ่าน${en.n}ไปได้ แต่ตัวเต็มไปด้วยรอยถลอก`,'info');out.after='shop';}}
+  else{R.retreats=0;
+   if(rnd()<sneakCh(R)){R.sneaks=(R.sneaks||0)+1;pathTg(R,['sneak'],out);shiftFate(R,-2);R.map[f-1]='flee';say(R,out,`ลัดเลาะช่องแคบหลังห้องบอส ผ่าน${en.n}ไปได้โดยมันไม่ทันเห็น`,'info');out.after='shop';}
+   else{R.caught=(R.caught||0)+1;h.hp=Math.max(1,h.hp-h.mhp*SNK.hp);R.map[f-1]='boss';say(R,out,`ก้อนหินใต้เท้าหลุดดังก๊อก ${en.n}หันมาเห็นพอดี คุณถลอกไปทั้งตัวตอนถอยหนี และยังตั้งหลักไม่ทัน`,'bad');
+    if(doFight(R,en,out,{ambush:true,cause:`${en.n}จับได้ตอนแอบย่องผ่าน (ชั้น ${f})`})){R.bosses++;pathTg(R,isDrg(en)?['fight','dragon']:['fight'],out);out.after='shop';}}}}
  if(R.alive&&h.hp<=0)mortal(R,out,out.cause||`สิ้นใจที่ชั้น ${f}`);
  if(R.won)R.alive=false;
  return out;}
@@ -439,11 +447,11 @@ function aiPick(R,ev){const h=R.h,hf=h.hp/h.mhp;
  if(ev.kind==='mon'){const w=estimateWin(R,ev.en,24);if(w>=.75)return 0;if(ev.en.pet&&R.pets.length<2&&w>=.5&&rnd()<.5)return 2;return 1;}
  if(ev.kind==='pet')return kLean(R)<-.4&&rnd()<-kLean(R)?2:0;
  if(ev.kind==='comp'){if(R.comps.length>=2||cid(R)==='nec')return 2;if(h.gold>=compCost(R,ev.comp)+20)return 0;return hf>.6?1:2;}
- if(ev.kind==='boss'){const w=estimateWin(R,ev.en,60);if(w>=.6)return 0;const cw=(R.warps>0||h.gold>=warpCost(R))&&R.floor<100;
-  if(cw&&w<.45)return 1;if(w<.3&&R.floor<100)return 2;return 0;}
+ if(ev.kind==='boss')return aiBoss(R,ev);
  return 0;}
-// auto mode boss policy: more cautious than engine.js, since losing a boss is the one real death besides fate
-function aiBoss(R,ev){const w=estimateWin(R,ev.en,60),cw=(R.warps>0||R.h.gold>=warpCost(R))&&R.floor<100;if(w>=.6)return 0;if(cw&&w<.45)return 1;if(w<.3&&R.floor<100)return 2;return 0;}
+// auto mode boss policy: more cautious than engine.js, since losing a boss is the one real death besides fate; sneak only when its odds (pass, or win the ambush) beat a straight fight
+function aiBoss(R,ev){const w=estimateWin(R,ev.en,60),top=R.floor>=100,cw=(R.warps>0||R.h.gold>=warpCost(R))&&!top;if(w>=.6)return 0;if(cw&&w<.45)return 1;if(top)return 0;
+ const p=sneakCh(R);return p+(1-p)*sneakWin(R,ev.en,40)>w+SNK.ai?2:0;}
 function aiPotion(R){if(R.h.hp/R.h.mhp<.45)drink(R);}
 function aiShop(R){const h=R.h;if(h.hp<h.mhp*.8)buy(R,'heal');while(R.potions<3&&buy(R,'pot'));if(R.warps<1&&h.gold>warpCost(R)*2)buy(R,'warp');
  for(let g=0;g<20;g++){const L=shopList(R).filter(x=>['atk','def','mhp'].includes(x.id)&&!x.dis&&h.gold-x.cost>15).sort((a,b)=>a.cost-b.cost);if(!L.length)break;buy(R,L[0].id);}}
