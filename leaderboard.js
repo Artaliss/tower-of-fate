@@ -2,6 +2,7 @@
 // API: window.LB = { submit(summary), open(tab?), flush(), mine(), live:{start(sid), beat(sid,floor), get(day)} }
 // v2.3: แท็บ 'wall' ชีวิตที่แบ่งปัน (/api/posts) + แนบตัวนับการแชร์ (tof-share-stat-v1) ไปกับผลรอบเป็น field ss
 // v2.7: ตัวนับการแชร์ส่งเองผ่าน /api/live {a:'ss'} (LB.ssSoon) ไม่รอผลรอบแล้ว · id เครื่อง 16 hex (tof-dev-v1) ติดไปกับโพสต์ คะแนน และตัวนับ เป็น field dv
+// v0.2.8: หอเกียรติยศ แท็บ 'hof' (GET /api/scores?hof=1) วาดฮีโร่จาก field lk {f,s,p} + gear ['excal'] ที่ติดไปกับผลรอบ (ไม่อยู่ใน canon)
 // POST/GET '/api/scores' (Cloudflare Pages Function). ส่งไม่สำเร็จจะเก็บคิวไว้ใน localStorage แล้วส่งใหม่ตอนโหลดครั้งหน้า
 (function(){
 'use strict';
@@ -18,6 +19,12 @@ function clean(v,max){let s=typeof v==='string'?v:'';
  s=s.replace(/<[^>]*>/g,'').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g,'').replace(/[<>"'`\\]/g,'').replace(/\s+/g,' ').trim();
  return Array.from(s).slice(0,max).join('').trim();}
 function canon(e){return [e.name,e.village,e.rankK,e.clsId,e.form,e.floor,e.won?1:0,e.title,e.score,e.karma,e.gen,e.ach,e.date].join('|');}
+// หอเกียรติยศ (v0.2.8): lk={f:'s'|'h',s:seed uint32,p?:[สัตว์เลี้ยง ไม่เกิน 2]} gear=[id ไม่เกิน 4] ค่าที่ไม่ผ่านกลายเป็น null แล้วไม่ส่ง field นั้น
+const PETS=['slime','fox','owl','wolf','drk','drs','drg'],GEAR=['excal']; // สัตว์เลี้ยงหรือของใหม่ ต่อท้ายทั้งสองไฟล์
+function lookIn(v){if(!v||typeof v!=='object'||Array.isArray(v))return null;if(v.f!=='s'&&v.f!=='h')return null;
+ if(typeof v.s!=='number'||!Number.isInteger(v.s)||v.s<0||v.s>4294967295)return null;const o={f:v.f,s:v.s};
+ if(Array.isArray(v.p)){const p=[...new Set(v.p.slice(0,4).filter(x=>typeof x==='string'&&PETS.includes(x)))].slice(0,2);if(p.length)o.p=p;}return o;}
+function gearIn(v){if(!Array.isArray(v))return null;const g=[...new Set(v.slice(0,8).filter(x=>typeof x==='string'&&GEAR.includes(x)))].slice(0,4);return g.length?g:null;}
 // ---------------------------------------------------------------
 
 const num=v=>{const n=+v;return isFinite(n)?n:0;};
@@ -25,6 +32,10 @@ const int=(v,lo,hi)=>Math.min(hi,Math.max(lo,Math.round(num(v))));
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function rd(k,d){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v==null?d:v;}catch(e){return d;}}
 function wr(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+// look ของเกม {form,seed} -> lk; seed ที่เป็นข้อความ (เซฟเก่าใช้ชื่อ) แปลงเป็นเลขแบบเดียวกับ seedOf() ใน sprites.js หน้าตาเลยตรงกับในเกม
+function seed32(v){if(typeof v==='number')return v>>>0;let h=2166136261;const t=String(v==null?'':v);for(let i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function lkOf(s){const L=s.look&&typeof s.look==='object'?s.look:{form:s.form==='slime'?'slime':'human',seed:s.name||0};
+ return lookIn({f:L.form==='slime'?'s':'h',s:seed32(L.seed==null?0:L.seed),p:Array.isArray(s.pets)?s.pets:[]});}
 const cmp=(a,b)=>((b.won?1:0)-(a.won?1:0))||(b.floor-a.floor)||(b.score-a.score)||(a.date-b.date);
 
 function toEntry(s){s=(s&&typeof s==='object')?s:{};
@@ -35,6 +46,10 @@ function toEntry(s){s=(s&&typeof s==='object')?s:{};
   score:int(s.score,0,1e7),karma:int(s.karma,-9999,9999),gen:int(s.gen||1,1,9999),ach:int(achN,0,500),
   date:Math.round(num(s.date)>1e12?num(s.date):Date.now()),v:VER,
   drg:DRG.includes(s.drg)?s.drg:'',clan:CLAN.includes(s.clan)?s.clan:''};
+ // v0.2.8 หอเกียรติยศ: รูปลักษณ์มาจาก summary.look กับ summary.pets ที่ const sum={...} ใน auto.js ส่งมาอยู่แล้ว
+ // TODO(ต่อสาย Excalibur ตอน merge): ตอนนี้ยังไม่มีใครส่ง summary.gear มา ให้เพิ่มใน const sum={...} ของ auto.js (บรรทัดก่อน ACH.onRunEnd/LB.submit)
+ //   เช่น gear:(ถือ Excalibur อยู่)?['excal']:[] แค่นี้พอ gearIn() ที่นี่กับใน scores.js กรอง id ตาม GEAR ให้เอง
+ const lk=lkOf(s),gear=gearIn(s.gear);if(lk)e.lk=lk;if(gear)e.gear=gear;
  // v2.2: run ticket + presence id + daily theme (ไม่อยู่ใน canon)
  if(typeof s.tk==='string'&&/^[a-f0-9]{20}$/.test(s.tk))e.tk=s.tk;if(typeof s.sid==='string'&&/^[a-z0-9]{6,24}$/.test(s.sid))e.sid=s.sid;
  if(typeof s.day==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s.day)){e.day=s.day;e.dh=s.dh?1:0;}
@@ -85,7 +100,8 @@ async function flush(){if(flushing||typeof fetch!=='function')return;flushing=tr
   const keep=[];
   for(const e of Q){let st=0;
    try{const {id,...body}=e;body.dv=devId();const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),credentials:'same-origin'});st=r.status;
-    if(st>=200&&st<300&&e.ss){let j=null;try{j=await r.json();}catch(err){}if(j&&j.ss===1)ssDone(e.ss);}}catch(err){st=0;}
+    if(st>=200&&st<300){let j=null;try{j=await r.json();}catch(err){}if(e.ss&&j&&j.ss===1)ssDone(e.ss);
+     if(j&&j.hof===1){hcache=null;try{window.ACH&&ACH.grant&&ACH.grant('hof');}catch(err){}}}}catch(err){st=0;}
    // 2xx = ส่งแล้ว, 4xx (ยกเว้น 429/404/408) = ข้อมูลไม่ผ่าน ส่งซ้ำก็ไม่ผ่าน ทิ้งได้
    const done=(st>=200&&st<300)||(st>=400&&st<500&&st!==429&&st!==404&&st!==408);
    if(!done)keep.push(e);
@@ -151,11 +167,24 @@ function css(){if(document.getElementById('lb-css'))return;const st=document.cre
 .lb-pf button[aria-pressed=true]{border-color:var(--gold,#f4bb4a);color:var(--gold,#f4bb4a)}
 .lb-pf button:disabled{cursor:default}
 .lb-pf .rep{border-color:transparent;color:var(--dim,#6f857e);text-decoration:underline}.lb-pf .rep.arm{color:#ff9a6a}
-@media (max-width:420px){.lb-row{grid-template-columns:22px 30px 1fr auto;gap:6px;padding:5px 6px}.lb-hd h2{font-size:15px}.lb-tabs button{padding:6px 8px;font-size:12.5px}}
+.hof-intro{margin:0 0 10px;font-size:12.5px;color:var(--muted,#a3b5ad);text-align:center;line-height:1.6}
+.hof-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px}
+.hof-c{background:var(--bg2,#101b20);border:2px solid var(--line,#2c434d);border-radius:3px;padding:6px 6px 8px;font-size:12px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.hof-c.me{border-color:var(--gold,#f4bb4a)}.hof-c.s101{border-color:var(--sc-sec,#d77ad0)}
+.hof-c canvas{display:block;width:100%;height:auto;aspect-ratio:2/1;image-rendering:pixelated;image-rendering:crisp-edges;border-radius:2px;margin-bottom:4px;background:var(--panel2,#1c2e36)}
+.hof-c b{font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hof-c i{font-style:normal;color:var(--gold,#f4bb4a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hof-c .cl{color:var(--muted,#a3b5ad);overflow-wrap:anywhere}
+.hof-c .ft{display:flex;align-items:baseline;justify-content:space-between;gap:4px;margin-top:2px;color:var(--dim,#6f857e);font-size:11px}
+.hof-c .ft em{font-style:normal;font-family:var(--fP,'DotGothic16','Mitr',monospace);font-size:14px;color:var(--gold,#f4bb4a)}.hof-c.s101 .ft em{color:var(--sc-sec,#d77ad0)}
+.hof-c .tg{display:flex;flex-wrap:wrap;gap:3px}.hof-c .tg .lb-drg,.hof-c .tg .lb-tag{margin-left:0}
+.lb-drg.ex{background:#1a3a4a;color:#d8f6ff;border:1px solid #8fe0ff}
+.lb-drg.hid{background:#5a1d14;color:#ffd2b8;border:1px solid #ff7a5a}
+@media (max-width:420px){.hof-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.lb-row{grid-template-columns:22px 30px 1fr auto;gap:6px;padding:5px 6px}.lb-hd h2{font-size:15px}.lb-tabs button{padding:6px 8px;font-size:12.5px}}
 @media (prefers-reduced-motion:no-preference){#lbDlg[open]{animation:lbIn .2s steps(3)}@keyframes lbIn{from{opacity:0;transform:translateY(8px)}}}`;
  document.head.appendChild(st);}
 
-const TABS=[['top','อันดับทั่วโลก'],['recent','ล่าสุด'],['wall','ชีวิตที่แบ่งปัน'],['ach','ความสำเร็จ'],['mine','ของฉัน']];
+const TABS=[['top','อันดับทั่วโลก'],['recent','ล่าสุด'],['hof','👑 ผู้พิชิตยอด'],['wall','ชีวิตที่แบ่งปัน'],['ach','ความสำเร็จ'],['mine','ของฉัน']];
 function build(){css();dlg=document.createElement('dialog');dlg.id='lbDlg';dlg.setAttribute('aria-labelledby','lbTitle');
  dlg.innerHTML=`<div class="lb-hd"><h2 id="lbTitle">หอเกียรติยศ</h2><button class="lb-x" type="button" aria-label="ปิด">✕</button></div>
 <div class="lb-tabs" role="tablist">${TABS.map(([k,n])=>`<button type="button" role="tab" data-t="${k}" aria-selected="false" aria-controls="lbBody">${n}</button>`).join('')}</div>
@@ -200,6 +229,7 @@ async function show(t){if(!dlg)return;cur=t;
  if(t==='ach'){B.innerHTML=window.ACH&&ACH.panelHTML?ACH.panelHTML():msg('ยังไม่มีระบบความสำเร็จ','');return;}
  const mine=(()=>{const m=rd(K_MINE,[]);return Array.isArray(m)?m.filter(x=>x&&typeof x==='object'):[];})();
  if(t==='wall'){wall(B,mine);return;}
+ if(t==='hof'){hof(B,mine);return;}
  if(t==='mine'){const q=rd(K_Q,[]);const pend=Array.isArray(q)?q.length:0;
   B.innerHTML=mine.length?`<ul class="lb-list">${mine.slice().sort(cmp).map((e,i)=>row(e,i,false)).join('')}</ul>`+
    `<p class="lb-note">เก็บไว้ในเครื่องนี้ 20 รอบที่ดีที่สุด${pend?` · รอส่งขึ้นกระดาน ${pend} รอบ`:''}</p>`
@@ -214,6 +244,53 @@ async function show(t){if(!dlg)return;cur=t;
  B.innerHTML=L.length?LEGEND+`<ul class="lb-list">${L.map((e,i)=>row(e,t==='top'?i:null,isMine(e,ids,mine))).join('')}</ul>`+
   (t==='top'?'<p class="lb-note">เรียงตาม: พิชิตยอดก่อน → ชั้นสูงสุด → คะแนน</p>':'')
   :msg('ยังว่างเปล่า','ยังไม่มีใครส่งผลขึ้นกระดานเลย คุณอาจเป็นคนแรก');}
+
+// ---- หอเกียรติยศ (v0.2.8): GET /api/scores?hof=1 ----
+const HOFN=100,HW=64,HH=32,GND=HH-4;
+let hcache=null,hcacheAt=0;
+async function loadHof(){if(hcache&&Date.now()-hcacheAt<60e3)return hcache;
+ const ac=typeof AbortController==='function'?new AbortController():null;const to=setTimeout(()=>ac&&ac.abort(),7000);
+ try{const r=await fetch(API+'?hof=1',{headers:{Accept:'application/json'},signal:ac&&ac.signal,credentials:'same-origin'});
+  let j=null;try{j=await r.json();}catch(e){}
+  if(!r.ok||!j||j.error||!Array.isArray(j.hof))return {error:(j&&j.error)||('http-'+r.status)};
+  hcache={hof:j.hof.filter(e=>e&&typeof e==='object'&&e.won)};hcacheAt=Date.now();return hcache;
+ }catch(e){return {error:'offline'};}finally{clearTimeout(to);}}
+// entry เก่าไม่มี lk: ใช้ร่างจาก form แล้วสุ่มหน้าตาจากชื่อ แบบเดียวกับเซฟเก่าที่ไม่มี look
+function hofLook(e){const k=lookIn(e.lk);if(k)return {look:{form:k.f==='s'?'slime':'human',seed:k.s},pets:k.p||[]};
+ return {look:{form:e.form==='slime'?'slime':'human',seed:seed32(e.name||'')},pets:[]};}
+// ฮีโร่ยืนบนแท่นกลางภาพ สัตว์เลี้ยงอยู่ซ้าย Excalibur ปักเรืองแสงอยู่ขวา
+function hofDraw(cv,e){const A=window.ART;if(!A||!A.heroSpr||!A.blit||!cv||!cv.getContext)return;const x=cv.getContext('2d');if(!x)return;
+ const glow=e.floor===101?'215,122,208':'244,187,74';
+ const g=x.createLinearGradient(0,0,0,HH);g.addColorStop(0,'#1c2e36');g.addColorStop(1,'#0b1215');x.fillStyle=g;x.fillRect(0,0,HW,HH);
+ for(let i=0;i<9;i++){x.fillStyle=i%3?'#3d5a66':'#f1e7d0';x.fillRect(seed32(e.id+'*'+i)%HW,seed32(e.id+'#'+i)%14,1,1);}
+ x.fillStyle=`rgba(${glow},.10)`;x.fillRect(20,0,24,GND);x.fillStyle=`rgba(${glow},.16)`;x.fillRect(24,0,16,GND);
+ x.fillStyle='#2c434d';x.fillRect(0,GND,HW,HH-GND);x.fillStyle='#3d5a66';x.fillRect(0,GND,HW,1);
+ x.fillStyle='#5a4a3a';x.fillRect(22,GND-1,20,2);x.fillStyle=`rgb(${glow})`;x.fillRect(23,GND-1,18,1);
+ const {look,pets}=hofLook(e);let hs=null;try{hs=A.heroSpr(CLSN[e.clsId]?e.clsId:'war',look);}catch(err){}
+ if(hs)A.blit(x,hs,24,GND-1-hs.h,{key:'h'+hs.id,noAnim:true});
+ pets.forEach((p,i)=>{const P=A.PSPR&&A.PSPR[p];if(P)A.blit(x,P,i?0:11,GND-P.h,{flip:true,key:'p'+p,noAnim:true});});
+ if(Array.isArray(e.gear)&&e.gear.includes('excal')&&A.ICONS&&A.ICONS.sword){const sx=45,sy=GND-12;
+  x.fillStyle='rgba(143,224,255,.16)';x.fillRect(sx-3,sy-3,14,15);x.fillStyle='rgba(143,224,255,.26)';x.fillRect(sx-1,sy-1,10,11);
+  A.blit(x,A.ICONS.sword,sx,sy,{noShadow:true,noAnim:true});
+  x.fillStyle='#ffffff';x.fillRect(sx+9,sy-3,1,3);x.fillRect(sx+8,sy-2,3,1);x.fillRect(sx-2,sy+6,1,1);x.fillStyle='#8fe0ff';x.fillRect(sx+3,sy+9,1,1);}}
+const GEARN={excal:'🗡 เอ็กซ์คาลิเบอร์'};
+function hofCard(e,i,me){const cls0=CLSN[e.clsId]||esc(e.clsN)||'',s101=e.floor===101,pets=hofLook(e).pets;
+ const P=window.CONTENT&&CONTENT.PETS||{},petN=pets.map(p=>P[p]&&P[p].n).filter(Boolean).join(', ');
+ const tags=[['dsl','nec','ang'].includes(e.clsId)?'<span class="lb-drg hid">อาชีพลับ</span>':'',
+  e.drg==='f'?'<span class="lb-drg f">🐉 สหายมังกร</span>':e.drg==='s'?'<span class="lb-drg s">⚔ นักล่ามังกร</span>':'',
+  ...(Array.isArray(e.gear)?e.gear.filter(g=>GEARN[g]).map(g=>`<span class="lb-drg ex">${GEARN[g]}</span>`):[]),me?'<span class="lb-tag">คุณ</span>':''].filter(Boolean).join('');
+ return `<li class="hof-c${me?' me':''}${s101?' s101':''}"><canvas width="${HW}" height="${HH}" data-i="${i}" role="img" aria-label="${esc(e.name)} ${cls0}"></canvas>
+<b title="${esc(e.name)}">${esc(e.name)}</b>${e.title?`<i title="${esc(e.title)}">“${esc(e.title)}”</i>`:''}
+<span class="cl">${cls0}${e.form==='slime'&&e.clsId!=='nec'&&e.clsId!=='ang'?' (สไลม์)':''}${petN?' · มี'+esc(petN):''}</span>${tags?`<span class="tg">${tags}</span>`:''}
+<span class="ft"><em>${s101?'🐉 101':'👑 100'}</em><span>${esc(fdate(e.date))}</span></span></li>`;}
+async function hof(B,mine){B.innerHTML=msg('กำลังเปิดหอเกียรติยศ…','');
+ const d=await loadHof();if(cur!=='hof')return;
+ if(d.error){B.innerHTML=msg(d.error==='kv-not-configured'?'หอเกียรติยศยังไม่เปิดใช้':'เปิดหอเกียรติยศไม่ได้ตอนนี้',
+  d.error==='kv-not-configured'?'ผู้ดูแลยังตั้งค่าเซิร์ฟเวอร์ไม่เสร็จ':'เน็ตอาจหลุด หรือเว็บนี้ไม่มีกระดานออนไลน์ ลองเปิดบนเว็บหลักอีกที');return;}
+ const ids=myIds(),L=d.hof;
+ B.innerHTML=`<p class="hof-intro">คนที่ปีนถึงยอดหอแล้วชนะ ภาพที่เห็นคือหน้าตาตอนเขายืนอยู่บนยอด<br>เก็บไว้ ${HOFN} คนล่าสุด นับเฉพาะรอบที่เล่นจบบนเว็บนี้จริง</p>`+
+  (L.length?`<ul class="hof-grid">${L.map((e,i)=>hofCard(e,i,isMine(e,ids,mine))).join('')}</ul>`:msg('ยังไม่มีใครขึ้นหอ','ถ้าคุณพิชิตยอดหอได้ ชื่อคุณจะเป็นชื่อแรกตรงนี้'));
+ B.querySelectorAll('.hof-c canvas').forEach(cv=>{try{hofDraw(cv,L[+cv.dataset.i]);}catch(err){}});}
 
 // ---- ชีวิตที่แบ่งปัน (v2.3): /api/posts ----
 const API_P='/api/posts',K_P='tof-posts-v1';

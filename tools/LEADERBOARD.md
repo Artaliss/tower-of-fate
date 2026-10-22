@@ -156,3 +156,32 @@ write wins), so a reaction can occasionally be lost; acceptable for this traffic
 
 Write budget: each post / first reaction / first report = 1 write against the free 1,000/day
 shared with the leaderboard. If reactions start eating the budget, lower `ACT_PER_HOUR`.
+
+## Hall of fame "ผู้พิชิตยอด" (v0.2.8, fields `lk` and `gear`)
+
+A tab in the leaderboard dialog with a card per winner (floor 100, or 🐉 101), drawn with the
+game's own sprites (`ART.heroSpr`, `PSPR`, `ICONS.sword`). Two optional fields ride along with
+the score post. Neither is part of `canon()` or `h`, so older clients still pass:
+
+| field | rule |
+|---|---|
+| lk | `{f, s, p?}`: `f` is `'s'` slime or `'h'` human, `s` the look seed as an integer 0 to 4294967295 (a string seed from an old save is turned into the same number `seedOf()` gives), `p` up to 2 pet ids from `slime fox owl wolf drk drs drg`. If `f` or `s` is wrong the whole field is dropped; unknown pets are dropped |
+| gear | array of up to 4 ids from `GEAR` (now only `excal`, Excalibur carried across lives). Unknown ids and repeats are dropped, an empty result drops the field |
+
+`lookIn()` / `gearIn()` and the `PETS` / `GEAR` lists are in both `leaderboard.js` and
+`scores.js`; keep them the same. New pets or gear go at the end of both lists. Both fields are
+stored on the `top` / `recent` rows.
+
+Storage: key `hof` holds the newest 100 winners, trimmed to what a card needs
+(`id name village rankK clsId clsN form floor won title score gen date drg clan lk gear`).
+It is written only for a ticketed win (`won` and `ok:1`), so it costs one extra write on roughly
+3 to 4% of runs and nothing on the rest. The POST response then carries `hof:1`, which unlocks
+the achievement `hof` (ขึ้นหอเกียรติยศ) through `ACH.grant('hof')`.
+
+`GET /api/scores?hof=1` → `{hof:[row]}`, newest first, max 100, `Cache-Control: public, max-age=60`.
+It merges `hof` with the won rows still in `top` and `recent` (skipping `ok:0`), so wins from
+before the key existed show up too. Rows without `lk` are drawn from `form` with a face seeded
+from the name, the same fallback old saves use.
+
+Not wired yet: `summary.gear` (see the TODO in `toEntry()` in leaderboard.js). Add
+`gear: carriesExcalibur ? ['excal'] : []` to `const sum = {...}` in auto.js.

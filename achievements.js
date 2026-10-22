@@ -1,5 +1,5 @@
 // achievements.js — ความสำเร็จของหอคอยโชคชะตา
-// API: window.ACH = { onEvent(type,data), onRunEnd(summary), list(), panelHTML(), count() }
+// API: window.ACH = { onEvent(type,data), onRunEnd(summary), list(), panelHTML(), count(), grant(id) }  grant ปลดได้เฉพาะอันที่มี ext:1
 // เก็บใน localStorage 'tof-ach-v1' แบบรวมของเดิมทุกครั้ง (ไม่ลบของที่ปลดล็อกแล้ว)
 (function(){
 'use strict';
@@ -59,7 +59,9 @@ const DEFS=[
  {id:'drg_spare',n:'สหายมังกร',d:'ตีมังกรจนยอมแพ้ แล้วปล่อยมันไป',icon:'🐉',tier:'legend',hid:1,t:s=>str(s.drg)==='f'},
  {id:'drg_slay',n:'นักล่ามังกร',d:'ฆ่ามังกรบนชั้นลับ',icon:'🐲',tier:'legend',hid:1,t:s=>str(s.drg)==='s'},
  {id:'drg_lift',n:'ดยุกปราบมังกร',d:'ตระกูลล้มมังกรครบ 3 ตัว คำสาปเลยหายไป',icon:'🏰',tier:'legend',hid:1,t:s=>s.lift===true},
- {id:'win_dsl',n:'เลือดมังกรบนคมดาบ',d:'ชนะเกมด้วยนักล่ามังกร',icon:'🔥',tier:'gold',hid:1,cls:'dsl'}
+ {id:'win_dsl',n:'เลือดมังกรบนคมดาบ',d:'ชนะเกมด้วยนักล่ามังกร',icon:'🔥',tier:'gold',hid:1,cls:'dsl'},
+ // v0.2.8 หอเกียรติยศ: ext = ปลดจากข้างนอกผ่าน ACH.grant(id) เท่านั้น (leaderboard.js เรียกเมื่อเซิร์ฟเวอร์ตอบ hof:1)
+ {id:'hof',n:'ขึ้นหอเกียรติยศ',d:'พิชิตยอดหอ แล้วชื่อได้ขึ้นหอเกียรติยศบนเว็บหลัก',icon:'🖼️',tier:'gold',ext:1}
 ];
 const BY={};DEFS.forEach(a=>{BY[a.id]=a;});
 
@@ -149,5 +151,6 @@ function panelHTML(){injectCSS();const L=list(),g=L.filter(a=>a.got).length;
  return `<p class="ach-sum">ปลดล็อกแล้ว <b>${g}/${L.length}</b> · เล่นจบไปแล้ว ${M.runs} รอบ</p><div class="ach-grid">`+
   L.map(a=>{const T=TIER[a.tier];if(a.hid&&!a.got)a=Object.assign({},a,{n:'???',d:'ความสำเร็จลับ'});return `<div class="ach-c${a.got?'':' lock'}" title="${esc(a.d)}"><span class="ic" aria-hidden="true">${a.got?a.icon:'🔒'}</span><span style="min-width:0"><b>${esc(a.n)}</b><span class="dd">${esc(a.d)}</span><br><span class="tr" style="color:${T.c}">${T.n}${a.got&&a.at?' · '+fd(a.at):''}</span></span></div>`;}).join('')+'</div>';}
 
-window.ACH={onEvent,onRunEnd,list,panelHTML,count,TIERS:TIER};
+const grant=id=>{try{return !!(BY[id]&&BY[id].ext)&&unlock(id);}catch(e){return false;}};
+window.ACH={onEvent,onRunEnd,list,panelHTML,count,grant,TIERS:TIER};
 })();
