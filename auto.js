@@ -286,7 +286,7 @@ function fxParts(R,fx){const s=scl(R.floor),P=[],f=R.floor;if(!fx)return P;
  if(fx.warp)P.push({t:'+ม้วนวาร์ป',c:'g'});
  if(fx.pet)P.push({t:'ได้สัตว์เลี้ยง',c:'g'});
  if(fx.skip)P.push({t:`ข้าม ${fx.skip} ชั้น`,c:'g'});
- if(fx.fight)P.push({t:'ต้องสู้!',c:'b'});if(fx.go)P.push({t:'เพื่อนร่วมทางแยกไป',c:'b'});
+ if(fx.fight)P.push({t:'ต้องสู้!',c:'b'});if(fx.go)P.push({t:`${R.comps[fx.go-1]?R.comps[fx.go-1].n:'เพื่อนร่วมทาง'}แยกไป`,c:'b'});
  if(fx.k>0)P.push({t:'✦ กรรมดี',c:'kk'});if(fx.k<0)P.push({t:'✧ กรรมชั่ว',c:'kk'});
  return P;}
 function applyFx(R,fx,out){const h=R.h,f=R.floor,s=scl(f);if(!fx)return;
@@ -360,7 +360,7 @@ const SAVED=['เกือบตายไปแล้ว แต่ชะตา�
 // priest (v2.4): once per life the light pulls the priest back from death
 const REZ_HZ=5; // borrowed life: fate runs out faster after coming back
 const canRez=R=>cid(R)==='pri'&&!R.rez;
-function rezNow(R,out){R.rez=1;R.h.hp=Math.max(1,R.h.mhp*.3);R.h.mp=R.h.mmp;R.hzP*=REZ_HZ;say(R,out,'แสงศักดิ์สิทธิ์ดึงวิญญาณกลับเข้าร่าง คุณลืมตาขึ้นอีกครั้ง (นักบวชฟื้นคืนชีพได้ครั้งเดียว)','lv');out.rez=1;}
+function rezNow(R,out){R.rez=1;R.rezFx=1;R.h.hp=Math.max(1,R.h.mhp*.3);R.h.mp=R.h.mmp;R.hzP*=REZ_HZ;say(R,out,'แสงศักดิ์สิทธิ์ดึงวิญญาณกลับเข้าร่าง คุณลืมตาขึ้นอีกครั้ง (นักบวชฟื้นคืนชีพได้ครั้งเดียว)','lv');out.rez=1;}
 function mortal(R,out,cause){if(R.h.hp>0||!R.alive)return;
  if(R.lethal&&canRez(R)){rezNow(R,out);return;}
  if(R.lethal){die(R,cause||`สิ้นใจที่ชั้น ${R.floor}`);return;}
@@ -2017,7 +2017,7 @@ function animFight(cb,dur){clearFx();if(RM||!cb||!cb.ev.length)return;const E=cb
  if(cb.win)fxT.push(setTimeout(()=>{if(!VIS.edead)VIS.edead=performance.now();},base+n*st+450));}
 function tick(){if(!S||S.phase!=='flow'||S.paused)return;const R=S.R,f=R.floor,g0=R.h.gold;clearFx();S.tmAt=0;VIS.edead=false;
  const P=planFloor(R);
- if(P.type==='death'){const p=R.lastP,out=deathTick(R);if(R.alive){S.frame={f,tag:`ชั้น ${f} · ฟื้นคืนชีพ`,title:'แสงศักดิ์สิทธิ์',text:'',msgs:out.msgs};VIS.show=null;AUDIO.sfx('levelup');lvlFx();render();schedule(floorMs()*1.6);return;}S.frame={f,tag:`ชั้น ${f} · ชะตาขาด`,title:'ถึงฆาตแล้ว',text:R.cause,msgs:[{t:`ชะตาทอยที่ชั้นนี้ โอกาสตาย ${(p*100).toFixed(1)}%`,c:'lv'}]};VIS.show=out.vis;goDying();return;}
+ if(P.type==='death'){const p=R.lastP,out=deathTick(R);if(R.alive){R.rezFx=0;S.frame={f,tag:`ชั้น ${f} · ฟื้นคืนชีพ`,title:'แสงศักดิ์สิทธิ์',text:'',msgs:out.msgs};VIS.show=null;AUDIO.sfx('levelup');lvlFx();render();schedule(floorMs()*1.6);return;}S.frame={f,tag:`ชั้น ${f} · ชะตาขาด`,title:'ถึงฆาตแล้ว',text:R.cause,msgs:[{t:`ชะตาทอยที่ชั้นนี้ โอกาสตาย ${(p*100).toFixed(1)}%`,c:'lv'}]};VIS.show=out.vis;goDying();return;}
  if(P.type==='key'){openKey(P.K);return;}
  let out,fr,slow=1;
  if(P.type==='drama'){R.lastDramaId=P.D.id;out=dramaTick(R,P.D);AUDIO.sfx('boss');
@@ -2084,7 +2084,7 @@ function showOutcome(K,i,out,lead,g0,quick,f){const R=S.R;if(out.mile)showMile(o
  S.pendCoins=Math.max(0,R.h.gold-g0);
  if(out.combat){S.cb={en:out.combat.en,ev:out.combat.ev,i:0,hp:out.combat.startHp,mhp:out.combat.mhp,ehp:out.combat.en.mhp,lines:[],win:out.combat.win};VIS.show={t:'en',en:out.combat.en};S.phase='combat';render();playCombat();}
  else afterKey();}
-function afterKey(){const R=S.R;S.K=null;S.tmAt=0;S.cb=null;if(S.pendCoins>0)coinBurst(Math.max(3,Math.round(S.pendCoins/8)));S.pendCoins=0;
+function afterKey(){const R=S.R;S.K=null;S.tmAt=0;S.cb=null;if(R.rezFx){R.rezFx=0;AUDIO.sfx('levelup');lvlFx();}if(S.pendCoins>0)coinBurst(Math.max(3,Math.round(S.pendCoins/8)));S.pendCoins=0;
  if(!R.alive){if(R.won){if(secOpen(R)){S.phase='secret';render();return;}sting('win');S.phase='end';S.saved=false;render();return;}R.death=R.death||'boss';S.frame.title='ถึงฆาตแล้ว';S.frame.text=R.cause;goDying();return;}
  S.phase='flow';VIS.walk0=performance.now();render();schedule(floorMs());}
 // ---- secret floor above 100 (v2.1) ----
@@ -2433,7 +2433,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  const dayH=DT?`<div class="daybox end" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${dHit?`ชีวิตนี้ได้เจอ${esc(DT.hn)}`:`ชีวิตนี้ไม่ได้เจอ${esc(DT.hn)}`}<span id="dayStat">${esc(S.dayStat||'')}</span></div>`:'';
  const share=!!(window.SHARE&&window.SHARE.open),lb=!!(window.LB&&window.LB.open);
  card.innerHTML=`<div class="epi"><div class="tag">${won?'ตำนานบทใหม่':'แผ่นจารึกหน้าหลุมศพ'}</div><div class="big">${won?'👑 ':'✝ '}${esc(h.name)}</div><div class="rtitle${S.title.gold?' gold':''}">ฉายา: ${esc(S.title.t)}</div>
- <dl class="kv"><dt>แรงค์/อาชีพ</dt><dd>${RANKS[h.rank].k} · ${C.n} (1 ใน ${fmt(h.odds)})</dd>${R.turned?`<dt>เปลี่ยนร่าง</dt><dd>จาก${esc(clsName(R.turned.from))}เป็น${esc(C.n)} ที่ชั้น ${R.turned.f}</dd>`:''}${R.unl?`<dt>ปลดล็อก</dt><dd>ชีวิตต่อไปมีโอกาสเกิดเป็น${esc(clsName(R.unl))}</dd>`:''}${pathOf(R)?`<dt>ทางของอาชีพ</dt><dd><span data-tip="path">${esc(pathOf(R).n)}</span> · ${R.pathHi?`ขั้นสูงสุด "${esc(pathHiName(R))}"`:'ยังไม่ถึงขั้นแรก'} · ${Math.floor(R.path||0)} แต้ม</dd>`:''}<dt>ชั้นที่ไปถึง</dt><dd class="px">${fl} / 100</dd><dt>เลเวล</dt><dd class="px">${h.lv}</dd>
+ <dl class="kv"><dt>แรงค์/อาชีพ</dt><dd>${RANKS[h.rank].k} · ${R.turned?esc(clsName(R.turned.from)):C.n} (1 ใน ${fmt(h.odds)})</dd>${R.turned?`<dt>เปลี่ยนร่าง</dt><dd>จาก${esc(clsName(R.turned.from))}เป็น${esc(C.n)} ที่ชั้น ${R.turned.f}</dd>`:''}${R.unl?`<dt>ปลดล็อก</dt><dd>ชีวิตต่อไปมีโอกาสเกิดเป็น${esc(clsName(R.unl))}</dd>`:''}${pathOf(R)?`<dt>ทางของอาชีพ</dt><dd><span data-tip="path">${esc(pathOf(R).n)}</span> · ${R.pathHi?`ขั้นสูงสุด "${esc(pathHiName(R))}"`:'ยังไม่ถึงขั้นแรก'} · ${Math.floor(R.path||0)} แต้ม</dd>`:''}<dt>ชั้นที่ไปถึง</dt><dd class="px">${fl} / 100</dd><dt>เลเวล</dt><dd class="px">${h.lv}</dd>
  <dt>${won?'ผลลัพธ์':'สาเหตุการตาย'}</dt><dd>${esc(won?'พิชิตผู้กลืนดาราและยืนบนยอดหอคอย':R.cause)}</dd>${secSum(R)?`<dt>ชั้นลับ</dt><dd>${esc(secSum(R))}</dd>`:''}${CLAN_T[R.clanM]?`<dt>ตระกูล</dt><dd><span data-tip="clan">${CLAN_T[R.clanM]}</span>${R.clanM==='s'?` · ต้องล้มมังกรอีก ${3-(R.clanN|0)} ตัวคำสาปจึงจะคลาย`:''}</dd>`:''}<dt>ดวงชะตา</dt><dd>${esc(fateLine(R))}</dd>
  <dt>จุดเปลี่ยน</dt><dd>${R.keys} ครั้ง${R.timeouts?` · ปล่อยให้นิสัย${esc(PERS[h.pers].n)}เลือกแทน ${R.timeouts} ครั้ง`:''}${R.sameN+R.plainN?` · ตอบไปเองโดยไม่ต้องหยุด ${R.sameN+R.plainN} ครั้ง`:''}</dd><dt>ทองที่ทิ้งไว้</dt><dd class="px">${fmt(h.gold)}</dd>
  <dt>ปาร์ตี้</dt><dd>${[...R.pets.map(p=>PETS[p].n),...R.comps.map(c=>c.n+' ('+clsName(c.cls)+')')].join(', ')||'เดินทางคนเดียว'}</dd>
@@ -2456,7 +2456,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  $('btnHeir').onclick=()=>newBirth({heir:P});
  $('btnReborn').onclick=()=>newBirth({kShift:clamp(R.karma/5,-6,6),prev:{name:h.name}});
  const L=S.lg,LI=lookInfo(h);
- const sum={name:h.name,village:h.village,rankK:RANKS[h.rank].k,rankIdx:h.rank,rankCol:RANKS[h.rank].col,clsId:C.id,clsN:C.n+(pathHiName(R)?' · '+pathHiName(R):''),look:look(h),form:look(h).form,floor:R.sec&&R.sec.win?101:fl,won,title:S.title.t,cause:won?'พิชิตยอดหอคอย':R.cause,
+ const sum={name:h.name,village:h.village,rankK:RANKS[h.rank].k,rankIdx:h.rank,rankCol:RANKS[h.rank].col,clsId:C.id,clsN:C.n,pathN:pathHiName(R)||'',turn:R.turned?clsName(R.turned.from):'',look:look(h),form:look(h).form,floor:R.sec&&R.sec.win?101:fl,won,title:S.title.t,cause:won?'พิชิตยอดหอคอย':R.cause,
   odds:combOdds(h),pct,karma:R.karma,score:L.score,themeId:R.theme||S.themeId||'',gen:h.gen||1,pets:[...R.pets],comps:R.comps.map(c=>c.n),kills:R.kills,bosses:R.bosses,scars:R.scars,keyMoments:R.keys,timeouts:R.timeouts,
   stanceHist:R.stH||'',durationMs:S.t0?Date.now()-S.t0:0,date:Date.now(),lookName:LI.n,
   tk:R.net&&R.net.tk||'',sid:R.net&&R.net.sid||'',day:h.day&&h.day.d||'',dh:dHit?1:0,

@@ -81,7 +81,7 @@ function shareUrl(d){return ORIGIN+'/s/'+(d&&d.birth?encodeBirth(d):encode(d));}
 
 // ---------- data ----------
 function norm(d){d=Object.assign({},d||{});d.name=str(d.name)||'นักผจญภัยนิรนาม';d.village=str(d.village);d.rankK=str(d.rankK)||'?';d.rankCol=d.rankCol||P.gold;
- d.clsN=str(d.clsN);d.won=!!d.won;d.floor=d.won?100:Math.max(1,Math.round(+d.floor||1));d.title=str(d.title);d.cause=str(d.cause);
+ d.clsN=str(d.clsN);d.turn=str(d.turn);d.pathN=str(d.pathN);d.won=!!d.won;d.floor=d.won?100:Math.max(1,Math.round(+d.floor||1));d.title=str(d.title);d.cause=str(d.cause);
  d.karma=+d.karma||0;d.score=+d.score||0;d.date=d.date||Date.now();d.pets=Array.isArray(d.pets)?d.pets:[];d.petN=Array.isArray(d.petN)?d.petN:[];d.comps=Array.isArray(d.comps)?d.comps:[];
  d.map=Array.isArray(d.map)&&d.map.length===100?d.map:Array(100).fill('');d.hk=d.hk&&typeof d.hk==='object'?d.hk:{};d.note=cleanNote(d.note);d.gen=d.gen||1;
  if(!(d.rankIdx>=0))d.rankIdx=Math.max(0,RANK_K.indexOf(d.rankK));
@@ -214,10 +214,10 @@ async function renderRun(d){
  // identity column
  const RX=404,RW=W-64-RX;
  drawBadge(ctx,W-64-84,206,84,d.rankK,d.rankCol);
- line(ctx,[d.clsN,'แรงค์ '+d.rankK,d.odds?'1 ใน '+nf(d.odds):''].filter(Boolean).join(' · '),RX,250,{size:30,weight:500,col:P.stamp,maxW:RW-110,min:20});
+ line(ctx,[d.clsN,d.pathN,d.turn?'เดิมเป็น'+d.turn:'','แรงค์ '+d.rankK].filter(Boolean).join(' · '),RX,250,{size:30,weight:500,col:P.stamp,maxW:RW-110,min:20});
  line(ctx,d.name,RX,340,{size:84,weight:600,col:P.ink,maxW:RW,min:40});
  line(ctx,d.secret?'ชั้น 1 → ชั้น 100 → ชั้นลับ':d.won?'ชั้น 1 → ชั้น 100 · ถึงยอดหอ':'ชั้น 1 → ชั้น '+d.floor+' · ไต่มา '+d.floor+' ชั้น',RX,398,{size:32,fam:fP,col:P.ink2,maxW:RW,min:22});
- line(ctx,d.village?'ถิ่นกำเนิด '+d.village:'',RX,448,{size:28,col:P.ink2,maxW:RW,min:20});
+ line(ctx,[d.village?'ถิ่นกำเนิด '+d.village:'',d.odds?'เกิดมา 1 ใน '+nf(d.odds):''].filter(Boolean).join(' · '),RX,448,{size:28,col:P.ink2,maxW:RW,min:20});
  const deeds=[d.lv?'Lv '+d.lv:'',d.bosses?'ล้มบอส '+d.bosses+' ตัว':'',d.kills?'สังหาร '+nf(d.kills):''].filter(Boolean).join(' · ');
  line(ctx,deeds,RX,496,{size:26,col:P.ink3,maxW:RW,min:18});
  drawStamp(ctx,d.won?'พิชิตยอดหอ':'สิ้นชีพ ชั้น '+d.floor,PX+PW/2+18,PY+PH-34,d.won?P.gold2:P.red);
@@ -342,7 +342,7 @@ function textBirth(d,mode){d=normB(d);const isX=mode==='x',url=shareUrl(d),budge
  let s=L.join('\n');if(len(s)>budget&&d.note){const over=len(s)-budget;L[0]=clip(d.note,Math.max(10,graphemes(d.note).length-over-1))+'…';s=L.join('\n');}
  return s;}
 function text(d,mode){if(d&&d.birth)return textBirth(d,mode);d=norm(d);const {pick,seed}=hooks(d),isX=mode==='x',url=shareUrl(d),budget=isX?240:480,len=isX?xLen:(s=>Array.from(s).length);
- const birth=`🗼 ${d.name} เกิดเป็น${d.clsN||'นักผจญภัย'}แรงค์ ${d.rankK}${d.village?' ที่'+d.village:''}${d.odds?` (1 ใน ${nf(d.odds)})`:''}`;
+ const birth=`🗼 ${d.name} เกิดเป็น${d.turn||d.clsN||'นักผจญภัย'}แรงค์ ${d.rankK}${d.village?' ที่'+d.village:''}${d.odds?` (1 ใน ${nf(d.odds)})`:''}${d.turn?` แล้วกลายเป็น${d.clsN}กลางหอ`:''}${d.pathN?` ไต่ทางอาชีพจนได้เป็น${d.pathN}`:''}`;
  const death=d.won?'👑 ไต่ขึ้นถึงชั้น 100 และพิชิตยอดหอคอยได้':`💀 ล้มที่ชั้น ${d.floor}: ${d.cause.replace(/\s*\(ชั้น \d+\)\s*$/,'')||'ชะตาขาด'}`;
  const close=CLOSE[seed%CLOSE.length]+' #หอคอยโชคชะตา';
  const fixed=[d.note,birth,death,close].filter(Boolean);let used=fixed.reduce((n,s)=>n+len(s)+1,0)+(isX?0:url.length+1);
