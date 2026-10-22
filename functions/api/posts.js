@@ -52,10 +52,10 @@ function sameOrigin(request) {
 }
 
 // ---- crisis check (v2.7, keep identical to share.js): wanting to die or hurting oneself. Negations ("ไม่อยากตาย", "don't want to die") are dropped first ----
-const CR_SQ=/[\s\-_.,!?*~'"()[\]{}|/\\:;ๆ]+/g,CR_NEG_TH=/ไม่(ได้|เคย)?อยาก(ไป)?ตาย/g,CR_NEG_EN=/\b(do\s*n[o']?t|never|not|no)\s*(want|wanna)\s*(to\s*)?die\b/g;
+const CR_SQ=/[\s\-_.,!?*~'"()[\]{}|/\\:;ๆ]+/g,CR_NEG_TH=/ไม่(ได้|เคย)?อยาก(ไป)?ตาย/g,CR_NEG_EN=/\b(do\s*n[o']?t|never|not|no)\s*(want|wanna)\s*(to\s*)?die\b|\bsuicide\s*squad\b/g;
 const CR_TH=['อยากตาย','อยากไปตาย','ฆ่าตัวตาย','ฆ่าตัวเอง','ทำร้ายตัวเอง','กรีดข้อมือ','กรีดแขน','กรีดตัวเอง','ไม่อยากมีชีวิต','ไม่อยากอยู่แล้ว','ไม่อยากอยู่บนโลก','ไม่อยากอยู่ในโลก',
  'ไม่อยากตื่นอีก','ไม่อยากตื่นขึ้นมาอีก','อยากหายไปจากโลก','จบชีวิตตัวเอง','ปลิดชีพตัวเอง','ปลิดชีวิตตัวเอง','กินยาตาย','กินยาฆ่าตัว','โดดตึกตาย','กระโดดตึก','ผูกคอตาย'];
-const CR_EN=/\b(kill(ing)?\s*my\s*self|want(ed)?\s*to\s*die|wanna\s*die|suicid(e|al)|end(ing)?\s*my\s*life|end\s*it\s*all|self[\s-]*harm(ing)?|cut(ting)?\s*my\s*self|kms)\b/;
+const CR_EN=/\b(kill(ing)?\s*my\s*self|want(ed)?\s*to\s*die|wanna\s*die|suicid(e|al)|end(ing)?\s*my\s*life|end\s*it\s*all|self[\s-]*harm(ing)?|cut(ting)?\s*my\s*self|k[\s.]*m[\s.]*s)\b/;
 export function crisis(t){const low=String(t||'').toLowerCase(),th=low.replace(CR_SQ,'').replace(CR_NEG_TH,'');return CR_TH.some(w=>th.includes(w))||CR_EN.test(low.replace(CR_NEG_EN,' '));}
 
 // ---- content filter ----

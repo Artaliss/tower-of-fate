@@ -32,10 +32,10 @@ function clip(s,n){const g=graphemes(s);return g.length>n?g.slice(0,n).join(''):
 function cleanNote(s){const n=clip(str(s).replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g,' ').replace(/\s+/g,' ').trim(),120);return crisis(n)?'':n;}
 // crisis check (v2.7, keep identical to functions/api/posts.js): wanting to die or hurting oneself. Negations ("ไม่อยากตาย", "don't want to die") are dropped first.
 // A line that hits is never put on the card, in the share text or on the wall; the player sees CARE (hotline 1323) instead
-const CR_SQ=/[\s\-_.,!?*~'"()[\]{}|/\\:;ๆ]+/g,CR_NEG_TH=/ไม่(ได้|เคย)?อยาก(ไป)?ตาย/g,CR_NEG_EN=/\b(do\s*n[o']?t|never|not|no)\s*(want|wanna)\s*(to\s*)?die\b/g;
+const CR_SQ=/[\s\-_.,!?*~'"()[\]{}|/\\:;ๆ]+/g,CR_NEG_TH=/ไม่(ได้|เคย)?อยาก(ไป)?ตาย/g,CR_NEG_EN=/\b(do\s*n[o']?t|never|not|no)\s*(want|wanna)\s*(to\s*)?die\b|\bsuicide\s*squad\b/g;
 const CR_TH=['อยากตาย','อยากไปตาย','ฆ่าตัวตาย','ฆ่าตัวเอง','ทำร้ายตัวเอง','กรีดข้อมือ','กรีดแขน','กรีดตัวเอง','ไม่อยากมีชีวิต','ไม่อยากอยู่แล้ว','ไม่อยากอยู่บนโลก','ไม่อยากอยู่ในโลก',
  'ไม่อยากตื่นอีก','ไม่อยากตื่นขึ้นมาอีก','อยากหายไปจากโลก','จบชีวิตตัวเอง','ปลิดชีพตัวเอง','ปลิดชีวิตตัวเอง','กินยาตาย','กินยาฆ่าตัว','โดดตึกตาย','กระโดดตึก','ผูกคอตาย'];
-const CR_EN=/\b(kill(ing)?\s*my\s*self|want(ed)?\s*to\s*die|wanna\s*die|suicid(e|al)|end(ing)?\s*my\s*life|end\s*it\s*all|self[\s-]*harm(ing)?|cut(ting)?\s*my\s*self|kms)\b/;
+const CR_EN=/\b(kill(ing)?\s*my\s*self|want(ed)?\s*to\s*die|wanna\s*die|suicid(e|al)|end(ing)?\s*my\s*life|end\s*it\s*all|self[\s-]*harm(ing)?|cut(ting)?\s*my\s*self|k[\s.]*m[\s.]*s)\b/;
 function crisis(t){const low=String(t||'').toLowerCase(),th=low.replace(CR_SQ,'').replace(CR_NEG_TH,'');return CR_TH.some(w=>th.includes(w))||CR_EN.test(low.replace(CR_NEG_EN,' '));}
 const CARE='บรรทัดนี้จะยังไม่ขึ้นการ์ดและข้อความแชร์ ถ้าช่วงนี้คุณรู้สึกหนักจนอยากหายไป ลองโทรคุยกับสายด่วนสุขภาพจิต 1323 ดูนะ เปิดตลอด 24 ชั่วโมง ไม่เสียค่าโทร มีคนพร้อมฟังคุณอยู่';
 

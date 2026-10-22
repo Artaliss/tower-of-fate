@@ -1648,7 +1648,7 @@ const laterNow=R=>R&&R.later?latS(R).filter(x=>x.l&&x.at>R.floor).map(x=>`⏳ ${
 const hurt=(R,k)=>{R.h.hp=Math.max(1,R.h.hp-R.h.mhp*k);};
 const LATER={
  star(R,out){const a=1.5+R.floor*.08;R.h.atk+=a;sayK(R,out,`ตัวเลขในสมุดที่จดไว้คืนฝนดาวตกเรียงกันเป็นท่าฟันได้ท่าหนึ่ง (ATK +${a.toFixed(1)})`,'good');},
- invest(R,out,d){if(rnd()<d.p){const g=coin(R,out,d.g||0);sayK(R,out,`พ่อค้าเร่ที่คุณร่วมหุ้นด้วยวิ่งขึ้นบันไดมาหา ยื่นถุงทอง ${g} ให้ กำไรมากกว่าที่สัญญาไว้`,'good');}
+ invest(R,out,d){if(rnd()<d.p){const g=coin(R,out,d.g||0);sayK(R,out,`พ่อค้าเร่ที่คุณร่วมหุ้นด้วยวิ่งขึ้นบันไดมาหา ยื่นถุงทอง ${g} ให้ ครบตามที่สัญญาไว้ทุกเหรียญ`,'good');}
   else sayK(R,out,'ข่าวลอยมาว่าคาราวานของพ่อค้าเร่ที่คุณร่วมหุ้นด้วยโดนปล้นกลางทาง เงินลงทุนหายหมด','bad');},
  wound(R,out,d){if(rnd()<d.p){const x=d.d||1;R.h.def+=x;heal(R,.1);sayK(R,out,`แผลจากหนามเหล็กหายสนิท ผิวตรงนั้นหนาขึ้นกว่าเดิม (DEF +${x.toFixed(1)})`,'good');}
   else{R.scars++;sayK(R,out,`แผลจากหนามเหล็กอักเสบจนกลายเป็นแผลเป็น (แผลเป็น ${R.scars})`,'bad');}},
