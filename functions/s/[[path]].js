@@ -4,7 +4,8 @@
 //  - og:title / og:description / og:url / twitter:title / twitter:description / <title> written for that run
 // An invalid code serves the plain page (with <base> only). The game reads the code from the path, shows
 // "มีคนส่งชะตามาให้คุณ…" and replaceState()s back to "/".
-// decode() / cleanTxt() / fnv8() below must stay identical to the copies in share.js.
+// decode() / tailOf() / cleanTxt() / fnv8() below must stay identical to the copies in share.js.
+// added after v0.2.9: an optional tail [0, flags] after the title/village carries the Excalibur bits (sw, exG); see the comment above encode() in share.js.
 
 const ORIGIN = 'https://tower-of-fate.pages.dev';
 // append only: same order as share.js (index is packed into the code)
@@ -18,22 +19,23 @@ function unb64u(c){const s=atob(c.replace(/-/g,'+').replace(/_/g,'/'));const b=n
 const str=v=>v==null?'':String(v);
 function cleanTxt(s,max){s=str(s).replace(/<[^>]*>/g,'').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g,'').replace(/[<>"'`\\&]/g,'').replace(/\s+/g,' ').trim();
  const g=[];for(const ch of Array.from(s)){if(g.length&&/[ัิ-ฺ็-๎]/.test(ch))g[g.length-1]+=ch;else g.push(ch);}return g.slice(0,max).join('').trim();}
+function tailOf(rest){const z=rest.indexOf(0),z2=z<0?-1:rest.indexOf(0,z+1);return{z,z2,f:z2>=0&&z2+1<rest.length?rest[z2+1]&31:0};}
 function decode(code){
  try{code=String(code||'');if(!/^[A-Za-z0-9_-]{8,120}$/.test(code))return null;
   const b=unb64u(code);if(b.length<7)return null;const body=b.subarray(0,b.length-1);if(fnv8(body)!==b[b.length-1])return null;
   let ver=b[0],cx=0;if(ver>=5&&ver<=8){ver-=4;cx=8;}
   if(ver===3||ver===4){if(b.length<11||b[1]>>6||b[2]>>1||b[3]<1)return null;
    const rank=(b[1]>>3)&7,cls=(b[1]&7)+cx,human=!!(b[2]&1),gen=b[3],odds=b[4]*16777216+b[5]*65536+b[6]*256+b[7];
-   const rest=body.subarray(8),z=rest.indexOf(0);if(z<1)return null;
+   const rest=body.subarray(8),{z,z2,f}=tailOf(rest);if(z<1)return null;
    const dec=x=>ver===3?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
-   const name=cleanTxt(dec(rest.subarray(0,z)),16),village=cleanTxt(dec(rest.subarray(z+1)),20);if(!name)return null;
-   return{birth:true,rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],form:human?'human':'slime',gen,odds,name,village};}
+   const name=cleanTxt(dec(rest.subarray(0,z)),16),village=cleanTxt(dec(z2<0?rest.subarray(z+1):rest.subarray(z+1,z2)),20);if(!name)return null;
+   return{birth:true,rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],form:human?'human':'slime',gen,odds,name,village,sw:!!(f&1)};}
   if(ver!==1&&ver!==2)return null;const rank=(b[1]>>3)&7,cls=(b[1]&7)+cx,dg=b[1]>>6,floor=b[2]&127,won=!!(b[2]&128),pct=b[3]&127,human=!!(b[3]&128);
   if(dg>2||(dg&&!won)||floor<1||floor>100||pct>100||(won&&floor!==100))return null;
-  const rest=body.subarray(4),z=rest.indexOf(0);if(z<1)return null;
+  const rest=body.subarray(4),{z,z2,f}=tailOf(rest);if(z<1)return null;
   const dec=x=>ver===1?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
-  const name=cleanTxt(dec(rest.subarray(0,z)),16),title=cleanTxt(dec(rest.subarray(z+1)),18);if(!name)return null;
-  return{rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],floor,won,pct,form:human?'human':'slime',name,title,drg:['','f','s'][dg]};
+  const name=cleanTxt(dec(rest.subarray(0,z)),16),title=cleanTxt(dec(z2<0?rest.subarray(z+1):rest.subarray(z+1,z2)),18);if(!name)return null;
+  return{rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],floor,won,pct,form:human?'human':'slime',name,title,drg:['','f','s'][dg],sw:!!(f&1),exG:!!(f&2)};
  }catch(e){return null;}}
 // -----------------------------------------------
 
@@ -46,15 +48,17 @@ export function codeOf(pathname) {
 export function metaFor(r, code) {
   if (r.birth) {
     // birth link (ver 3/4): a hero who was just born, no floor yet
-    const title = `${r.name} ฮีโร่แรงค์ ${r.rankK} ${r.clsN} เพิ่งเกิด จะไปได้ถึงชั้นไหน?`;
-    const desc = [r.village ? `เกิดที่${r.village}` : '', r.odds > 1 ? `โอกาสเกิดมาแบบนี้ 1 ใน ${Number(r.odds).toLocaleString('en-US')}` : '', 'ลองเกิดดูสักชาติ แล้วมาดูกันว่าใครไปได้ไกลกว่า'].filter(Boolean).join(' · ');
+    const title = `${r.sw ? '🗡 ' : ''}${r.name} ฮีโร่แรงค์ ${r.rankK} ${r.clsN} เพิ่งเกิด จะไปได้ถึงชั้นไหน?`;
+    const desc = [r.village ? `เกิดที่${r.village}` : '', r.sw ? 'เกิดมาพร้อมดาบศักดิ์สิทธิ์ในหิน' : '', r.odds > 1 ? `โอกาสเกิดมาแบบนี้ 1 ใน ${Number(r.odds).toLocaleString('en-US')}` : '', 'ลองเกิดดูสักชาติ แล้วมาดูกันว่าใครไปได้ไกลกว่า'].filter(Boolean).join(' · ');
     return { title, desc, url: `${ORIGIN}/s/${code}` };
   }
   const who = `${r.name} ${r.clsN}แรงค์ ${r.rankK}`;
   const drg = r.drg === 'f' ? ' แล้วไว้ชีวิตมังกรบนชั้นลับ' : r.drg === 's' ? ' แล้วล้มมังกรบนชั้นลับได้' : '';
-  const title = r.won ? (drg ? `${who} พิชิตยอดหอคอยโชคชะตา${drg}` : `${who} พิชิตยอดหอคอยโชคชะตาได้`) : `${who} ไปถึงชั้น ${r.floor} ของหอคอยโชคชะตา`;
+  const sw = r.sw ? '🗡 ' : '';
+  const title = sw + (r.won ? (drg ? `${who} พิชิตยอดหอคอยโชคชะตา${drg}` : `${who} พิชิตยอดหอคอยโชคชะตาได้`) : `${who} ไปถึงชั้น ${r.floor} ของหอคอยโชคชะตา`);
   const odds = r.won ? `${r.pct}% ของรุ่นเดียวกันขึ้นไปไม่ถึงยอด` : r.pct >= 50 ? `${r.pct}% ของรุ่นเดียวกันไปไม่ถึงชั้นนี้` : `อีก ${100 - r.pct}% ของรุ่นเดียวกันไปได้ไกลกว่านี้`;
-  const desc = [r.title ? `ฉายา「${r.title}」` : '', odds, 'คุณจะไปได้ถึงชั้นไหน? ลองเกิดดูสักชาติ'].filter(Boolean).join(' · ');
+  const swd = r.exG ? 'ถอนดาบศักดิ์สิทธิ์ออกจากหินได้' : r.sw ? 'พกดาบศักดิ์สิทธิ์ในหินมาตั้งแต่เกิด' : '';
+  const desc = [r.title ? `ฉายา「${r.title}」` : '', swd, odds, 'คุณจะไปได้ถึงชั้นไหน? ลองเกิดดูสักชาติ'].filter(Boolean).join(' · ');
   return { title, desc, url: `${ORIGIN}/s/${code}` };
 }
 
