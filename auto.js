@@ -1504,7 +1504,7 @@ function finishFloor(R,out){if(!R.alive)return;aiPotion(R);if(R.pend||R.farmLeft
 function omenDue(R){if(R.omens>=3||R.floor<6||R.floor%10===0||R.floor>=99||R.floor-R.lastOmen<6)return false;const p=R.lastP,m=hzM(R),pv=R.pPrev;
  return p>=.03&&(m>=1.7||(pv.length>=4&&p>=pv[0]*1.8));}
 // ---- SAME_WAY / PLAIN: key moments that do not need to stop the clock ----
-const NO_WAY={boss:1,omen:1,shop:1};
+const NO_WAY={boss:1,omen:1,shop:1,crown:1,favor:1}; // v2.7: the contest retry at 90 and a favour being called in always stop and ask
 const sigOf=K=>'cs:'+K.ch.map(c=>c.t).join('|');
 const isGood=p=>p.c==='g'||(p.c==='kk'&&p.t.includes('✦'));
 function dominant(K,en){const good=c=>c.P.some(isGood),clean=c=>c.P.every(p=>isGood(p)||p.c==='');
