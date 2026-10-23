@@ -63,6 +63,24 @@ r = await A({ a: 'load' }, { tok }); ok(r.j.ok && r.j.p === p && r.j.m.keys === 
 ok((await A({ a: 'save', z: 'gz', p: 'not base64!' }, { tok })).st === 400, 'bad gzip payload refused');
 ok((await A({ a: 'save', z: '', p: '{' + 'x'.repeat(1100001) }, { tok })).st === 413, 'oversized save refused');
 
+console.log('cloud save from two browsers');
+// pretend the last upload was a minute ago so the 15 s gap does not get in the way
+const age = () => sql.prepare('UPDATE acct_save SET at = at - 60000').run();
+age();
+let at1 = (await A({ a: 'load' }, { tok })).j.at;
+const pB = JSON.stringify({ 'tof-meta-v1': '{"gold":0}' });
+r = await A({ a: 'save', z: '', p: pB, m: {}, base: 0 }, { tok });
+ok(r.st === 409 && r.j.error === 'conflict' && r.j.at === at1 && r.j.m.keys === 2, 'new browser (base 0) cannot overwrite an existing cloud save');
+ok((await A({ a: 'load' }, { tok })).j.p === p, 'cloud save untouched after conflict');
+ok((await A({ a: 'save', z: '', p: pB, m: {}, base: at1 - 5 }, { tok })).st === 409, 'stale base refused');
+ok((await A({ a: 'save', z: '', p: pB, m: {}, base: 'x' }, { tok })).st === 400, 'bad base refused');
+r = await A({ a: 'save', z: '', p, m: { keys: 2, h: 'abc123' }, base: at1 }, { tok });
+ok(r.j.ok && r.j.at > at1, 'matching base saves');
+r = await A({ a: 'me' }, { tok }); ok(r.j.save.m.h === 'abc123', 'save hash kept in summary');
+age();
+r = await A({ a: 'save', z: '', p, m: { h: '<script>' } }, { tok }); ok(r.j.ok, 'no base = explicit overwrite still works');
+ok((await A({ a: 'me' }, { tok })).j.save.m.h === undefined, 'junk hash dropped');
+
 console.log('password change + logout');
 const t2 = (await A({ a: 'login', name: 'ฮีโร่ไทย', pw: 'password1' })).j.tok;
 ok((await A({ a: 'passwd', pw: 'wrong-pass', npw: 'newpass99' }, { tok })).j.error === 'bad-login', 'wrong current password');

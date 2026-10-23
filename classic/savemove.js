@@ -10,7 +10,7 @@
 if(typeof document==='undefined')return;
 const ORIGIN='https://tower-of-fate.pages.dev';
 // pending queues, caches and per-device counters: not part of what moves
-const SKIP=['tof-lb-queue-v1','tof-share-stat-v1','tofc-auto-birth-v1','tof-causes-v1','tof-help-tab'];
+const SKIP=['tof-lb-queue-v1','tof-share-stat-v1','tofc-auto-birth-v1','tof-causes-v1','tof-help-tab','tof-acct-v1'];   // tof-acct-v1 = โทเคนล็อกอินของฉบับหลัก ไม่ย้ายไปกับโค้ด
 const fT="'Mitr','Kanit','Noto Sans Thai',system-ui,sans-serif";
 const okCode=s=>typeof s==='string'&&/^[a-z2-9]{9}$/.test(s);
 const nf=n=>Number(n||0).toLocaleString('th-TH');
