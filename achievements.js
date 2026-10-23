@@ -1,5 +1,5 @@
 // achievements.js — ความสำเร็จของหอคอยโชคชะตา
-// API: window.ACH = { onEvent(type,data), onRunEnd(summary), list(), panelHTML(), count(), grant(id) }  grant ปลดได้เฉพาะอันที่มี ext:1
+// API: window.ACH = { onEvent(type,data), onRunEnd(summary), list(), panelHTML(), count(), grant(id), add(defs) }  grant ปลดได้เฉพาะอันที่มี ext:1
 // เก็บใน localStorage 'tof-ach-v1' แบบรวมของเดิมทุกครั้ง (ไม่ลบของที่ปลดล็อกแล้ว)
 (function(){
 'use strict';
@@ -223,5 +223,7 @@ function panelHTML(){injectCSS();const L=list(),g=L.filter(a=>a.got).length;
   L.map(a=>{const T=TIER[a.tier];if(a.hid&&!a.got)a=Object.assign({},a,{n:'???',d:'ความสำเร็จลับ'});return `<div class="ach-c${a.got?'':' lock'}" title="${esc(a.d)}"><span class="ic" aria-hidden="true">${a.got?a.icon:'🔒'}</span><span style="min-width:0"><b>${esc(a.n)}</b><span class="dd">${esc(a.d)}</span><br><span class="tr" style="color:${T.c}">${T.n}${a.got&&a.at?' · '+fd(a.at):''}</span></span></div>`;}).join('')+'</div>';}
 
 const grant=id=>{try{return !!(BY[id]&&BY[id].ext)&&unlock(id);}catch(e){return false;}};
-window.ACH={onEvent,onRunEnd,list,panelHTML,count,grant,TIERS:TIER};
+// v0.3: โมดูลอื่นลงทะเบียนความสำเร็จของตัวเอง (ext:1 เสมอ ปลดผ่าน grant) ACH.add([{id,n,d,icon,tier,hid}])
+const add=L=>{(Array.isArray(L)?L:[L]).forEach(a=>{if(a&&a.id&&!BY[a.id]){const d=Object.assign({tier:'silver',icon:'🏅'},a,{ext:1});DEFS.push(d);BY[d.id]=d;}});};
+window.ACH={onEvent,onRunEnd,list,panelHTML,count,grant,add,TIERS:TIER};
 })();

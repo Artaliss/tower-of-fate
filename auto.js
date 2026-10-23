@@ -2421,6 +2421,7 @@ function finalizeRun(){if(!S||!S.R||S.fin)return;S.fin=1;const R=S.R,h=R.h,fl=R.
  try{addLife(R);S.hero.lin=h.lin;S.hero.house=h.house;S.hero.gen=h.gen;}catch(e){}
  try{clanApply(R);}catch(e){}
  try{unlApply(R);}catch(e){}
+ try{window.META&&window.META.recordRun(R);}catch(e){}
  let pt=null;try{pt=fatePattern(R);}catch(e){}
  saveMemo(Object.assign({name:h.name,rank:h.rank,cls:CLASSES[h.cls].n,pth:pathHiName(R)||undefined,floor:fl,won:R.won,cause:R.won&&!(R.sec&&R.sec.res==='x')?'พิชิตยอดหอคอย':R.cause,lv:h.lv,gen:h.gen||1,t:Date.now()},pt?{pat:pt.code,patN:pt.n}:{},R.sec&&R.sec.res&&R.sec.res!=='n'?{drg:R.sec.res}:{}));clearSave();poolAdd(R);poolSave();}
 const isArr=Array.isArray,isObj=o=>!!o&&typeof o==='object'&&!isArr(o);
@@ -2526,7 +2527,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  <div class="acts"><button class="btn" id="btnReroll" data-k="1" ${S.rerolled?'disabled':''}>สุ่มแรงค์/อาชีพใหม่ ${S.rerolled?'(ใช้ไปแล้ว)':'(เหลือ 1 ครั้ง)'}<span class="kb">[1]</span></button>
  <button class="btn" id="btnLook" data-k="3" type="button">🎲 สุ่มหน้าตาใหม่<span class="kb">[3]</span></button>
  <button class="btn pri" id="btnEnter" data-k="2" data-enter>เข้าหอ ▲<span class="kb">[Enter]</span></button></div>
- <p class="lookn">สุ่มหน้าตาได้ไม่จำกัด แรงค์ อาชีพ และนิสัยยังเหมือนเดิม</p>${birthExtras(h)}`;
+ <p class="lookn">สุ่มหน้าตาได้ไม่จำกัด แรงค์ อาชีพ และนิสัยยังเหมือนเดิม</p>${window.META?`<div class="acts">${window.META.button()}</div>`:''}${birthExtras(h)}`;
  if(!S.rvDone){S.rvDone=true;if(RANKS[h.rank]&&RANKS[h.rank].k==='SS')ach('birth_ss'); // SS counts the moment it is rolled, even if re-rolled away
   if(RM)sting('birth');else{if(h.rank>=5)VIS.star=performance.now()+1400;clearTimeout(S.rvT);S.rvT=setTimeout(()=>{if(S.phase==='birth')sting('birth');},1400);}}
  const fb=$('formBox');fb.innerHTML=[['slime','สไลม์'],['human','คน']].map(([f,n])=>`<button class="btn${look(h).form===f?' on':''}" type="button" data-form="${f}" aria-pressed="${look(h).form===f}">ร่าง: ${n}</button>`).join('');
@@ -2538,7 +2539,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  const inp=$('inName');inp.addEventListener('input',()=>{setName(S.hero,inp.value);const nm=card.querySelector('.cert .nm');if(nm)nm.textContent=S.hero.name;renderHUD();renderParty();saveRun();});
  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
  inp.addEventListener('change',()=>{if(cleanName(inp.value)!==inp.value)inp.value=S.hero.cname?S.hero.name:'';});
- $('btnEnter').onclick=startRun;liveBox();
+ $('btnEnter').onclick=startRun;liveBox();try{window.META&&window.META.bind();}catch(e){}
  // family pet stays home for this life only (lets the no-pet win stay reachable)
  const sm=$('selClanM');if(sm)sm.onchange=()=>{const C=loadClan(),m=sm.value;if(!clanGot(C).includes(m)||m===C.m)return;C.got=clanGot(C).join('');C.m=m;saveClan(C);S.hero.clan=clanOf(C);ach('clan',{m});render();saveRun();};
  // pet picker: a hatched pet becomes the family pet for good; "home" leaves it behind for this life only
