@@ -1101,8 +1101,8 @@ Object.assign(SPECIAL,{
     CH('ทำเป็นไม่เห็น',[{t:'ไม่เสี่ยง',c:''},kk(-3)])];
    K.ai=w>=55?0:1;},
   res(R,K,i,out){const f=R.floor,{en,p,c,g,cls}=K.data;
-   const join=()=>{const cp=mkHire(R,g,cls,pick(['loyal','lucky','medic']),1.1);cp.line='"ข้าติดหนี้ชีวิตท่าน ไปไหนข้าไปด้วย"';R.map[f-1]='comp';nwA(R,'orc');
-    say(R,out,`${g}ปาดน้ำตา แล้วเก็บไม้เท้าที่ตกอยู่ขึ้นมา "ข้าติดหนี้ชีวิตท่าน ให้ข้าไปด้วยเถอะ"`,'good');hire(R,out,cp);};
+   const join=()=>{const cp=mkHire(R,g,cls,pick(['loyal','lucky','medic']),1.1);cp.line='"ข้าติดหนี้ชีวิตท่าน ไปไหนข้าไปด้วย"';R.map[f-1]='comp';
+    say(R,out,`${g}ปาดน้ำตา แล้วเก็บ${{arc:'ธนู',pri:'ไม้เท้า',mag:'คทา',war:'ดาบ'}[cls]||'ห่อผ้า'}ที่ตกอยู่ขึ้นมา "ข้าติดหนี้ชีวิตท่าน ให้ข้าไปด้วยเถอะ"`,'good');hire(R,out,cp);if(R.comps.includes(cp))nwA(R,'orc');};
    if(i===0){R.karma+=2;R.map[f-1]='fight';say(R,out,'คุณกระโจนไปขวางหน้า ออร์คโยนหญิงสาวลงพื้นแล้วคว้าขวานขึ้นมา','info');
     if(doFight(R,en,out,{cause:`ถูกออร์คฟาดตายตอนเข้าไปช่วยหญิงสาว (ชั้น ${f})`}))join();
     else say(R,out,`${g}ฉวยจังหวะที่ออร์คหันมาเหยียบคุณ วิ่งหนีลงบันไดไปได้ อย่างน้อยเธอก็รอด`,'info');}
@@ -1120,12 +1120,12 @@ Object.assign(SPECIAL,{
     CH('ไม่ยุ่ง ของมีเจ้าของ',[{t:'ไม่เสี่ยง',c:''},kk(-1)])];
    K.ai=R.comps.length<2&&cid(R)!=='nec'?0:1;},
   res(R,K,i,out){const f=R.floor,h=R.h,{n,g,a}=K.data;
-   if(i===0){R.karma+=2;R.map[f-1]='comp';nwA(R,'elf');const cp=mkHire(R,n,'arc','lucky',1.15);cp.line='"ลูกธนูของข้าไม่เคยพลาด ยกเว้นตอนติดตาข่าย"';
-    say(R,out,`${n}เดินไปล้วงหลังเสาแล้วหยิบธนูของตัวเองออกมา "พรานคนนั้นซ่อนไม่มิดหรอก"`,'good');hire(R,out,cp);}
+   if(i===0){R.karma+=2;R.map[f-1]='comp';const cp=mkHire(R,n,'arc','lucky',1.15);cp.line='"ลูกธนูของข้าไม่เคยพลาด ยกเว้นตอนติดตาข่าย"';
+    say(R,out,`${n}เดินไปล้วงหลังเสาแล้วหยิบธนูของตัวเองออกมา "พรานคนนั้นซ่อนไม่มิดหรอก"`,'good');hire(R,out,cp);if(R.comps.includes(cp))nwA(R,'elf');}
    else if(i===1){R.karma+=2;h.atk+=a;h.luk+=3;R.map[f-1]='good';nwA(R,'elf');say(R,out,`${n}จับมือคุณง้างสายธนูอยู่ครึ่งวัน จนลูกสุดท้ายปักกลางผลแอปเปิลบนหัวรูปปั้น (ATK +${a.toFixed(1)} · LUK +3)`,'good');}
    else if(i===2){coin(R,out,g);R.karma-=4;R.map[f-1]='evil';say(R,out,`พ่อค้าทาสนับทองให้ ${g} เหรียญ ${n}ไม่ร้องไห้เลย เธอจ้องหน้าคุณอยู่อย่างนั้นจนลับตา`,'bad');}
    else{R.karma-=1;R.map[f-1]='calm';say(R,out,'คุณเดินผ่านไป ได้ยินเสียงเธอถอนหายใจไล่หลังมา','info');}}},
- isek:{w:2,mk(R,K){const f=R.floor,n=pick(ISK_N),v=pick(['pupil','duel','follow','foe']),bad=v==='foe',en=foe(R,bad?`จอมมาร${n}`:n,bad?'mag':'war',bad?1.3:1.15),w=estW(R,en),g=gG(R,70),p=lukCh(R,.45);
+ isek:{w:2,mk(R,K){const f=R.floor,n=pick(ISK_N.filter(x=>!R.comps.some(c=>c.n===x)).concat(ISK_N.length>R.comps.length?[]:ISK_N)),v=pick(['pupil','duel','follow','foe']),bad=v==='foe',en=foe(R,bad?`จอมมาร${n}`:n,bad?'mag':'war',bad?1.3:1.15),w=estW(R,en),g=gG(R,70),p=lukCh(R,.45);
    K.data={n,v,en,w,g,p};K.tag=`ชั้น ${f} · ประตูต่างโลก`;K.vis=bad?{t:'comp',cls:'mag'}:npc('isekai');
    const op='อากาศกลางห้องฉีกออกเป็นวงกลมสีฟ้า คนแต่งตัวประหลาดคนหนึ่งร่วงลงมากระแทกพื้น ไม่มีเกราะสักชิ้น ในมือถือแผ่นกระจกดำที่ส่องแสงได้';
    if(v==='pupil'){K.title=`${n} คนจากต่างโลก`;K.text=`${op} ${n}ลุกขึ้นปัดฝุ่น แล้วคุกเข่าตรงหน้าคุณทันที "ในเกมที่ข้าเล่น คนแรกที่เจอต้องเป็นอาจารย์! รับข้าเป็นศิษย์เถอะ"`;
@@ -1311,7 +1311,7 @@ TIER.excal='l';KEY_TG.excal=[['fight'],[],['fight'],['trick'],['pray']];
 // ---- v0.2.23 the otherworld invader (vgod): about as rare as the sword in the stone (R.vgF rolled in newRun with VG.fq), once per life, forced by genSpecial.
 // The tower wall is torn open (drawShow draws the breach when en.id==='vgod'); en.big gives it the boss-sized sprite without the boss rules. Losing = a scar, not death.
 // Winning: big stat gain, R.godK = floor, title ผู้พิชิตเทพ (runTitle) and a row on the end screen.
-const VG={fq:.32,lo:45,hi:90};
+const VG={fq:.8,lo:45,hi:90}; // fq above EXC.fq because fewer lives reach these floors: offered about as often as the sword in the stone
 const vgOk=R=>!!R.vgF&&!R.used['sp:vgod']&&R.floor>=R.vgF&&R.floor<=95;
 SPECIAL.vgod={w:0,ok:vgOk,mk(R,K){const f=R.floor,en=Object.assign(mkMon({id:'vgod',n:'ตัวตนจากนอกโลก',hp:1.9,atk:1.45,def:1.3},f,1),{big:true}),w=estW(R,en),p=lukCh(R,.55);K.data={en,w,p};
   K.tag=`ชั้น ${f} · ผนังหอแตก`;K.title='ตัวตนจากนอกโลกบุกหอคอย';K.vis={t:'en',en};
@@ -1724,7 +1724,7 @@ function mkKey(R,type,ev){const f=R.floor,K={type,ev,tag:'',title:'',text:'',vis
    {t:'เก็บทองไว้ก่อน',P:[{t:'แค่พักฟื้นให้เต็ม',c:''}]}];K.ai=0;}
  else if(type==='arc')mkArcKey(R,K,ev);
  else{const S=SPECIAL[type];S.mk(R,K);K.tid='sp:'+type;K.rar=TIER[type]||'c';}
- if(cid(R)==='nec'&&type!=='shop')K.ch.forEach(c=>{if(!c.dis&&/จ้าง|ร่วมทีม|เข้าทีม|ตามมา|ตามไปด้วย/.test(c.t)){c.dis=true;c.P=[{t:'(เนโครแมนเซอร์จ้างใครไม่ได้)',c:'b'}];}});
+ if(cid(R)==='nec'&&type!=='shop')K.ch.forEach(c=>{if(!c.dis&&/จ้าง|ร่วมทีม|เข้าทีม|ตามมา|ตามไปด้วย|ชวนมา|ศิษย์|พาไปด้วย|แลกตัว/.test(c.t)){c.dis=true;c.P=[{t:'(เนโครแมนเซอร์จ้างใครไม่ได้)',c:'b'}];}});
  if(!K.vis)K.vis=autoVis(K.title,K.text);
  {const KT=KEY_TG[type];K.ch.forEach((c,i)=>{if(!c.tg)c.tg=KT?KT[i]||[]:type==='arc'?tgOf(c.t):[];if(c.hide)return;
   if(c.cl)c.P.unshift({t:`✦ เฉพาะ${clsName(c.cl)}`,c:'pt'});else if(type!=='promo'&&pathPts(R,c.tg)>0)c.P.push({t:`✦ ${pathOf(R).n}`,c:'pt'});});}
@@ -1908,7 +1908,7 @@ const pctC=p=>p>=60?'g':p>=35?'w':'b';
 const latS=R=>Array.isArray(R.later)?R.later:(R.later=[]);
 function laterAt(R,n,id,d,l){latS(R).push({at:R.floor+n,id,d:d||{},l:l||''});}
 function laterTick(R,out){const L=latS(R);if(!L.length||!R.alive)return;for(const x of L.filter(x=>x.at<=R.floor)){L.splice(L.indexOf(x),1);const fn=LATER[x.id];if(!fn)continue;const kc=R.kctx,n0=out.msgs.length;R.kctx=x.l||'ผลจากเรื่องเก่า';fn(R,out,x.d||{});R.kctx=kc;if(out.msgs.slice(n0).some(m=>m.c==='good'))R.ltG=(R.ltG||0)+1;}}
-const laterNow=R=>R&&R.later?latS(R).filter(x=>x.l&&x.at>R.floor).map(x=>`⏳ ${x.l} (อีก ${x.at-R.floor} ชั้น)`):[];
+const laterNow=R=>R&&R.later?latS(R).filter(x=>x.l&&x.at>R.floor&&(x.id!=='isk_recall'||R.comps.some(c=>c.isk&&c.n===(x.d&&x.d.n)))).map(x=>`⏳ ${x.l} (อีก ${x.at-R.floor} ชั้น)`):[];
 const hurt=(R,k)=>{R.h.hp=Math.max(1,R.h.hp-R.h.mhp*k);};
 const LATER={
  star(R,out){const a=1.5+R.floor*.08;R.h.atk+=a;sayK(R,out,`ตัวเลขในสมุดที่จดไว้คืนฝนดาวตกเรียงกันเป็นท่าฟันได้ท่าหนึ่ง (ATK +${a.toFixed(1)})`,'good');},
@@ -2233,7 +2233,7 @@ function drawBreach(t){const x=cx,j=RM?0:Math.sin(t/180)*1.5,P=[[112,8],[126,2],
  if(!RM&&Math.random()<.25)pt(fr(104,180),fr(10,90),fr(-.3,.3),fr(.2,.6),Math.random()<.5?'#3a2a5a':'#b04aff',fr(400,800),{g:.02});}
 function drawShow(t,bob){const s=VIS.show;if(!s)return;
  if(s.t==='en'){const en=s.en,E=enSpr(en);if(!E)return;let fl=VIS.ef>t;if(VIS.edead){if(t>=VIS.edead)return;fl=Math.floor(t/50)%2===0;}
-  const m=mvOff('e',t),ey=en.cls?84+bob:en.boss?E.y+bob:84+(RM?0:Math.round(Math.sin(t/300+1)));
+  const m=mvOff('e',t),ey=en.cls?84+bob:en.boss||en.big?E.y+bob:84+(RM?0:Math.round(Math.sin(t/300+1)));
   if(en.id==='vgod')drawBreach(t);blitM(E.spr,E.x,ey,{flip:E.flip,flash:fl,key:E.key},m);if(en.cls&&!fl)blink(E.spr,E.x+m.dx,ey+m.dy,true,11,t);}
  else if(s.t==='prop'){if(s.pr)drawProp(cx,s.fb&&!(window.ART.NPCS&&window.ART.NPCS[s.pr])?s.fb:s.pr,t);} // story NPC sprite when sprites.js has it, generic npc otherwise
  else if(s.t==='pet')blit(cx,PSPR[s.p],132,91+bob,{key:'p'+s.p});
