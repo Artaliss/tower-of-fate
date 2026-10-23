@@ -16,7 +16,8 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function addGold(n,why){const P=load();n=Math.round(+n||0);P.gold=Math.max(0,P.gold+n);if(n>0)P.goldAll+=n;save(P);refresh();return P.gold;}
 function grantAch(id){try{window.ACH&&window.ACH.grant&&window.ACH.grant(id);}catch(e){}}
 // ฮีโร่ที่จบรอบแล้วเข้าทะเบียนตระกูล (ถ้าที่เต็ม เก็บไว้ในคิว P.wait ให้ผู้เล่นเลือกลบคนเก่าเอง)
-function snapHero(R){const h=R.h,K=C().CLASSES||[],Rk=(C().RANKS||[])[h.rank]||{};return{id:uid(),kind:'hero',name:h.name,rank:Rk.k||'F',ri:h.rank|0,cls:(K[h.cls]||{}).id||'',lv:h.lv|0,
+function snapHero(R){const h=R.h,K=C().CLASSES||[],Rk=(C().RANKS||[])[h.rank]||{};const ss=R.won&&R.sec&&(R.sec.res==='f'||R.sec.res==='s'); // ผ่านชั้นลับ = แรงค์ SS ในตระกูล
+ return{id:uid(),kind:'hero',name:h.name,rank:ss?'SS':(Rk.k||'F'),ri:ss?7:(h.rank|0),cls:(K[h.cls]||{}).id||'',lv:h.lv|0,
  hp:Math.round(h.mhp),atk:Math.round(h.atk),def:Math.round(h.def),luk:Math.round(h.luk),form:(h.look&&h.look.form)||'human',look:h.look||null,
  floor:R.won?100:(R.floor|0),won:!!R.won,sec:(R.sec&&R.sec.res)||'',gen:h.gen||1,t:Date.now()};}
 function snapComp(R,c){const h=R.h;return{id:uid(),kind:'merc',name:c.n,rank:'',ri:Math.max(0,(h.rank|0)-1),cls:c.cls||'',lv:Math.max(1,(h.lv|0)-3),
