@@ -4,13 +4,14 @@
 // - "รับเซฟด้วยโค้ด" or a link /?move=<code>: peek first (the code is not used up), show what will replace this browser's save,
 //   and only after the player confirms: take (the code is spent), clear this browser's tof-* keys, write the new ones, reload
 // The panel is added under the graveyard panel of index.html by this file.
-// API: window.MOVE = { out(), in(code) }
+// API: window.MOVE = { out(), in(code), collect(), summary(o), sumLines(m), pack(o), unpack(z,p), apply(o) }  (account.js reuses the packing for cloud saves)
 (function(){
 'use strict';
 if(typeof document==='undefined')return;
 const ORIGIN='https://tower-of-fate.pages.dev';
 // pending queues, caches and per-device counters: not part of what moves
-const SKIP=['tof-lb-queue-v1','tof-share-stat-v1','tof-auto-birth-v1','tof-causes-v1','tof-help-tab'];
+// tof-acct-v1 = login token of account.js: it stays with this browser
+const SKIP=['tof-lb-queue-v1','tof-share-stat-v1','tof-auto-birth-v1','tof-causes-v1','tof-help-tab','tof-acct-v1'];
 const fT="'Mitr','Kanit','Noto Sans Thai',system-ui,sans-serif";
 const okCode=s=>typeof s==='string'&&/^[a-z2-9]{9}$/.test(s);
 const nf=n=>Number(n||0).toLocaleString('th-TH');
@@ -154,5 +155,5 @@ function panel(){const memo=document.getElementById('memo'),sec=memo&&memo.close
 function boot(){panel();let code=null;try{code=new URLSearchParams(location.search).get('move');}catch(e){}
  if(code){code=code.toLowerCase().replace(/[^a-z0-9]/g,'');try{history.replaceState(history.state,'',cleanUrl());}catch(e){}if(okCode(code))setTimeout(()=>inp(code),300);}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
-window.MOVE={out,in:inp};
+window.MOVE={out,in:inp,collect,summary,sumLines,pack,unpack,apply};
 })();
