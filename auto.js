@@ -2558,12 +2558,13 @@ function cardMode(ph){document.body.dataset.ph=ph;const sp=ph==='birth'||ph==='d
  card.classList.toggle('split',sp);['birth','decide','end','secret'].forEach(k=>card.classList.toggle('ph-'+k,ph===k));if(ph!=='decide')card.classList.remove('fk');}
 function setStance(k){const R=S.R;if(!R||!STANCES[k]||R.st===k||!R.alive)return;R.st=k;R.stCh=(R.stCh||0)+1;R.log.unshift({f:R.floor,t:`เปลี่ยนท่าทีเป็น "${STANCES[k].n}"`,c:'info'});
  renderStance();renderHUD();renderLog();saveRun();}
-// look rarity: slime colour bands are uneven (gold is rarest), eyes x mouths are 8 x 7 equally likely
+// look rarity: slime colour bands are uneven (gold is rarest); shape, pattern, eyes, mouth, hair, accessories and rare looks come from ART.lookExtra
 const HUEB=[[15,'สีแดง'],[38,'สีส้ม'],[52,'สีทอง'],[90,'สีมะนาว'],[160,'สีเขียว'],[220,'สีฟ้า'],[262,'สีน้ำเงิน'],[300,'สีม่วง'],[340,'สีชมพู'],[360,'สีแดง']];
 const SKINN=['ผิวน้ำผึ้งอ่อน','ผิวน้ำผึ้ง','ผิวแทน','ผิวเข้ม','ผิวขาว','ผิวคล้ำ'];
-function lookInfo(h){let L=null;try{L=window.ART.lookOf(look(h));}catch(e){}if(!L)return{n:'หน้าตาธรรมดา',p:1};const fe=1/56;
- if(L.form==='slime'){const hue=((L.hue%360)+360)%360;let lo=0;for(const [hi,nm] of HUEB){if(hue<hi)return{n:'สไลม์'+nm,p:(nm==='สีแดง'?35:hi-lo)/360*fe};lo=hi;}}
- return{n:'คน'+SKINN[(L.skin||0)%6],p:fe/6};}
+function lookInfo(h){let L=null;try{L=window.ART.lookOf(look(h));}catch(e){}if(!L)return{n:'หน้าตาธรรมดา',p:1};
+ let X={n:[],p:1/56,rare:''};try{X=window.ART.lookExtra(L,h.cls);}catch(e){}const tail=X.n.length?' '+X.n.join(' '):'';
+ if(L.form==='slime'){if(X.rare)return{n:'สไลม์'+X.rare+tail,p:X.p,rare:1};const hue=((L.hue%360)+360)%360;let lo=0;for(const [hi,nm] of HUEB){if(hue<hi)return{n:'สไลม์'+nm+tail,p:(nm==='สีแดง'?35:hi-lo)/360*X.p};lo=hi;}}
+ return{n:'คน'+SKINN[(L.skin||0)%6]+tail,p:X.p/6};}
 const combOdds=h=>Math.max(1,Math.round(h.odds/lookInfo(h).p));
 // name box under the gold and fate chips: inside the chip row on phones (chips sit on top of the scene),
 // just below the scene on wide screens (chips sit at the bottom there and one more row would cover the hero)
@@ -2576,10 +2577,20 @@ try{window.ACH&&window.ACH.add&&window.ACH.add([
  {id:'look_cat',n:'สไลม์หูแมว',d:'เกิดมาเป็นสไลม์ที่มีหูแมว',icon:'🐱',tier:'bronze'},
  {id:'look_drop',n:'หยดน้ำมีชีวิต',d:'เกิดมาเป็นสไลม์ทรงหยดน้ำ',icon:'💧',tier:'bronze'},
  {id:'look_afro',n:'ผมฟูฟ่อง',d:'เกิดมาเป็นคนผมฟูทรงแอฟโฟร',icon:'🦱',tier:'bronze'},
- {id:'look_beard',n:'เคราตั้งแต่เกิด',d:'เกิดมาเป็นคนที่มีเคราเต็มคาง',icon:'🧔',tier:'bronze'}]);}catch(e){}
+ {id:'look_beard',n:'เคราตั้งแต่เกิด',d:'เกิดมาเป็นคนที่มีเคราเต็มคาง',icon:'🧔',tier:'bronze'},
+ {id:'look_crystal',n:'สไลม์คริสตัล',d:'เกิดมาเป็นสไลม์คริสตัล ตัวใสวาว โอกาสราว 1 ใน 80',icon:'💎',tier:'silver'},
+ {id:'look_shadow',n:'สไลม์เงามืด',d:'เกิดมาเป็นสไลม์เงามืดตาแดง โอกาสราว 1 ใน 80',icon:'🌑',tier:'silver'},
+ {id:'look_goldsl',n:'สไลม์ทองคำ',d:'เกิดมาเป็นสไลม์ทองคำ โอกาสราว 1 ใน 170',icon:'🪙',tier:'gold'},
+ {id:'look_hetero',n:'ตาสองสี',d:'เกิดมาเป็นคนที่ตาสองข้างสีไม่เหมือนกัน',icon:'👁️',tier:'silver'},
+ {id:'look_flame',n:'ผมไฟ',d:'เกิดมาเป็นคนผมลุกเป็นไฟ โอกาสราว 1 ใน 100',icon:'🔥',tier:'gold'},
+ {id:'look_patch',n:'ผ้าปิดตา',d:'เกิดมาพร้อมผ้าปิดตาข้างหนึ่ง',icon:'🏴‍☠️',tier:'bronze'},
+ {id:'look_glasses',n:'แว่นตั้งแต่เกิด',d:'เกิดมาเป็นคนใส่แว่น',icon:'👓',tier:'bronze'},
+ {id:'look_heart',n:'ตาหัวใจ',d:'เกิดมาเป็นสไลม์ตาหัวใจ',icon:'😍',tier:'bronze'},
+ {id:'look_star',n:'ตาดาว',d:'เกิดมาเป็นสไลม์ตาดาว',icon:'🤩',tier:'bronze'}]);}catch(e){}
 function lookAch(h){if(!window.ACH||!window.ACH.grant)return;let L=null;try{L=window.ART.lookOf(look(h));}catch(e){}if(!L)return;
- if(L.form==='slime'){if(L.shape===4)window.ACH.grant('look_cat');if(L.shape===1)window.ACH.grant('look_drop');}
- else if(['war','arc','pri','dra','dsl'].includes(h.cls)){if(L.hair===6)window.ACH.grant('look_afro');if(L.beard===1)window.ACH.grant('look_beard');}}
+ const G=id=>window.ACH.grant(id),X=window.ART.lookExtra(L,h.cls),has=t=>X.n.includes(t);
+ if(L.form==='slime'){if(L.shape===4)G('look_cat');if(L.shape===1)G('look_drop');if(X.rare==='คริสตัล')G('look_crystal');if(X.rare==='เงามืด')G('look_shadow');if(X.rare==='ทองคำ')G('look_goldsl');if(has('ตาหัวใจ'))G('look_heart');if(has('ตาดาว'))G('look_star');}
+ else{if(has('ผมฟู'))G('look_afro');if(has('มีเครา'))G('look_beard');if(has('ตาสองสี'))G('look_hetero');if(has('ผมไฟ'))G('look_flame');if(has('ผ้าปิดตา'))G('look_patch');if(has('ใส่แว่น'))G('look_glasses');}}
 function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf(h),DT=dayOf(h),LI=lookInfo(h),mx=30,an=!S.rvDone&&!RM;lookAch(h);
  if(!S.themeId||S.themeHero!==h){S.themeHero=h;S.themeId=heroTheme(h);}
  const D=i=>an?` style="--d:${i*350}ms"`:'';

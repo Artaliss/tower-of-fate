@@ -26,7 +26,13 @@ const CLS_HUE={nec:280,ang:50,war:4,mag:220,arc:105,pri:48,rog:270,far:30,dra:34
 HP_.dsl={h:'#3a2218',a:'#6a3a24',b:'#3a1e12',c:'#a01e1e',w:'#d8e0ea'};
 ACC.dsl={r:['..............SL','.H..........H.SL','.HH........HH.SL','..HKKKKKKKKH..SL','...KBBKKBBK...SL','...KBEKKBEK...SL','....KKKKKK....SL','....T.T..T.T..SL','..............SL','..............SL','.............GGG','..............W.','..............W.','..............P.'],p:{H:'#a08868',K:'#e8dcc0',B:'#2a1a14',E:'#ff4a2a',T:'#fff8e8',S:'#b8c2d0',L:'#f4f8ff',G:'#b02a22',W:'#4a2a1a',P:'#e0b040'}};
 CLS_HUE.dsl=18;
-// v3.5.4 more variety. slime body shapes (top = first body row; hats drop down by top-5 when the body sits lower), patterns on 'b' cells
+// v0.3.5.5 new slime eyes (8-11: big, dizzy X, heart, star) and mouths (7-9: fangs, wavy, grin). Only seeds from the new rollLook (seed&1023===777)
+// can land on them, so every slime made before keeps its face. z = star yellow, q = heart red.
+const EYES_OLD=EYES.length,MOUTHS_OLD=MOUTHS.length;
+EYES.push([[-1,0,'k'],[0,0,'w'],[1,0,'k'],[-1,1,'k'],[0,1,'k'],[1,1,'k']],[[-1,-1,'k'],[-1,1,'k'],[0,0,'k'],[1,-1,'k'],[1,1,'k']],[[0,-1,'q'],[0,1,'q'],[1,-1,'q'],[1,0,'q'],[1,1,'q'],[2,0,'q']],[[-1,0,'z'],[0,-1,'z'],[0,0,'z'],[0,1,'z'],[1,0,'z']]);
+MOUTHS.push([[12,8,'k'],[12,9,'k'],[12,10,'k'],[12,11,'k'],[13,8,'w'],[13,11,'w']],[[13,7,'k'],[12,8,'k'],[13,9,'k'],[12,10,'k'],[13,11,'k']],[[12,7,'k'],[12,8,'w'],[12,9,'w'],[12,10,'w'],[12,11,'k'],[13,8,'k'],[13,9,'k'],[13,10,'k']]);
+const isV2=v=>typeof v==='number'&&((v>>>0)&1023)===777;
+// v0.3.5.4 more variety. slime body shapes (top = first body row; hats drop down by top-5 when the body sits lower), patterns on 'b' cells
 const SL_SHAPES=[{t:5,r:SL_BODY},
 {t:2,r:["................","................",".......oo.......","......obbo......",".....olbbbo.....","....ollbbbbo....","...ollbbbbbbo...","..olbbbbbbbbbo..","..obbbbbbbbbbo..",".obbbbbbbbbbbbo.",".obbbbbbbbbbbbo.",".obbbbbbbbbbbbo.",".obbbbbbbbbbbbo.",".odbbbbbbbbbbdo.","..oddbbbbbbddo..","...oooooooooo..."]},
 {t:7,r:["................","................","................","................","................","................","................","....oooooooo....","..oollbbbbbboo..",".ollbbbbbbbbbbo.","obbbbbbbbbbbbbbo","obbbbbbbbbbbbbbo","obbbbbbbbbbbbbbo","odbbbbbbbbbbbbdo","oddbbbbbbbbbbddo",".oooooooooooooo."]},
@@ -39,15 +45,43 @@ const BEARDS=[[],[[6,5,'h'],[6,6,'h'],[6,7,'h'],[6,8,'h'],[5,9,'h']],[[5,7,'h'],
 const HCOLS=['#2a1a14','#5a3a22','#8a5a2a','#c88a3a','#e8c860','#a0a0a8','#7a2a1a','#1a1a2a','#d86a9a','#4a7ad0','#e8e8f0','#3a8a5a'];
 const ECOLS=['#1a1010','#1a1010','#2a4a8a','#2a6a3a','#5a3a1a','#7a2a6a'];
 const HAIR_CLS={war:1,arc:1,pri:1,dra:1,dsl:1,npc:1};
-function humanRows(k,L){const G=HERO_ROWS.map(r=>r.split(''));if(!L||!HAIR_CLS[k])return HERO_ROWS;
- for(const [y,x,ch] of HSTY[L.hair%HSTY.length].concat(BEARDS[L.beard%BEARDS.length]))G[y][x]=ch;return G.map(r=>r.join(''));}
+// v0.3.5.5 face accessories for every class: glasses, eyepatch, scar, freckles. rare: 1 = two eye colours, 2 = flame hair (hair classes only)
+const HACC=[[],[[4,5,'G'],[4,7,'G'],[4,8,'G'],[4,10,'G']],[[4,9,'P'],[3,10,'P'],[3,8,'P'],[3,7,'P'],[3,6,'P']],[[3,7,'X'],[4,8,'X'],[5,8,'X']],[[5,6,'K'],[5,8,'K']]];
+const HACC_PAL={G:'#d8d8e0',P:'#1a1418',X:'#b04848',K:'#9a5a3a'};
+// names + odds for the look label (auto.js lookInfo); index 0 = plain, no name
+const LOOKN={shape:['','ทรงหยดน้ำ','ทรงแบน','ทรงสูง','หูแมว'],pat:['','ลายจุด','ท้องขาว','ตัววาว','คาดแถบ'],srare:['','คริสตัล','เงามืด','ทองคำ'],
+ eye:{8:'ตาโต',9:'ตามึน',10:'ตาหัวใจ',11:'ตาดาว'},mouth:{7:'เขี้ยวแหลม',8:'ปากหยัก',9:'ยิ้มกว้าง'},
+ hair:['','ผมชี้','ผมยาว','หางม้า','หน้าม้า','หัวเกือบโล้น','ผมฟู'],beard:['','มีเครา','มีหนวด'],hcol:{8:'ผมชมพู',9:'ผมฟ้า',10:'ผมสีเงิน',11:'ผมเขียว'},
+ acc:['','ใส่แว่น','ผ้าปิดตา','แผลเป็น','มีกระ'],hrare:['','ตาสองสี','ผมไฟ']};
+const HACC_P=[.55,.15,.08,.1,.12];
+function humanRows(k,L){const G=HERO_ROWS.map(r=>r.split(''));if(!L||k==='ghost')return HERO_ROWS;
+ if(HAIR_CLS[k]){for(const [y,x,ch] of HSTY[L.hair%HSTY.length].concat(BEARDS[L.beard%BEARDS.length]))G[y][x]=ch;
+  if(L.rare===2)for(const [y,x] of [[0,5],[0,7],[0,9],[1,6],[1,8]])G[y][x]='F';}
+ if(L.rare===1)G[4][9]='E';
+ for(const [y,x,ch] of HACC[L.acc%HACC.length])G[y][x]=ch;return G.map(r=>r.join(''));}
 function seedOf(v){if(typeof v==='number')return v>>>0;const s=String(v);let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
 const SKINS=['#f1c49a','#e8b48a','#c88a5e','#a0663e','#f6d6b8','#7a4a2e'];
 // look -> normalized {form,hue,sat,lit,eye,mouth,blush,skin}. Accepts seed number/string or {form,seed,...overrides}.
-function lookOf(v){const o=v&&typeof v==='object'?v:{seed:v};const s=seedOf(o.seed??0),r=i=>hash(s+i*7919);
- return Object.assign({form:'slime',hue:Math.floor(r(1)*360),sat:58+Math.floor(r(2)*22),lit:52+Math.floor(r(3)*12),eye:Math.floor(r(4)*EYES.length),mouth:Math.floor(r(5)*MOUTHS.length),blush:r(6)<.55,skin:Math.floor(r(7)*SKINS.length),
-  shape:r(8)<.4?0:1+Math.floor(r(9)*(SL_SHAPES.length-1)),pat:r(10)<.45?0:1+Math.floor(r(16)*(SL_PATS.length-1)),hair:Math.floor(r(11)*HSTY.length),beard:r(12)<.7?0:r(12)<.86?1:2,hcol:r(13)<.45?-1:Math.floor(r(15)*HCOLS.length),ecol:Math.floor(r(14)*ECOLS.length)},o);}
-const rollLook=form=>({form:form==='human'?'human':'slime',seed:Math.floor(Math.random()*4294967295)});
+function lookOf(v){const o=v&&typeof v==='object'?v:{seed:v};const s=seedOf(o.seed??0),r=i=>hash(s+i*7919),v2=isV2(o.seed);
+ return Object.assign({form:'slime',hue:Math.floor(r(1)*360),sat:58+Math.floor(r(2)*22),lit:52+Math.floor(r(3)*12),eye:Math.floor(r(4)*(v2?EYES.length:EYES_OLD)),mouth:Math.floor(r(5)*(v2?MOUTHS.length:MOUTHS_OLD)),blush:r(6)<.55,skin:Math.floor(r(7)*SKINS.length),
+  shape:r(8)<.4?0:1+Math.floor(r(9)*(SL_SHAPES.length-1)),pat:r(10)<.45?0:1+Math.floor(r(16)*(SL_PATS.length-1)),hair:Math.floor(r(11)*HSTY.length),beard:r(12)<.7?0:r(12)<.86?1:2,hcol:r(13)<.45?-1:Math.floor(r(15)*HCOLS.length),ecol:Math.floor(r(14)*ECOLS.length),
+  acc:(()=>{let x=r(18),i=0;while(i<HACC_P.length-1&&x>=HACC_P[i]){x-=HACC_P[i];i++;}return i;})(),rr:r(17)},o);}
+// rare roll rr -> slime 1 crystal 1.2% / 2 shadow 1.2% / 3 gold 0.6%; human 2 flame hair 1% (hair classes) / 1 two eye colours 2% (3% for hooded classes)
+const slRare=L=>L.rr<.006?3:L.rr<.018?2:L.rr<.03?1:0;
+const huRare=(L,k)=>HAIR_CLS[k]?(L.rr<.01?2:L.rr<.03?1:0):(L.rr<.03?1:0);
+// label parts + odds of everything except slime colour / human skin
+function lookExtra(L,k){const n=[];let p=1;const P=(arr,i,ps)=>{p*=ps;if(arr[i])n.push(arr[i]);};
+ if(L.form!=='human'){const ra=slRare(L);p*=[.97,.012,.012,.006][ra];
+  P(LOOKN.shape,L.shape%SL_SHAPES.length,L.shape?.15:.4);P(LOOKN.pat,L.pat%SL_PATS.length,L.pat?.1375:.45);
+  const v2=isV2(L.seed);p*=1/(v2?EYES.length:EYES_OLD)/(v2?MOUTHS.length:MOUTHS_OLD);if(LOOKN.eye[L.eye])n.push(LOOKN.eye[L.eye]);if(LOOKN.mouth[L.mouth])n.push(LOOKN.mouth[L.mouth]);
+  return{n,p,rare:LOOKN.srare[ra]};}
+ const hc=HAIR_CLS[k],ra=huRare(L,k);p*=ra?(ra===2?.01:hc?.02:.03):.97;if(ra)n.push(LOOKN.hrare[ra]);
+ if(hc){P(LOOKN.hair,L.hair%HSTY.length,1/HSTY.length);P(LOOKN.beard,L.beard%BEARDS.length,[.7,.16,.14][L.beard%3]);
+  if(ra!==2){p*=L.hcol<0?.45:.55/HCOLS.length;if(L.hcol>=0&&LOOKN.hcol[L.hcol])n.push(LOOKN.hcol[L.hcol]);}}
+ p*=(L.ecol%ECOLS.length)<2?2/ECOLS.length:1/ECOLS.length;P(LOOKN.acc,L.acc%HACC.length,HACC_P[L.acc%HACC.length]);
+ return{n,p,rare:''};}
+
+const rollLook=form=>({form:form==='human'?'human':'slime',seed:Math.floor(Math.random()*4194304)*1024+777});
 // hero object -> look (old saves without look: human, seeded from name)
 const heroLook=h=>h&&h.look?h.look:{form:'human',seed:h?h.name:0};
 const hsl=(h,s,l)=>`hsl(${((h%360)+360)%360},${Math.max(0,Math.min(100,s))}%,${Math.max(0,Math.min(100,l))}%)`;
@@ -71,14 +105,20 @@ const ANG_PAL={h:'#f4e2a0',a:'#f6f4ee',b:'#d8d0b8',c:'#e8c060',w:'#fff3a0',f:'#f
 function heroSpr(k,look){
  if(k==='nec'||k==='ang'){const L=look==null?null:lookOf(look),sk=L?SKINS[L.skin%SKINS.length]:'#f1c49a',id='kc:'+k+':'+(k==='ang'?sk:'');let s=heroCache.get(id);if(s)return s;
   s=k==='nec'?mk(NEC_ROWS,NEC_PAL):mk(ANG_ROWS,Object.assign({s:sk,e:'#1a1010',l:'#c8c0a8'},ANG_PAL));s.id=id;s.sh=true;heroCache.set(id,s);return s;}
- if(look==null||lookOf(look).form==='human'){const L=look==null?null:lookOf(look),sk=L?SKINS[L.skin%SKINS.length]:'#f1c49a',id='hu:'+k+':'+sk+(L&&HAIR_CLS[k]?':'+[L.hair,L.beard,L.hcol,L.ecol].join(','):'');let s=heroCache.get(id);if(s)return s;
-  const pal=Object.assign({s:sk,e:'#1a1010',l:'#3a2e24'},HP_[k]||HP_.npc);if(L&&HAIR_CLS[k]){if(L.hcol>=0)pal.h=HCOLS[L.hcol%HCOLS.length];pal.e=ECOLS[L.ecol%ECOLS.length];}s=mk(humanRows(k,L),pal);s.id=id;s.sh=k!=='ghost';if(heroCache.size>200)heroCache.clear();heroCache.set(id,s);return s;}
+ if(look==null||lookOf(look).form==='human'){const L=look==null?null:lookOf(look),sk=L?SKINS[L.skin%SKINS.length]:'#f1c49a',hc=L&&HAIR_CLS[k],ra=L&&k!=='ghost'?huRare(L,k):0,Lr=L&&Object.assign({},L,{rare:ra});
+  const id='hu:'+k+':'+sk+(L&&k!=='ghost'?':'+[hc?L.hair:'',hc?L.beard:'',hc?L.hcol:'',L.ecol,L.acc,ra].join(','):'');let s=heroCache.get(id);if(s)return s;
+  const pal=Object.assign({s:sk,e:'#1a1010',l:'#3a2e24'},HP_[k]||HP_.npc,HACC_PAL);
+  if(L&&k!=='ghost'){if(hc&&L.hcol>=0)pal.h=HCOLS[L.hcol%HCOLS.length];if(ra===2){pal.h='#e8401a';pal.F='#ffd040';}pal.e=ECOLS[L.ecol%ECOLS.length];pal.E=(L.ecol%ECOLS.length)<2?'#3a9ae8':'#e0a020';}s=mk(humanRows(k,Lr),pal);s.id=id;s.sh=k!=='ghost';if(heroCache.size>200)heroCache.clear();heroCache.set(id,s);return s;}
  const L=lookOf(look);
- const id='sl:'+k+':'+[L.hue,L.sat,L.lit,L.eye,L.mouth,L.blush?1:0,L.shape,L.pat].join(',');let s=heroCache.get(id);if(s)return s;
+ const id='sl:'+k+':'+[L.hue,L.sat,L.lit,L.eye,L.mouth,L.blush?1:0,L.shape,L.pat,slRare(L)].join(',');let s=heroCache.get(id);if(s)return s;
  const gh=k==='ghost',h=L.hue,S=gh?38:L.sat,l=gh?80:L.lit;
  const pal={o:gh?'#7a9ac0':hsl(h+(h>60&&h<240?15:-15),S*.7,Math.max(14,l-36)),b:hsl(h,S,l),l:hsl(h-8,S-8,Math.min(94,l+22)),d:hsl(h+12,S+4,l-12),k:'#141018',w:'#ffffff',m:'#5a1420',p:gh?'#c8e0ff':'#ff8aa8'};
+ pal.z='#ffe040';pal.q='#ff3a5a';const ra=gh?0:slRare(L);
+ if(ra===1)Object.assign(pal,{o:hsl(h,50,48),b:hsl(h,45,84),l:'#ffffff',d:hsl(h,40,72)});
+ else if(ra===2)Object.assign(pal,{o:'#05050c',b:'#262636',l:'#4a4a64',d:'#16161f',k:'#ff4a3a'});
+ else if(ra===3)Object.assign(pal,{o:'#6a3a08',b:'#f4c040',l:'#fff2a8',d:'#c0841c'});
  Object.assign(pal,(ACC[k]||{}).p);
- s=mk(slimeRows(k,L),pal);s.id=id;s.squish=true;s.sh=!gh;s.ph=(L.hue*13+L.eye*7)%997;
+ s=mk(slimeRows(k,ra===1||ra===3?Object.assign({},L,{pat:3}):L),pal);s.id=id;s.squish=true;s.sh=!gh;s.ph=(L.hue*13+L.eye*7)%997;
  if(heroCache.size>200)heroCache.clear();heroCache.set(id,s);return s;}
 const MSPR={
 slime:mk(["........","........","........","........","......oo","....oogg","...ogglg","..ogllgg","..oglggg",".oggggkg",".oggggkg",".ogggggg",".ogggggd","..oggggg","...ooooo","........"],{o:'#1d4a22',g:'#5fc04a',l:'#b8f0a0',k:'#0d1a0d',d:'#2a6a2a'},1),
@@ -545,6 +585,6 @@ function drawWish(x,D,t){if(!D)return;t=t||0;const bob=t?Math.round(Math.sin(t/2
   x.fillStyle='#e8f2ff';[[94,74],[99,68],[105,61]].forEach(([X,Y],i)=>{const s=2+i;x.fillRect(X,Y,s,1);x.fillRect(X+s-1,Y+1,1,1);x.fillRect(X,Y+s-1,s,1);});return;}
  if(k==='gold'){blit(x,hs,60,84+bob,{key:'h'+hs.id});drawProp(x,'merchant',t);for(let i=0;i<6;i++)blit(x,COIN,84+(i%3)*9,100-Math.floor(i/3)*5,{noShadow:true});ps.forEach((p,i)=>pet(p,40-i*14,0,false));return;}
  blit(x,hs,88,84+bob,{key:'h'+hs.id});}
-window.ART={BONE,CANDLE,WREATH,STONE,funeralBg,drawCandle,mk,heroSpr,lookOf,rollLook,heroLook,HERO_ROWS,HP_,MSPR,BSPR,BOSS_ROWS,BOSS_PAL,PSPR,PROPS,NPCS,COIN,ICONS,sprCanvas,blit,BG,hash,bgImg,bgHi,bgDraw,drawTorch,drawOverlay,drawProp,compSpr,compKey};
+window.ART={lookExtra,BONE,CANDLE,WREATH,STONE,funeralBg,drawCandle,mk,heroSpr,lookOf,rollLook,heroLook,HERO_ROWS,HP_,MSPR,BSPR,BOSS_ROWS,BOSS_PAL,PSPR,PROPS,NPCS,COIN,ICONS,sprCanvas,blit,BG,hash,bgImg,bgHi,bgDraw,drawTorch,drawOverlay,drawProp,compSpr,compKey};
 Object.assign(window.ART,{homeBg,drawWish,funeralDraw,homeDraw,hiDraw,isHi});
 })();
