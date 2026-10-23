@@ -485,8 +485,9 @@ body.eb-on .wrap{padding-bottom:max(6px,env(safe-area-inset-bottom,0px))}
 .card.split>.cpin{flex:0 1 auto;min-height:0;overflow:auto;padding:8px 12px 10px;border-top:1px solid var(--line);background:var(--panel)}
 .card.ph-birth>.cs,.card.ph-end>.cs{flex:1 1 auto}
 .card.ph-birth>.cpin,.card.ph-end>.cpin{flex-shrink:0}
-.card.ph-decide>.cs{min-height:min(5.2em,30%)}
+.card.ph-decide>.cs,.card.ph-secret>.cs{min-height:min(5.2em,30%)}
 .card.ph-decide>.cpin{border-top:0;padding-top:0}
+.card.ph-secret>.cpin .acts{margin-top:0}
 .card.split>.fest-ban{flex:none;margin:8px 12px 0;width:auto;padding:4px 8px;font-size:12px}
 .card h3{font-size:17px}
 .card p{margin:4px 0 8px}
@@ -554,8 +555,27 @@ body[data-ph=end] .wrap,body[data-ph=dying] .wrap{--scnH:calc(var(--vh)*26)}
 @media (max-width:599px) and (max-height:740px){
  body[data-ph=decide] .wrap,body[data-ph=end] .wrap,body[data-ph=dying] .wrap{--scnH:calc(var(--vh)*21)}
  body[data-ph=decide] .tnow,body[data-ph=end] .tnow{display:none}
- .card.ph-decide .ch .s{font-size:11.5px}
 }
+/* phones and phone landscape: every choice stays on screen; the story above them scrolls instead */
+@media (max-height:420px),(max-width:599px){
+ .card.ph-decide>.cs,.card.ph-secret>.cs{min-height:min(3.6em,22%);padding:6px 10px 4px}
+ .card.ph-decide .tag,.card.ph-secret .tag{font-size:11px;margin-bottom:1px}
+ .card.ph-decide h3,.card.ph-secret h3{font-size:15px;margin:0 0 2px}
+ .card.ph-decide>.cpin,.card.ph-secret>.cpin{padding:4px 10px 6px}
+ .card.ph-decide>.cpin{padding-top:0}
+ .card.split .chs{gap:4px}
+ .card.split .ch{padding:4px 8px;gap:7px;line-height:1.35;font-size:13.5px}
+ .card.split .ch .k{width:20px;height:20px;font-size:12px;margin-top:0}
+ .card.split .ch .s{display:inline;margin:0 0 0 6px;font-size:11.5px}
+ .card.split .ch .lock,.card.split .ch .aitag{font-size:11px;margin-top:1px}
+ .card.split .ch>span:last-child{min-width:0}
+ .card.split .ch .aitag{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .card.fk .cdl{display:none}
+ .fkhint{font-size:12px;padding:2px 6px;margin-bottom:4px;border-width:1px}
+ .cdl{margin-bottom:3px;font-size:12px}
+}
+/* short ones: the first-turn hint keeps to one line (full text in its tooltip) */
+@media (max-height:420px),(max-width:599px) and (max-height:740px){.fkhint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
 @media (max-width:380px){.ctl{gap:4px}.ctl button{padding:3px 6px}.stance button{min-width:32px;padding:3px 5px}:root{--tbH:32px}.tbtns{gap:3px}}
 @media (hover:none){.btn .kb{display:none}}
 /* tablet portrait: same stack, more room */
