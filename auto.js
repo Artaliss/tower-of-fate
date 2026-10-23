@@ -2418,6 +2418,7 @@ function unlApply(R){const U=loadUnl(),t=R.turned?cid(R):'';let ch=0;
  if(t==='ang'&&!U.ang){U.ang=1;ch=1;R.unl=R.unl||'ang';}
  if(ch)try{localStorage.setItem(UKEY,JSON.stringify(U));}catch(e){}}
 const CKEY='tof-clan-v1',CLAN_T={f:'ตระกูลสหายมังกร',s:'ตระกูลนักล่ามังกร',d:'ตระกูลดยุกปราบมังกร'},EGGP={k:'drk',s:'drs',g:'drg'};
+window.CONTENT.CLAN_T=CLAN_T; // town.js puts the family title on the hall sign
 const clan0=()=>({v:1,m:'',n:0,egg:'',pet:'',cls:0,fresh:'',log:[],g2:1,g3:1});
 // g2: saves from before v0.2.14 that already carry a mark get every mark at once (they could not switch before)
 function loadClan(){try{const v=JSON.parse(localStorage.getItem(CKEY)||'null');if(isObj(v)){const C=Object.assign(clan0(),v);if(!v.g2){if(['f','s','d'].includes(C.m))C.got='fsd';saveClan(C);}

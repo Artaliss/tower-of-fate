@@ -14,7 +14,6 @@ const clsN=id=>{const c=(C().CLASSES||[]).find(x=>x.id===id);return c?c.n:'';};
 const fmt=n=>Math.round(n).toLocaleString();
 // ฮีโร่บนหน้าเกิดตอนนี้เป็นเนโครแมนเซอร์ไหม (จ้างใครไม่ได้ตามกติกาเดิม)
 function necNow(){try{const S=window.__auto&&window.__auto.S,h=S&&S.hero,K=C().CLASSES||[];return!!(h&&K[h.cls]&&K[h.cls].id==='nec');}catch(e){return false;}}
-function house(){try{const h=window.__auto.S.hero;return h.house||h.name||'';}catch(e){return'';}}
 // ---------- ทหารรับจ้างสุ่ม 3 คน เปลี่ยนทุกวัน ----------
 function dayKey(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
 function rng(s){let a=7;for(const ch of s)a=Math.imul(a^ch.charCodeAt(0),2654435761);return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -46,10 +45,14 @@ function css(){if(document.getElementById('hireCss'))return;const s=document.cre
 .hire-strip .btn{padding:4px 10px;font-size:12.5px}
 #townGate{position:fixed;inset:0;z-index:60;overflow-y:auto;background:var(--bg,#0b1215);color:var(--ink,#f1e7d0)}
 #townGate .tg-in{max-width:620px;margin:0 auto;padding:12px 16px 24px}
-#townGate .tg-hd{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 10px}
-#townGate h2{margin:0;font-size:18px}#townGate .tg-g{font-family:var(--fP,'DotGothic16',monospace);color:var(--gold,#f4bb4a);font-size:14px}
-#townGate .tg-sub{margin:4px 0 0;font-size:13px;color:var(--muted,#a3b5ad)}
-#townGate .tw-wrap{max-width:min(100%,calc((100dvh - 250px)*1.2));min-width:min(100%,300px)}
+#townGate .tg-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#townGate .tg-sub{margin:0;font-size:12.5px;color:var(--muted,#a3b5ad);text-align:center}
+#townGate .tw-wrap{max-width:min(100%,calc((100dvh - 150px)*1.2));min-width:min(100%,300px);margin-top:6px}
+.tp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.tp-it{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:8px;border:1px solid var(--line,#2c3a36);background:rgba(255,255,255,.03)}
+.tp-it .ic{font-size:20px;flex:none}.tp-it b{display:block;font-size:13px}.tp-it small{display:block;font-size:11.5px;color:var(--dim,#8aa39a)}
+.tp-it.gold{border-color:#f4bb4a}.tp-it.silver{border-color:#c8d0d8}.tp-it.bronze{border-color:#c0804a}.tp-it.off{opacity:.45;border-color:var(--line,#2c3a36)}
+.tp-row{display:flex;flex-wrap:wrap;gap:6px}.tp-coin{padding:4px 9px;border-radius:999px;border:1px solid var(--gold,#f4bb4a);font-size:12.5px}
 #townGate .tg-go{display:block;width:100%;margin:12px 0 0;padding:14px;border-radius:10px;border:0;background:var(--gold,#f4bb4a);color:#1a1206;font:inherit;font-size:18px;font-weight:700;cursor:pointer}
 #townGate .tg-go:focus-visible{outline:3px solid #fff;outline-offset:2px}
 #townGate .tw-bld{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
@@ -95,23 +98,23 @@ window.addEventListener('tof:meta-close',()=>{try{syncAll();}catch(e){}});
 let gate=null,keyH=null;
 function gateOk(){try{const S=window.__auto&&window.__auto.S;if(!S||S.phase!=='birth'||S.R)return false;if(!(M.load().runs>0))return false;
  const L=location;if(L.search||/\/(s|m)\//.test(L.pathname))return false;if(window.SHARE&&window.SHARE.friend)return false;return!!(window.TOWN&&window.TOWN.scene);}catch(e){return false;}}
-function gateSync(){if(!gate)return;const P=M.load(),g=gate.querySelector('.tg-g');if(g)g.textContent=`🪙 ${fmt(P.gold)} เหรียญเมือง`;
+function gateSync(){if(!gate)return;const P=M.load();try{TW().hudSync();}catch(e){}
  const hs=gate.querySelector('.tg-hire');if(hs){hs.innerHTML=stripHTML(P);bindStrip(hs);}
  const T=TW();gate.querySelectorAll('[data-tgo]').forEach(b=>{const d=T.BLD.find(x=>x.id===b.dataset.tgo),tb=d&&T.tabOf(d.tab),lk=tb&&T.tabLk(d.tab);b.disabled=!tb;const s=b.querySelector('small');if(s)s.textContent=!tb?'เร็วๆ นี้':lk?'🔒 ยังเข้าไม่ได้':d.id==='clan'?'จ้างคนตามเข้าหอ':'แตะเพื่อเข้าไป';});}
 function gateClose(){if(!gate)return;gate.remove();gate=null;document.body.style.overflow='';if(keyH)window.removeEventListener('keydown',keyH,true);keyH=null;
  try{window.scrollTo(0,0);const b=document.getElementById('btnEnter');if(b)b.focus({preventScroll:true});}catch(e){}}
-function gateOpen(){const T=TW(),P=M.load();T.css();css();const hs=house();
+function gateOpen(){const T=TW(),P=M.load();T.css();css();
  gate=document.createElement('div');gate.id='townGate';gate.setAttribute('role','dialog');gate.setAttribute('aria-modal','true');gate.setAttribute('aria-labelledby','tgT');
- gate.innerHTML=`<div class="tg-in"><div class="tg-hd"><h2 id="tgT">🏘 เมืองของตระกูล${esc(hs)}</h2><span class="tg-g"></span></div>
- <p class="tg-sub">คนในตระกูลเดินเล่นอยู่รอบน้ำพุ แวะจ้างคนที่ป้อมก่อนก็ได้ หรือจะตรงไปหอคอยเลยก็ได้</p>
+ gate.innerHTML=`<div class="tg-in"><h2 id="tgT" class="tg-sr">ห้องโถงของ${esc(T.clanName(P).n)}</h2>
+ <p class="tg-sub">แวะจ้างคนที่ป้อมก่อนก็ได้ หรือจะเดินเข้าวงเวทไปหอคอยเลยก็ได้</p>
  <div class="tw-wrap"><canvas class="tw-cv" width="${T.W}" height="${T.H}" role="img" aria-label="ลานกลางเมืองของตระกูล มีน้ำพุ รูปปั้นหัวหน้าตระกูล และคนในตระกูลเดินเล่น"></canvas><div class="tw-pop" hidden></div></div>
  <div class="tg-hire"></div>
  <button class="tg-go" type="button" id="tgGo">ไปหอคอย ▲</button>
- <div class="tw-bld">${T.BLD.map(b=>`<button class="mt-btn" type="button" data-tgo="${b.id}">${b.ic} ${esc(b.n)}<small></small></button>`).join('')}</div></div>`;
+ <div class="tw-bld">${T.BLD.filter(b=>b.tab).map(b=>`<button class="mt-btn" type="button" data-tgo="${b.id}">${b.ic} ${esc(b.n)}<small></small></button>`).join('')}</div></div>`;
  document.body.appendChild(gate);document.body.style.overflow='hidden';
  gate.querySelector('#tgGo').onclick=gateClose;
  gate.querySelectorAll('[data-tgo]').forEach(b=>b.onclick=()=>{const d=T.BLD.find(x=>x.id===b.dataset.tgo);if(d)T.go(d);});
- const cv=gate.querySelector('.tw-cv');T.tapper(cv,gate.querySelector('.tw-pop'),T.scene(cv,P),P);gateSync();
+ const cv=gate.querySelector('.tw-cv');T.tapper(cv,gate.querySelector('.tw-pop'),T.scene(cv,P),P,T.hud(gate.querySelector('.tw-wrap'),P,{portal:gateClose}));gateSync();
  // auto.js กด Enter/1-4 แล้วเข้าหอทันที: กันไว้ตอนหน้าเมืองเปิดอยู่ ปุ่มที่โฟกัสยังกดได้ตามปกติ
  keyH=e=>{if(!gate)return;const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return;const dl=document.getElementById('metaDlg');
   if(e.key==='Escape'&&!(dl&&dl.open)){e.preventDefault();gateClose();return;}if(e.key==='Enter'||e.key===' '||/^[1-4]$/.test(e.key))e.stopPropagation();};
@@ -119,5 +122,14 @@ function gateOpen(){const T=TW(),P=M.load();T.css();css();const hs=house();
  try{M.grantAch('town_open');}catch(e){}}
 function boot(){try{if(gateOk())gateOpen();}catch(e){console.error(e);}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else setTimeout(boot,0);
-window.HIRE={take,offers,open:()=>M.open('merc'),gate:gateOpen};
+// ---------- ห้องรางวัล (ปุ่มบ้านมุมซ้ายล่างของห้องโถง): ความสำเร็จของระบบตระกูล เหรียญตราเทศกาล โล่รางวัลเควส ----------
+const ACHP=/^(meta_|town_|city_|hard_|fest_|hire_|leg_|clan_name)/;
+M.tab('trophy',{n:'🏆 ห้องรางวัล',o:6,render(el,P){css();let L=[];try{L=window.ACH.list().filter(a=>ACHP.test(a.id));}catch(e){}const got=L.filter(a=>a.got).length;
+ const fs=((P.mod.fest||{}).coins)||[],FS=(window.FEST&&window.FEST.list)?window.FEST.list():[],cp=((P.mod.city||{}).perm)||{};let PQ=[];try{PQ=window.CITY.perm().filter(q=>!q.hard||P.unlock.hard);}catch(e){}
+ const coin=c=>{const i=c.lastIndexOf('-'),F=FS.find(f=>f.id===c.slice(0,i));return`<span class="tp-coin">${F?`${F.ic} ${esc(F.coin||F.n)}`:'🎖 '+esc(c.slice(0,i))} ${esc(c.slice(i+1))}</span>`;};
+ el.innerHTML=`<p class="mt-dim" style="margin-top:0">ของที่ตระกูลสะสมมาทั้งหมดอยู่ในห้องนี้</p>
+ <h3>🏅 ความสำเร็จของตระกูล ${got}/${L.length}</h3><div class="tp-grid">${L.map(a=>{const sh=a.got||!a.hid;return`<div class="tp-it ${a.got?esc(a.tier||''):'off'}"><span class="ic" aria-hidden="true">${sh?esc(a.icon||'🏅'):'❔'}</span><span><b>${sh?esc(a.n):'???'}</b><small>${sh?esc(a.d):'ยังเป็นความลับ'}</small></span></div>`;}).join('')||'<span class="mt-dim">ยังไม่มี</span>'}</div>
+ <h3>🎖 เหรียญตราเทศกาล ${fs.length}</h3>${fs.length?`<div class="tp-row">${fs.map(coin).join('')}</div>`:'<p class="mt-dim">ยังไม่มี ทำภารกิจเทศกาลให้ครบแล้วจะได้เหรียญประจำปีมาเก็บไว้ที่นี่</p>'}
+ <h3>🏆 โล่รางวัลเควส</h3>${PQ.length?`<div class="tp-grid">${PQ.map(q=>{const n=Math.min(q.st,cp[q.id]|0);return`<div class="tp-it ${n>=q.st?'gold':n?'silver':'off'}"><span class="ic" aria-hidden="true">${esc(q.ic)}</span><span><b>${esc(q.n)}</b><small>${'🏆'.repeat(n)}${'▫️'.repeat(q.st-n)} ส่งแล้ว ${n}/${q.st} ขั้น</small></span></div>`;}).join('')}</div>`:'<p class="mt-dim">กระดานเควสยังไม่เปิด</p>'}`;}});
+window.HIRE={take,offers,open:()=>M.open('merc'),gate:gateOpen,closeGate:gateClose};
 })();
