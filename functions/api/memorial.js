@@ -1,9 +1,12 @@
 // Cloudflare Pages Function: /api/memorial  — online memorial /m/<id> (v2.7, free, no login; after 1in8b.life, docs/rea/1in8b-rea-v2.md §3.5)
 // storage: D1 TOF_DB tables memorial / memorial_img / memorial_act (migrations/0001_memorial.sql, created by hand).
+// column memorial.seen (migrations/0004_memorial_seen.sql) is added here by ensureSeen() on first use, no manual step needed.
+// cleanup: a memorial nobody opened for KEEP_DAYS is deleted with its image (sweepOld, now and then on a view).
 // Missing binding or tables -> 503 {error:'not-ready'}; the game shows a polite message and keeps working.
 // GET  ?id=<id>                    -> {ok, m:{id, at, d, c, w:[5]}}  | 404 {error:'not-found'}
 // GET  ?random=1[&not=<id>]        -> {ok, id} | 404 {error:'empty'}
-// POST {a:'create', d, img, dk}    -> {ok, id}   d = run summary + scene descriptors (cleaned here), img = data:image/png|jpeg;base64 1200x630, dk = 24 hex owner key
+// POST {a:'create', d, img, dk}    -> {ok, id}   d = run summary + scene descriptors (cleaned here), img = data:image/jpeg|png;base64 (600x315 JPEG from current clients, 1200x630 from older ones), dk = 24 hex owner key
+//                                    an image over MAX_IMG is dropped (the page falls back to /og.png) instead of failing the create
 // POST {a:'word', id, w:0..4}      -> {ok, w:[5], dup?}   one word per memorial per IP per day
 // POST {a:'report', id}            -> {ok, dup?}          hidden after REPORT_HIDE distinct IPs
 // POST {a:'remove', id, dk}        -> {ok}                owner only (SHA-256 of dk must match)
@@ -11,7 +14,8 @@
 
 import { screen } from './posts.js';
 
-const MAX_BODY = 460000, MAX_IMG = 400000, MAX_D = 16000;
+// MAX_BODY stays large so old clients (up to ~390 KB image) still get through; their image is just not stored.
+const MAX_BODY = 460000, MAX_IMG = 160000, MAX_D = 16000;
 const CREATE_PER_DAY = 6, ACT_PER_DAY = 60, REPORT_HIDE = 3;
 const DAY = 86400e3;
 export const WORDS = 5;
@@ -63,6 +67,43 @@ export async function bump(db, k, ttl, now) {
   const r = await db.prepare('INSERT INTO memorial_act (k, n, exp) VALUES (?, 1, ?) ON CONFLICT(k) DO UPDATE SET n = n + 1 RETURNING n').bind(k, now + ttl).first();
   if (Math.random() < 0.02) await db.prepare('DELETE FROM memorial_act WHERE exp < ?').bind(now).run();
   return r && typeof r.n === 'number' ? r.n : 1;
+}
+
+// ---- last visit + cleanup of memorials nobody opens ----
+// seen = ms of the last view (page, preview image or API GET), written at most once per SEEN_EVERY per memorial.
+// A memorial is deleted when max(at, seen, SEEN_SINCE) is older than KEEP_DAYS. SEEN_SINCE is the day the column
+// was added, so rows from before it (seen = 0) get the full KEEP_DAYS counted from that day.
+export const KEEP_DAYS = 90, SEEN_EVERY = DAY, SEEN_SINCE = Date.UTC(2026, 9, 23), SWEEP_P = 0.01, SWEEP_N = 50;
+let seenReady = false;
+export async function ensureSeen(db) {
+  if (seenReady) return true;
+  try { await db.prepare('ALTER TABLE memorial ADD COLUMN seen INTEGER NOT NULL DEFAULT 0').run(); }
+  catch (e) { if (!/duplicate column/i.test(String(e && e.message || e))) return false; }
+  return seenReady = true;
+}
+export const _resetSeen = () => { seenReady = false; };   // tests only
+// call with the seen value already read from the row; writes only when it is stale
+export async function touchSeen(db, id, seen, now = Date.now()) {
+  if (!(now - (seen | 0) >= SEEN_EVERY)) return false;
+  await db.prepare('UPDATE memorial SET seen = ? WHERE id = ? AND seen < ?').bind(now, id, now - SEEN_EVERY).run();
+  return true;
+}
+// bounded: at most SWEEP_N memorials and SWEEP_N images per call
+export async function sweepOld(db, now = Date.now()) {
+  if (!await ensureSeen(db)) return;
+  await db.batch([
+    db.prepare('DELETE FROM memorial WHERE id IN (SELECT id FROM memorial WHERE MAX(at, seen, ?) < ? LIMIT ?)').bind(SEEN_SINCE, now - KEEP_DAYS * DAY, SWEEP_N),
+    db.prepare('DELETE FROM memorial_img WHERE id IN (SELECT i.id FROM memorial_img i LEFT JOIN memorial m ON m.id = i.id WHERE m.id IS NULL LIMIT ?)').bind(SWEEP_N),
+  ]);
+}
+// after a view: refresh seen and sometimes sweep; never fails the request
+export function afterView(db, id, seen, waitUntil, now = Date.now()) {
+  const p = (async () => {
+    try { await touchSeen(db, id, seen, now); } catch {}
+    if (Math.random() < SWEEP_P) { try { await sweepOld(db, now); } catch {} }
+  })();
+  if (typeof waitUntil === 'function') { try { waitUntil(p); return p; } catch {} }
+  return p;
 }
 
 export async function readBody(request, max) {
@@ -143,7 +184,7 @@ export async function sha(s) {
 }
 const IMG_RE = /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/;
 function image(v) {
-  if (typeof v !== 'string' || v.length > MAX_IMG) return null;
+  if (typeof v !== 'string') return null;
   const m = IMG_RE.exec(v); if (!m) return null;
   // check the magic bytes too, so only real PNG / JPEG data is served back from /m/<id>.png
   if (m[1] === 'png' ? !m[2].startsWith('iVBORw0KGgo') : !m[2].startsWith('/9j/')) return null;
@@ -151,7 +192,7 @@ function image(v) {
 }
 const pub = r => ({ id: r.id, at: r.at, d: (() => { try { return JSON.parse(r.d); } catch { return null; } })(), c: r.c | 0, w: [r.w0 | 0, r.w1 | 0, r.w2 | 0, r.w3 | 0, r.w4 | 0] });
 
-export async function onRequestGet({ request, env }) {
+export async function onRequestGet({ request, env, waitUntil }) {
   const db = dbOf(env);
   if (!db) return json({ error: 'not-ready' }, 503);
   const o = request.headers.get('Origin');
@@ -165,9 +206,11 @@ export async function onRequestGet({ request, env }) {
     }
     const id = q.get('id');
     if (!okId(id)) return json({ error: 'not-found' }, 404);
-    const r = await db.prepare('SELECT id, at, d, c, w0, w1, w2, w3, w4, hid FROM memorial WHERE id = ?').bind(id).first();
+    const hasSeen = await ensureSeen(db);
+    const r = await db.prepare(`SELECT id, at, d, c, w0, w1, w2, w3, w4, hid${hasSeen ? ', seen' : ''} FROM memorial WHERE id = ?`).bind(id).first();
     if (!r || r.hid) return json({ error: 'not-found' }, 404);
     const m = pub(r); if (!m.d) return json({ error: 'not-found' }, 404);
+    if (hasSeen) afterView(db, id, r.seen, waitUntil);
     return json({ ok: true, m }, 200, { 'Cache-Control': 'public, max-age=15' });
   } catch (e) { return dbErr(e); }
 }
@@ -188,12 +231,13 @@ export async function onRequestPost({ request, env }) {
       if (ds.length > MAX_D) return json({ error: 'too-large' }, 413);
       const img = b.img == null ? null : image(b.img);
       if (b.img != null && !img) return json({ error: 'invalid', field: 'img' }, 400);
+      const keepImg = img && img.b64.length <= MAX_IMG;
       if (await bump(db, 'mc:' + ip + ':' + day, 2 * DAY, now) > CREATE_PER_DAY) return json({ error: 'rate-limited' }, 429, { 'Retry-After': '3600' });
       const dk = await sha(b.dk);
       for (let t = 0; t < 4; t++) {
         const id = randCode();
         const st = [db.prepare('INSERT INTO memorial (id, at, dk, ip, d) VALUES (?, ?, ?, ?, ?)').bind(id, now, dk, ip, ds)];
-        if (img) st.push(db.prepare('INSERT OR REPLACE INTO memorial_img (id, mime, b64) VALUES (?, ?, ?)').bind(id, img.mime, img.b64));
+        if (keepImg) st.push(db.prepare('INSERT OR REPLACE INTO memorial_img (id, mime, b64) VALUES (?, ?, ?)').bind(id, img.mime, img.b64));
         try { await db.batch(st); return json({ ok: true, id }); }
         catch (e) { if (!/UNIQUE|constraint/i.test(String(e && e.message || e))) throw e; }
       }

@@ -5,6 +5,7 @@
 --   npx wrangler d1 execute tower-of-fate --remote --file=migrations/0001_memorial.sql
 -- or paste it into Cloudflare dashboard -> Storage & Databases -> D1 -> tower-of-fate -> Console.
 -- Move codes (/api/move) need no table: they live in the existing kv table of functions/api/store.js.
+-- Later: column memorial.seen is added by the functions themselves (see migrations/0004_memorial_seen.sql).
 
 CREATE TABLE IF NOT EXISTS memorial (
   id  TEXT PRIMARY KEY,              -- 9 chars [a-z2-9]
@@ -24,7 +25,8 @@ CREATE TABLE IF NOT EXISTS memorial (
 CREATE INDEX IF NOT EXISTS memorial_hid_at ON memorial (hid, at);
 CREATE INDEX IF NOT EXISTS memorial_ip_at ON memorial (ip, at);
 
--- link preview image drawn by the client (1200x630 PNG or JPEG, base64, <= ~300 KB)
+-- link preview image drawn by the client (600x315 JPEG ~25-40 KB base64 now; older rows 1200x630 PNG/JPEG up to ~300 KB;
+-- the server stores nothing over 160 KB). Rows are deleted together with their memorial, orphans by the sweep.
 CREATE TABLE IF NOT EXISTS memorial_img (
   id   TEXT PRIMARY KEY,
   mime TEXT NOT NULL,
