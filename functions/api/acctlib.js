@@ -1,5 +1,5 @@
 // Shared helpers for accounts and the paid shop (acct.js, pay/checkout.js, pay/webhook.js). Not a route of its own.
-// Tables: migrations/0003_account.sql (never created here; a missing table -> 503 not-ready via dbErr).
+// Tables: migrations/0003_account.sql (created on first use by ensureSchema).
 
 import { json, dbErr, fnv } from './memorial.js';
 export { json, dbErr, fnv };
@@ -82,3 +82,9 @@ export async function ents(db, uid) {
   const r = await db.prepare('SELECT id, sku, qty, at FROM ent WHERE uid = ? ORDER BY at').bind(uid).all();
   return (r && r.results || []).map(x => ({ id: x.id, sku: x.sku, qty: x.qty | 0, at: x.at }));
 }
+
+// tables from migrations/0003_account.sql, created on first use so nobody has to run the migration by hand (all IF NOT EXISTS)
+const SCHEMA = ["CREATE TABLE IF NOT EXISTS acct ( id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, nk TEXT NOT NULL UNIQUE, salt TEXT NOT NULL, hash TEXT NOT NULL, iter INTEGER NOT NULL, at INTEGER NOT NULL, pw_at INTEGER NOT NULL, ip TEXT NOT NULL DEFAULT '' )", 'CREATE TABLE IF NOT EXISTS acct_sess ( th TEXT PRIMARY KEY, uid INTEGER NOT NULL, at INTEGER NOT NULL, exp INTEGER NOT NULL )',
+  'CREATE INDEX IF NOT EXISTS acct_sess_uid ON acct_sess (uid)', "CREATE TABLE IF NOT EXISTS acct_save ( uid INTEGER PRIMARY KEY, at INTEGER NOT NULL, z TEXT NOT NULL DEFAULT '', p TEXT NOT NULL, m TEXT NOT NULL DEFAULT '{}' )", 'CREATE TABLE IF NOT EXISTS acct_lim ( k TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 1, exp INTEGER NOT NULL )', "CREATE TABLE IF NOT EXISTS ent ( id TEXT PRIMARY KEY, uid INTEGER NOT NULL, sku TEXT NOT NULL, qty INTEGER NOT NULL DEFAULT 1, amt INTEGER NOT NULL DEFAULT 0, cur TEXT NOT NULL DEFAULT 'thb', at INTEGER NOT NULL )", 'CREATE INDEX IF NOT EXISTS ent_uid ON ent (uid)'];
+let schemaOk = false;
+export async function ensureSchema(db) { if (schemaOk) return; await db.batch(SCHEMA.map(s => db.prepare(s))); schemaOk = true; }

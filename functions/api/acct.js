@@ -1,5 +1,5 @@
 // Cloudflare Pages Function: /api/acct — player accounts (name + password, no e-mail) and one cloud save per account
-// Tables: migrations/0003_account.sql. Until it has been run every action answers 503 {error:'not-ready'}.
+// Tables: migrations/0003_account.sql. Tables are created on first request (ensureSchema in acctlib.js).
 // Every POST must come from this site (Origin check). Signed-in actions send `Authorization: Bearer <token>`.
 // POST {a:'signup', name, pw}          -> {ok, name, tok, exp}
 // POST {a:'login', name, pw}           -> {ok, name, tok, exp}   | 401 {error:'bad-login'} | 429 {error:'rate-limited', retryAfter}
@@ -10,7 +10,7 @@
 // POST {a:'load'}                      -> {ok, at, z, p, m} | 404 {error:'no-save'}
 
 import { readBody, sameOrigin } from './memorial.js';
-import { json, dbErr, ipOf, iterOf, okName, okPw, nameKey, pbkdf2, hex, rand, same, count, hit, newSession, who, ents, shopOpen } from './acctlib.js';
+import { ensureSchema, json, dbErr, ipOf, iterOf, okName, okPw, nameKey, pbkdf2, hex, rand, same, count, hit, newSession, who, ents, shopOpen } from './acctlib.js';
 
 const MAX_BODY = 1200000, MAX_P = 1100000;
 const FAIL_NAME = 8, FAIL_IP = 40, FAIL_WIN = 15 * 60e3;   // wrong passwords: 8 per name, 40 per IP, per 15 min
@@ -30,6 +30,7 @@ const wait = (ms) => { const s = Math.max(1, Math.ceil(ms / 1000)); return json(
 export async function onRequestPost({ request, env }) {
   const db = env && env.TOF_DB;
   if (!db) return json({ error: 'not-ready' }, 503);
+  try { await ensureSchema(db); } catch (e) { return json({ error: 'not-ready' }, 503); }
   if (!sameOrigin(request)) return json({ error: 'forbidden' }, 403);
   const { b, res } = await readBody(request, MAX_BODY);
   if (res) return res;

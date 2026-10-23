@@ -13,6 +13,7 @@ const acct = await imp('functions/api/acct.js'), co = await imp('functions/api/p
 const sql = new DatabaseSync(':memory:');
 sql.exec(fs.readFileSync(path.join(root, 'migrations/0003_account.sql'), 'utf8'));
 const D1 = {
+  async batch(L) { const out = []; for (const st of L) out.push(await st.run()); return out; },
   prepare(q) {
     let args = [];
     const s = {

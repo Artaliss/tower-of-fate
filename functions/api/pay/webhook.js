@@ -4,7 +4,7 @@
 // The Stripe-Signature header is checked with STRIPE_WEBHOOK_SECRET (HMAC-SHA256, 5 minute tolerance) before anything is read.
 // A paid session becomes one row in `ent` keyed by the session id, so a retried webhook adds nothing.
 
-import { json, dbErr, CATALOG, shopOpen, hex, same } from '../acctlib.js';
+import { ensureSchema, json, dbErr, CATALOG, shopOpen, hex, same } from '../acctlib.js';
 
 const TOL = 300;   // seconds
 
@@ -27,6 +27,7 @@ export async function onRequestPost({ request, env }) {
   if (!shopOpen(env)) return json({ error: 'closed' }, 503);
   const db = env.TOF_DB;
   if (!db) return json({ error: 'not-ready' }, 503);
+  try { await ensureSchema(db); } catch (e) { return json({ error: 'not-ready' }, 503); }
   const raw = await request.text();
   if (raw.length > 200000) return json({ error: 'too-large' }, 413);
   if (!(await verify(raw, request.headers.get('Stripe-Signature'), env.STRIPE_WEBHOOK_SECRET, Math.floor(Date.now() / 1000)))) return json({ error: 'signature' }, 400);

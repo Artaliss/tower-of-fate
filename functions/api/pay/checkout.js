@@ -5,7 +5,7 @@
 // Nothing is granted here: only webhook.js writes the ent table, after Stripe confirms the money arrived.
 
 import { readBody, sameOrigin } from '../memorial.js';
-import { json, dbErr, who, CATALOG, shopOpen, count, hit } from '../acctlib.js';
+import { ensureSchema, json, dbErr, who, CATALOG, shopOpen, count, hit } from '../acctlib.js';
 
 const BUY_MAX = 20, BUY_WIN = 3600e3;   // 20 checkout pages / account / hour
 
@@ -19,6 +19,7 @@ export async function onRequestPost({ request, env }) {
   if (!shopOpen(env)) return json({ error: 'closed' }, 503);
   const db = env.TOF_DB;
   if (!db) return json({ error: 'not-ready' }, 503);
+  try { await ensureSchema(db); } catch (e) { return json({ error: 'not-ready' }, 503); }
   if (!sameOrigin(request)) return json({ error: 'forbidden' }, 403);
   const { b, res } = await readBody(request, 2000);
   if (res) return res;

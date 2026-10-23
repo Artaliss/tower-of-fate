@@ -284,7 +284,7 @@
 
 ระหว่างยังไม่ได้ทำข้อ 1 ระบบบัญชีตอบ 503 และแท็บขึ้นว่ายังไม่เปิด ระหว่างยังไม่ได้ทำข้อ 2–4 ร้านขึ้นว่า "ยังไม่เปิดขาย" และ `/api/pay/*` ตอบ 503
 
-1. รัน migration กับ D1 `tower-of-fate` ครั้งเดียว: `npx wrangler d1 execute tower-of-fate --remote --file=migrations/0003_account.sql` หรือวางไฟล์นี้ใน Cloudflare → Storage & Databases → D1 → tower-of-fate → Console
+1. ไม่ต้องรัน migration เอง: `ensureSchema` ใน acctlib.js สร้างตารางของ 0003 ให้ตอนมีคนเรียก /api/acct ครั้งแรก (ไฟล์ migration เก็บไว้เป็นเอกสาร)
 2. สมัคร Stripe (https://dashboard.stripe.com/register) เลือกประเทศไทย ยืนยันตัวตนและบัญชีธนาคารให้ครบ แล้วเปิด PromptPay ที่ Settings → Payment methods (บัตรเปิดอยู่แล้ว) · ลองในโหมด Test ก่อนได้ คีย์ขึ้นต้นด้วย `sk_test_`
 3. Stripe → Developers → Webhooks → Add endpoint: URL `https://tower-of-fate.pages.dev/api/pay/webhook` เลือก event `checkout.session.completed` กับ `checkout.session.async_payment_succeeded` แล้วคัดลอก Signing secret (`whsec_...`)
 4. Cloudflare → Workers & Pages → tower-of-fate → Settings → Variables and Secrets (Production) เพิ่มแบบ Secret: `STRIPE_SECRET_KEY` (Developers → API keys → Secret key) และ `STRIPE_WEBHOOK_SECRET` (จากข้อ 3) แล้ว deploy ใหม่หนึ่งครั้งให้ค่ามีผล · ห้ามใส่คีย์ลงใน repo เพราะ repo เป็น public
