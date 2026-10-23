@@ -135,6 +135,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 // ---- styles ----
 const css=document.createElement('style');css.textContent=`
 [data-tip]{cursor:help}
+@media (hover:none){[data-tip]{cursor:pointer}}
 .ch .s [data-tip]{text-decoration:underline dotted #fff6;text-underline-offset:3px}
 .tipbox{position:fixed;z-index:60;max-width:min(300px,calc(100vw - 24px));background:#0d1619;color:var(--ink,#f1e7d0);border:2px solid var(--gold2,#b97a22);border-radius:4px;padding:8px 10px;font:300 13px/1.5 var(--fT,system-ui);box-shadow:0 4px 0 #0008;pointer-events:none;box-sizing:border-box;max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);overflow-y:auto;overscroll-behavior:contain}
 .tipbox .th{display:flex;align-items:flex-start;gap:8px;margin-bottom:2px}
