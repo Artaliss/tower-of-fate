@@ -100,7 +100,10 @@ function css(){const s=document.createElement('style');s.textContent=`
 .ac-box h3{margin:0 0 6px;font-size:15px}.ac-warn{color:#f2c14e;font-size:13px}
 .ac-shop{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
 .ac-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0}.ac-row select{font:inherit;font-size:13px;padding:3px;border-radius:5px;background:rgba(0,0,0,.25);color:inherit;border:1px solid var(--line,#2c3a36)}
-#btnAcct{font-size:13px;padding:6px 10px;min-height:0}`;document.head.appendChild(s);}
+#btnAcct{font-size:13px;padding:6px 10px;min-height:0}
+.ac-f>div,.ac-act{display:flex;flex-wrap:wrap;gap:6px}
+.ac-act{position:sticky;bottom:-12px;z-index:1;margin:8px -10px -10px;padding:8px 10px calc(10px + env(safe-area-inset-bottom,0px));background:var(--bg,#0e1513);border-top:1px solid var(--line,#2c3a36);border-radius:0 0 8px 8px}
+@media (max-width:560px){.ac-f{max-width:none}.ac-act .mt-btn{flex:1 1 140px}}`;document.head.appendChild(s);}
 css();
 const msgHTML=()=>`<p class="ac-msg${msg.bad?' bad':''}" role="status" aria-live="polite">${esc(msg.t)}</p>`;
 function renderOut(el){
@@ -122,7 +125,7 @@ function renderIn(el,P){const s=st(),sv=me0&&me0.save,mv=MV();
   <p><b>บนคลาวด์</b> (บันทึกเมื่อ ${esc(dateTxt(pend.at))})<br>${mv.sumLines(mv.summary(pend.o)).map(esc).join('<br>')}</p>
   <p><b>ในเครื่องนี้ตอนนี้</b><br>${(here.keys?mv.sumLines(here):['ยังไม่มีเซฟ']).map(esc).join('<br>')}</p>
   <p class="ac-warn">เซฟในเครื่องนี้จะหายทั้งหมด ถ้ายังอยากเก็บไว้ ให้กด "บันทึกขึ้นคลาวด์" ก่อน (เซฟบนคลาวด์จะถูกทับแทน)</p>
-  <button class="mt-btn pri" data-a="yes">แทนที่เซฟเครื่องนี้</button><button class="mt-btn" data-a="no">ยกเลิก</button></div>${msgHTML()}`;
+  <div class="ac-act"><button class="mt-btn pri" data-a="yes">แทนที่เซฟเครื่องนี้</button><button class="mt-btn" data-a="no">ยกเลิก</button></div></div>${msgHTML()}`;
   el.querySelector('[data-a=no]').onclick=()=>{pend=null;say('');};
   el.querySelector('[data-a=yes]').onclick=()=>{const o=pend.o,at=pend.at;pend=null;if(!mv.apply(o)){say('เขียนเซฟไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์อาจเต็ม',true);return;}
    last={at:Date.now(),h:hashOf(mv.collect()),b:at||0};clash=null;keepLast();say('โหลดเซฟเสร็จแล้ว กำลังเปิดเกมใหม่…');setTimeout(()=>location.reload(),600);};
@@ -131,7 +134,7 @@ function renderIn(el,P){const s=st(),sv=me0&&me0.save,mv=MV();
  ${clash?`<div class="ac-box" id="acClash"><h3>เซฟบนคลาวด์ไม่ตรงกับเครื่องนี้</h3>
  <p>บนคลาวด์มีเซฟที่บันทึกไว้เมื่อ ${esc(dateTxt(clash.at))} อาจมาจากเครื่องอื่น หรือบันทึกไว้ก่อนเข้าสู่ระบบที่เครื่องนี้${mv?'<br>'+mv.sumLines(clash.m).map(esc).join('<br>'):''}</p>
  <p class="ac-warn">เครื่องนี้พักการบันทึกอัตโนมัติไว้ก่อน จะได้ไม่ไปทับเซฟนั้น เลือกเองว่าจะเก็บเซฟไหน</p>
- <button class="mt-btn pri" data-a="down">โหลดเซฟจากคลาวด์</button><button class="mt-btn" data-a="over">ใช้เซฟเครื่องนี้ทับคลาวด์</button></div>`:''}
+ <div class="ac-act"><button class="mt-btn pri" data-a="down">โหลดเซฟจากคลาวด์</button><button class="mt-btn" data-a="over">ใช้เซฟเครื่องนี้ทับคลาวด์</button></div></div>`:''}
  <div class="ac-box"><h3>☁️ เซฟคลาวด์</h3>
  <p class="mt-dim">${sv?`บันทึกล่าสุด ${esc(dateTxt(sv.at))}${sv.m&&mv?' · '+esc(mv.sumLines(sv.m)[0]):''}`:(me0?'ยังไม่เคยบันทึกขึ้นคลาวด์':'กำลังดูข้อมูลบนคลาวด์…')}</p>
  <button class="mt-btn pri" data-a="up">บันทึกขึ้นคลาวด์</button><button class="mt-btn" data-a="down" ${sv?'':'disabled'}>โหลดจากคลาวด์</button>

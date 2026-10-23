@@ -148,7 +148,7 @@ let R=freshRun();
 // ---------- toast ----------
 let css=false;
 function injectCSS(){if(css||typeof document==='undefined')return;css=true;const st=document.createElement('style');st.id='ach-css';st.textContent=`
-#achToasts{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;width:min(360px,calc(100vw - 32px))}
+#achToasts{position:fixed;top:max(12px,env(safe-area-inset-top,0px));left:50%;margin:0;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;width:min(360px,calc(100vw - 32px))}
 .ach-t{display:flex;align-items:center;gap:10px;background:var(--panel,#15232a);border:2px solid var(--gold,#f4bb4a);box-shadow:0 0 0 2px #070c0e,0 6px 18px #000a;border-radius:3px;padding:8px 12px;color:var(--ink,#f1e7d0);font-family:'Mitr','Kanit',system-ui,sans-serif;font-size:13px;line-height:1.35;animation:achIn .35s steps(4) both}
 .ach-t.out{animation:achOut .3s steps(3) both}
 .ach-t .ic{font-size:24px;flex:none;width:34px;height:34px;display:grid;place-items:center;background:var(--bg2,#101b20);border:2px solid var(--line,#2c434d);border-radius:2px}
@@ -173,7 +173,10 @@ const queue=[];let showing=false;
 function toast(a){if(typeof document==='undefined')return;queue.push(a);if(!showing)nextToast();}
 function nextToast(){const a=queue.shift();if(!a){showing=false;return;}showing=true;
  try{injectCSS();let box=document.getElementById('achToasts');
-  if(!box){box=document.createElement('div');box.id='achToasts';box.setAttribute('role','status');box.setAttribute('aria-live','polite');document.body.appendChild(box);}
+  if(!box){box=document.createElement('div');box.id='achToasts';box.setAttribute('role','status');box.setAttribute('aria-live','polite');}
+  // a modal dialog sits in the top layer above any z-index, so the toast goes inside whichever modal is open
+  let host=document.body;try{const m=[...document.querySelectorAll('dialog[open]')].filter(d=>d.matches(':modal')).pop();if(m)host=m;}catch(e){}
+  if(box.parentNode!==host)host.appendChild(box);
   const el=document.createElement('div');el.className='ach-t';el.style.borderColor=TIER[a.tier].c;
   el.innerHTML=`<span class="ic" aria-hidden="true">${a.icon}</span><span><span class="hd">ปลดล็อกความสำเร็จ · ${TIER[a.tier].n}</span><b>${esc(a.n)}</b><span class="dd">${esc(a.d)}</span></span>`;
   box.appendChild(el);
