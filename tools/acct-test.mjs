@@ -57,9 +57,10 @@ ok((await A({ a: 'me' }, { tok: 'A'.repeat(43) })).st === 401, 'bad token 401');
 console.log('cloud save');
 ok((await A({ a: 'load' }, { tok })).j.error === 'no-save', 'no save yet');
 const p = JSON.stringify({ 'tof-meta-v1': '{"gold":5}', 'tof-ach-v1': '{}' });
-r = await A({ a: 'save', z: '', p, m: { keys: 2, hero: '<b>x</b>' } }, { tok }); ok(r.j.ok, 'save');
+r = await A({ a: 'save', z: '', p, m: { keys: 2, hero: '<b>x</b>', chero: 'C', crun: 42 } }, { tok }); ok(r.j.ok, 'save');
 ok((await A({ a: 'save', z: '', p, m: {} }, { tok })).st === 429, 'second save within 15 s limited');
 r = await A({ a: 'load' }, { tok }); ok(r.j.ok && r.j.p === p && r.j.m.keys === 2 && r.j.m.hero === 'bx/b', 'load returns the save, summary cleaned');
+ok(r.j.m.chero === 'C' && r.j.m.crun === 42, 'classic run kept in summary');
 ok((await A({ a: 'save', z: 'gz', p: 'not base64!' }, { tok })).st === 400, 'bad gzip payload refused');
 ok((await A({ a: 'save', z: '', p: '{' + 'x'.repeat(1100001) }, { tok })).st === 413, 'oversized save refused');
 

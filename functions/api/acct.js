@@ -23,8 +23,10 @@ function meta(m) {
   if (!m || typeof m !== 'object' || Array.isArray(m)) return {};
   const o = {};
   for (const k of ['keys', 'memo', 'lines', 'ach', 'unl', 'gen']) if (typeof m[k] === 'number' && Number.isInteger(m[k]) && m[k] >= 0 && m[k] <= 1e6) o[k] = m[k];
-  if (typeof m.hero === 'string') o.hero = m.hero.replace(/[<>"'`\\&\u0000-\u001f]/g, '').slice(0, 24);
-  if (typeof m.run === 'number' && m.run >= 0 && m.run <= 101) o.run = Math.floor(m.run);
+  for (const [h, r] of [['hero', 'run'], ['chero', 'crun']]) {   // chero/crun = run left open in the classic copy (tofc-*)
+    if (typeof m[h] === 'string') o[h] = m[h].replace(/[<>"'`\\&\u0000-\u001f]/g, '').slice(0, 24);
+    if (typeof m[r] === 'number' && m[r] >= 0 && m[r] <= 101) o[r] = Math.floor(m[r]);
+  }
   if (typeof m.h === 'string' && /^[0-9a-z]{1,13}$/.test(m.h)) o.h = m.h;   // hash of the save, so a browser can tell the cloud copy is its own
   return o;
 }

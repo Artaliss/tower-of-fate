@@ -1,5 +1,5 @@
 // savemove.js — move the whole save to another browser with a 9-character code (v2.7, after 1in8b.life "ย้ายบันทึก"; no login)
-// - "ส่งเซฟไปเครื่องอื่น": every localStorage key starting with 'tof-' (except the temporary ones in SKIP) -> one JSON object
+// - "ส่งเซฟไปเครื่องอื่น": every localStorage key starting with 'tof-' or 'tofc-' (the classic copy at /classic/) (except the temporary ones in SKIP) -> one JSON object
 //   -> gzip + base64 when the browser has CompressionStream -> POST /api/move {a:'put'} -> code [a-z2-9]{9}, one use, 3 days
 // - "รับเซฟด้วยโค้ด" or a link /?move=<code>: peek first (the code is not used up), show what will replace this browser's save,
 //   and only after the player confirms: take (the code is spent), clear this browser's tof-* keys, write the new ones, reload
@@ -10,14 +10,16 @@
 if(typeof document==='undefined')return;
 const ORIGIN='https://tower-of-fate.pages.dev';
 // pending queues, caches and per-device counters: not part of what moves
-const SKIP=['tof-lb-queue-v1','tof-share-stat-v1','tofc-auto-birth-v1','tof-causes-v1','tof-help-tab','tof-acct-v1'];   // tof-acct-v1 = โทเคนล็อกอินของฉบับหลัก ไม่ย้ายไปกับโค้ด
+// tof-acct-v1 = login token of account.js: it stays with this browser
+const SKIP=['tof-lb-queue-v1','tof-share-stat-v1','tof-auto-birth-v1','tofc-auto-birth-v1','tof-causes-v1','tof-help-tab','tof-acct-v1'];
+const mine=k=>typeof k==='string'&&(k.startsWith('tof-')||k.startsWith('tofc-'))&&!SKIP.includes(k);
 const fT="'Mitr','Kanit','Noto Sans Thai',system-ui,sans-serif";
 const okCode=s=>typeof s==='string'&&/^[a-z2-9]{9}$/.test(s);
 const nf=n=>Number(n||0).toLocaleString('th-TH');
 function el(tag,attrs,txt){const e=document.createElement(tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(txt!=null)e.textContent=txt;return e;}
 
 // ---------- what is in a save ----------
-function collect(){const o={};try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('tof-')&&!SKIP.includes(k)){const v=localStorage.getItem(k);if(v!=null)o[k]=v;}}}catch(e){}return o;}
+function collect(){const o={};try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(mine(k)){const v=localStorage.getItem(k);if(v!=null)o[k]=v;}}}catch(e){}return o;}
 const pj=s=>{try{return JSON.parse(s);}catch(e){return null;}};
 // counts shown on the confirm screen, computed the same way for both browsers
 function summary(o){const m={keys:Object.keys(o).length};
@@ -25,11 +27,13 @@ function summary(o){const m={keys:Object.keys(o).length};
  const lin=pj(o['tof-lineage-v1']);m.lines=lin&&Array.isArray(lin.lines)?lin.lines.length:0;
  const a=pj(o['tof-ach-v1']);m.ach=a&&a.got&&typeof a.got==='object'?Object.keys(a.got).length:0;
  const u=pj(o['tof-unlock-v1']);m.unl=u&&typeof u==='object'?Object.keys(u).length:0;
- const sv=pj(o['tofc-auto-save-v1']);if(sv&&sv.hero&&typeof sv.hero.name==='string'){m.hero=sv.hero.name.slice(0,24);if(sv.R&&typeof sv.R.floor==='number')m.run=Math.max(0,Math.min(101,Math.floor(sv.R.floor)));}
+ const run=(k,h,r)=>{const sv=pj(o[k]);if(sv&&sv.hero&&typeof sv.hero.name==='string'){m[h]=sv.hero.name.slice(0,24);if(sv.R&&typeof sv.R.floor==='number')m[r]=Math.max(0,Math.min(101,Math.floor(sv.R.floor)));}};
+ run('tof-auto-save-v1','hero','run');run('tofc-auto-save-v1','chero','crun');
  return m;}
 function sumLines(m){const L=[];L.push(`สุสาน ${nf(m.memo||0)} ชีวิต · สายตระกูล ${nf(m.lines||0)} สาย · ความสำเร็จ ${nf(m.ach||0)} อย่าง`);
  if(m.unl)L.push(`ปลดล็อกอาชีพจากกรรมแล้ว ${m.unl} อาชีพ`);
  if(m.hero)L.push(m.run?`ฮีโร่ที่ยังเล่นค้างอยู่: ${m.hero} (ชั้น ${m.run})`:`ฮีโร่ที่รอเกิดอยู่: ${m.hero}`);
+ if(m.chero)L.push(m.crun?`ฉบับคลาสสิก เล่นค้างอยู่: ${m.chero} (ชั้น ${m.crun})`:`ฉบับคลาสสิก รอเกิดอยู่: ${m.chero}`);
  return L;}
 
 // ---------- packing ----------
@@ -140,8 +144,8 @@ function confirmIn(code,info){const here=summary(collect()),there=info.m||{};
   if(!apply(o)){busy=false;no.disabled=false;sayIn(msg,'เขียนเซฟไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์อาจเต็ม',true);return;}
   try{window.ACH&&window.ACH.onEvent&&window.ACH.onEvent('move',{dir:'in'});}catch(e){}
   sayIn(msg,'ย้ายเซฟเสร็จแล้ว กำลังโหลดเกมใหม่…');setTimeout(()=>{try{location.replace(cleanUrl());}catch(e){location.reload();}},700);};}
-// replace every tof-* key (except SKIP) with the incoming ones; on a storage error the old values are put back
-function apply(o){const old=collect(),ks=Object.keys(o).filter(k=>typeof k==='string'&&k.startsWith('tof-')&&!SKIP.includes(k)&&typeof o[k]==='string');
+// replace every tof-*/tofc-* key (except SKIP) with the incoming ones; on a storage error the old values are put back
+function apply(o){const old=collect(),ks=Object.keys(o).filter(k=>mine(k)&&typeof o[k]==='string');
  try{Object.keys(old).forEach(k=>localStorage.removeItem(k));ks.forEach(k=>localStorage.setItem(k,o[k]));return true;}
  catch(e){try{ks.forEach(k=>localStorage.removeItem(k));Object.keys(old).forEach(k=>localStorage.setItem(k,old[k]));}catch(e2){}return false;}}
 function cleanUrl(){const L=location,q=new URLSearchParams(L.search);q.delete('move');const qs=q.toString();return L.pathname+(qs?'?'+qs:'')+L.hash;}
