@@ -1731,7 +1731,7 @@ const spFits=(R,k)=>!SP_BI[k]||SP_BI[k].includes(biome(R.floor));
 function genSpecial(R){const ck=crownKey(R);if(ck)return R.lastSp=ck;for(const k of ['nec','ang'])if(!R.used['sp:'+k]&&SPECIAL[k].ok(R))return R.lastSp=k;if(excOk(R))return R.lastSp='excal';if(vgOk(R))return R.lastSp='vgod';const ok=Object.keys(SPECIAL).filter(k=>(!SPECIAL[k].ok||SPECIAL[k].ok(R))&&spFits(R,k));
  let pool=ok.filter(k=>!R.used['sp:'+k]||(k==='mimic'&&MD(R,'mimic',1)>1&&R.used['sp:mimic']<3));if(!pool.length)pool=ok.filter(k=>k!==R.lastSp);
  const fresh=k=>R.xseen&&!R.xseen['sp:'+k]?1.6:1;
- const sw=ST_SP[R.st]||{};const k=pool[wIdx(pool.map(x=>tierW(R,TIER[x])*(x==='mimic'?MD(R,'mimic',1):1)*(x==='dragon'&&clanM(R)==='s'?12:1)*(x==='promo'?10:1)*dayW(R,x)*fresh(x)*(sw[x]||1)))];R.lastSp=k;return k;}
+ const sw=ST_SP[R.st]||{};const k=pool[wIdx(pool.map(x=>tierW(R,TIER[x])*(x==='mimic'?MD(R,'mimic',1):1)*(x==='dragon'&&clanM(R)==='s'?12:1)*(x==='promo'?10:1)*dayW(R,x)*fresh(x)*(sw[x]||1)*(R.wsp&&R.wsp[x]||1)))];R.lastSp=k;return k;}
 // build a decision card (key moment)
 function mkKey(R,type,ev){const f=R.floor,K={type,ev,tag:'',title:'',text:'',vis:null,ch:[],ai:0,rar:'c',tid:type};
  if(type==='boss'){K.tag=`ชั้น ${f} · ชั้นบอส`;K.title=ev.en.n;K.text=ev.en.x+(ev.en.fit?' มันมองคุณแล้วหัวเราะ เหมือนไม่คิดจะเอาจริง':'');K.vis={t:'en',en:ev.en};K.ch=choicesOf(R,ev);K.ai=aiBoss(R,ev);K.vs=true;}
@@ -2663,6 +2663,8 @@ function startRun(){clearTimeout(S.rvT);VIS.star=0;if(!S.hero.ex)S.hero.ex=excBi
  const o=mkOut();say(R,o,`${S.hero.name} ก้าวเข้าสู่หอคอยโชคชะตา`,'lv');
  // gate.js: the one companion hired at the town fort walks in with you (early-floor strength, refunded for a necromancer)
  try{const c=window.HIRE&&window.HIRE.take(R,{cp:MD(R,'cp',1),nec:cid(R)==='nec',say:(t,k)=>say(R,o,t,k||'good')});if(c&&R.comps.length<2)R.comps.push(c);}catch(e){}
+ // wevent.js: weekly event / world event put their run modifiers on R (R.mod, R.wsp, R.wev) and may add a line
+ try{window.dispatchEvent(new CustomEvent('tof:run-start',{detail:{R,say:(t,k)=>say(R,o,t,k||'info')}}));}catch(e){}
  say(R,o,`เพื่อนรุ่นเดียวกันอีก ${R.coh.length} คนเข้าหอมาพร้อมคุณ: ${R.coh.map(c=>c.n).join(', ')}`,'info');
  if(R.pets.length&&S.hero.inh&&S.hero.inh.pet)say(R,o,`${PETS[R.pets[0]].n}ของอาจารย์${S.hero.inh.from}เดินตามเข้ามาด้วย`,'good');
  {const CL=S.hero.clan||{};if(CL.pet&&R.pets.includes(CL.pet))say(R,o,`${PETS[CL.pet].n} สัตว์ประจำตระกูล เดินตามเข้ามาด้วย`,'good');if(CL.m==='s')say(R,o,`คำสาปนักล่ามังกรติดตัวมาด้วย มอนสเตอร์เผ่ามังกรจะดุกว่าปกติ (ล้มมังกรไปแล้ว ${CL.n||0}/3)`,'bad');
