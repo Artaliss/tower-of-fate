@@ -426,28 +426,195 @@ body.eb-on .helpbtn{bottom:calc(74px + env(safe-area-inset-bottom,0px))}
 .cbt{letter-spacing:.06em;color:var(--gold);font-size:13px;margin-bottom:14px}
 .cba,.cbb{opacity:0;transform:translateY(4px);transition:opacity .9s ease,transform .9s ease;line-height:1.5}
 .cba{margin-top:18px;font-size:clamp(16px,4.6vw,20px);font-weight:500;color:var(--parch)}.cbb{margin-top:8px;font-size:14px;color:var(--muted)}
+/* v0.3.4 one-screen layout: the core loop fits the viewport (100dvh), secondary panels live in #moreDlg */
+:root{--vh:1vh;--tbH:34px}
+@supports (height:1dvh){:root{--vh:1dvh}}
+html,body{height:100%}
+.wrap{height:calc(var(--vh)*100);max-width:1280px;display:flex;flex-direction:column;gap:6px;overflow:hidden;
+padding-block:max(6px,env(safe-area-inset-top,0px)) max(6px,env(safe-area-inset-bottom,0px));
+padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));--scnH:calc(var(--vh)*38)}
+body.eb-on .wrap{padding-bottom:max(6px,env(safe-area-inset-bottom,0px))}
+.hud{flex:none;flex-wrap:wrap;gap:4px 8px;padding:4px 6px 5px 10px}
+.who{flex:1 1 0;min-width:0}
+.who .nm{font-size:15px;line-height:1.3}
+.who .l2{display:flex;align-items:center;gap:8px;min-width:0;font-size:11.5px;line-height:1.35}
+.who .l2 .sub{font-size:11.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who .l2 #hSub{flex:1 1 auto}
+.who .l2 .hpath{flex:0 1 auto;max-width:60%}
+.hpath .pbar{flex-basis:40px}
+.flr{flex:none}.flr .big{font-size:22px;line-height:1}.flr .lbl{font-size:12px}
+.tbtns{flex:none;display:flex;gap:4px}
+.ib,.hud .mute{flex:none;width:var(--tbH);height:var(--tbH);display:grid;place-items:center;padding:0;background:var(--bg2);border:1px solid var(--line);border-radius:4px;font-size:16px;line-height:1;color:var(--gold);position:relative}
+.ib[hidden]{display:none}
+.ib:hover{border-color:var(--gold2)}
+.ib .dot{position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:#ff6a5a;margin:0;box-shadow:0 0 0 2px var(--bg2)}
+.hud .prog{flex:1 1 100%;margin:2px 0 0}
+.hud .track{height:6px;border-width:1px}
+.hud .tick{top:-2px;height:8px}
+.hud .mark{top:-4px;width:8px;height:8px;transform:translateX(-4px) rotate(45deg);border-width:1px}
+.hud .prog .lg{display:none}
+.main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.lcol{flex:none;display:flex;flex-direction:column;gap:6px;min-height:0}
+.rcol{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:6px}
+/* the scene keeps its width and trims the ceiling (top) when the height budget is short, at most ~20% */
+.sceneBox{flex:none;width:100%;max-width:calc(var(--scnH)*1.85);margin:0 auto}
+#scene{max-height:var(--scnH);object-fit:cover;object-position:50% 85%}
+.tnow{padding:2px 6px 3px;font-size:11.5px;line-height:1.4}
+.forms{padding:5px}.forms .btn{min-height:34px;padding:5px 10px}
+.sceneacts{padding:6px}.sceneacts .btn{min-height:40px}.sceneacts .dim{font-size:11.5px;margin:4px 0 0;line-height:1.4}
+/* next floor timer: thin bar on the top edge of the scene */
+.nextbox{position:absolute;left:0;right:0;top:0;margin:0;display:block;pointer-events:none}
+.nextbox .nt{height:3px;border:0;border-radius:0;background:#0008}
+#nextTxt{position:absolute;right:6px;top:7px;min-width:0;font-size:11px;background:#000a;color:var(--muted);padding:1px 6px;border-radius:2px}
+/* control row */
+.ctl{flex:none;flex-wrap:nowrap;gap:5px;margin:0;min-width:0}
+.ctl button{min-height:34px;padding:3px 8px;font-size:13px}
+.ctl .spd{display:flex;gap:3px}
+.ctl .spd button{padding:3px 7px}
+.ctl .spdc{display:none}
+.ctl .ls{display:none;font-size:11px;margin-left:1px}
+.ctl .note{font-size:11.5px;white-space:nowrap}
+.stance{margin:0;gap:4px;flex-wrap:nowrap}
+.stance #stBtns{flex-wrap:nowrap;gap:3px}
+.stance button{min-height:34px;min-width:34px;padding:3px 7px;font-size:14px}
+.stance .stl{font-size:13px;color:var(--dim);padding:0 2px;white-space:nowrap}
+/* card: fills the space under the scene and scrolls inside; split phases pin their actions */
+.card{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding:10px 12px}
+.card.split{display:flex;flex-direction:column;overflow:hidden;padding:0}
+.card.split>.cs{flex:0 1000 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding:10px 12px 8px}
+.card.split>.cpin{flex:0 1 auto;min-height:0;overflow:auto;padding:8px 12px 10px;border-top:1px solid var(--line);background:var(--panel)}
+.card.ph-birth>.cs,.card.ph-end>.cs{flex:1 1 auto}
+.card.ph-birth>.cpin,.card.ph-end>.cpin{flex-shrink:0}
+.card.ph-decide>.cs{min-height:min(5.2em,30%)}
+.card.ph-decide>.cpin{border-top:0;padding-top:0}
+.card.split>.fest-ban{flex:none;margin:8px 12px 0;width:auto;padding:4px 8px;font-size:12px}
+.card h3{font-size:17px}
+.card p{margin:4px 0 8px}
+.card .acts{margin-top:8px}
+.cpin .acts{margin-top:0}
+.cpin .acts+.acts{margin-top:6px}
+.cpin .btn{padding:7px 10px}
+.cpin .btn.pri{min-height:44px;font-size:16px}
+.cpin .btn.shr{padding:7px 10px;font-size:15px}
+.cpin .btn.shr small{display:none}
+.msgs{margin:4px 0 6px}
+.ch{padding:7px 9px}
+.cd{margin:2px 0}.cd[hidden]{display:none}
+.cdl{margin-bottom:6px}.cdl[hidden]{display:none}
+.card.notimer .aitag{display:none}
+/* phones: stat chips sit on the ceiling of the scene so the hero and the floor stay visible; labels move to the floor line */
+@media (max-width:599px){
+ .chips.onscene{top:4px;bottom:auto;gap:2px}
+ .chips.onscene .chip{padding:1px 4px;gap:3px}.chips.onscene .chip .bar{width:16px}
+ .chips.onscene .chip.fate{flex:0 1 auto}
+ .biome{top:auto;bottom:4px;left:4px;font-size:11px;padding:1px 6px}
+ #nextTxt{top:auto;bottom:4px;right:4px}
+ .mileban{top:auto;bottom:28px}
+ #scene{object-position:50% 100%}
+ .sceneBox{max-width:none}
+}
+/* first fate turn of a first life */
+.fkhint{margin:0 0 6px;padding:4px 8px;line-height:1.4;border:2px solid var(--gold);background:#2a2412;color:var(--gold);border-radius:3px;font-size:13px;font-weight:500}
+.card.fk{animation:fkP 1.3s ease-in-out 5;border-color:var(--gold)}
+@keyframes fkP{50%{box-shadow:0 0 0 2px #070c0e,0 0 0 4px var(--gold),0 0 18px #f4bb4a88}}
+/* birth: compact certificate */
+.cert{padding:8px 10px}
+.cert .nm{font-size:21px;margin:2px 0 0;line-height:1.3}
+.cert .vil{font-size:12px}
+.tiles{margin:6px 0 2px}
+.odds.big{margin:4px 0 0}.odds.big b{font-size:20px}
+.cmore{margin-top:6px;border-top:2px dashed #a8874f;padding-top:4px}
+.cmore>summary{cursor:pointer;text-align:center;font-size:13px;color:#6b3f12;font-weight:500;list-style:none;padding:3px 0}
+.cmore>summary::-webkit-details-marker{display:none}
+.cmore>summary::after{content:" \25BE"}.cmore[open]>summary::after{content:" \25B4"}
+.cmore .rchart{margin-top:20px}
+.nmset{margin:8px 0 0}
+.lookn{margin:4px 0 0}
+.livebox{margin:8px 0 0}
+.bpin{display:flex;flex-wrap:wrap;gap:6px}
+.bpin .btn{flex:1 1 40%;min-width:0;font-size:13px}
+.bpin .btn.town{flex:0 0 auto}
+.bpin .btn.pri{flex:1 1 60%}
+/* log panel: right column on wide screens, "เพิ่มเติม" sheet on phones */
+.logp{display:none;flex-direction:column;min-height:0;padding:8px 10px}
+.logp h2{flex:none;margin-bottom:4px}
+#log{max-height:none;flex:1 1 auto;min-height:0}
+/* phase-dependent scene size on phones */
+body[data-ph=birth] .wrap{--scnH:calc(var(--vh)*30)}
+body[data-ph=decide] .wrap,body[data-ph=secret] .wrap{--scnH:calc(var(--vh)*27)}
+body[data-ph=end] .wrap,body[data-ph=dying] .wrap{--scnH:calc(var(--vh)*26)}
+@media (max-width:599px),(max-height:520px){
+ .ctl .spd{display:none}.ctl .spdc{display:block}
+ .ctl .lbl,.stance .stl .lbl{display:none}.ctl .ls{display:inline}
+ .ctl .note{display:none}
+ .flr .lbl{display:none}
+ .btn .kb{display:none}
+}
+/* short phones: a fate turn gives the choices the room, the scene shrinks */
+@media (max-width:599px) and (max-height:740px){
+ body[data-ph=decide] .wrap,body[data-ph=end] .wrap,body[data-ph=dying] .wrap{--scnH:calc(var(--vh)*21)}
+ body[data-ph=decide] .tnow,body[data-ph=end] .tnow{display:none}
+ .card.ph-decide .ch .s{font-size:11.5px}
+}
+@media (max-width:380px){.ctl{gap:4px}.ctl button{padding:3px 6px}.stance button{min-width:32px;padding:3px 5px}:root{--tbH:32px}.tbtns{gap:3px}}
+@media (hover:none){.btn .kb{display:none}}
+/* tablet portrait: same stack, more room */
+@media (min-width:600px) and (max-width:899px) and (min-height:700px){
+ .wrap{--scnH:calc(var(--vh)*40)}
+ body[data-ph=birth] .wrap{--scnH:calc(var(--vh)*34)}
+ body[data-ph=decide] .wrap,body[data-ph=end] .wrap,body[data-ph=dying] .wrap,body[data-ph=secret] .wrap{--scnH:calc(var(--vh)*32)}
+ .card{padding:12px 14px}
+}
+/* desktop and landscape: two columns, everything inside 100vh */
+@media (min-width:900px),(orientation:landscape) and (min-width:600px) and (max-height:620px){
+ .wrap,body[data-ph] .wrap{--scnH:calc(var(--vh)*100 - 170px)}
+ .main{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:12px}
+ .lcol{overflow-y:auto;overflow-x:hidden}
+ .card{flex:0 1 auto}
+ .card.ph-birth,.card.ph-end,.card.ph-decide{flex:1 1 auto}
+ .logp{display:flex;flex:1 1 0;min-height:60px}
+ body[data-ph=birth] .logp,body[data-ph=end] .logp,body[data-ph=dying] .logp,body[data-ph=secret] .logp{display:none}
+ body[data-ph=birth] .card,body[data-ph=end] .card,body[data-ph=dying] .card,body[data-ph=secret] .card{flex:1 1 auto}
+ .ctl{flex-wrap:wrap}
+}
+@media (orientation:landscape) and (max-height:620px){.wrap,body[data-ph] .wrap{--scnH:calc(var(--vh)*100 - 150px)}.hud .who .l2{display:none}body[data-ph=decide] .logp,body[data-ph=combat] .logp{display:none}}
+@media (min-width:1500px) and (min-height:900px){.card{padding:14px 16px}.card.split>.cs{padding:14px 16px 10px}.card.split>.cpin{padding:10px 16px 14px}}
+/* "เพิ่มเติม" sheet */
+.moredlg{border:2px solid var(--line2);background:var(--panel);color:var(--ink);border-radius:6px;padding:0;width:min(620px,calc(100vw - 20px));max-width:none;height:min(86vh,760px);height:min(86dvh,760px);max-height:none;box-sizing:border-box;overflow:hidden}
+.moredlg[open]{display:flex;flex-direction:column}
+.moredlg::backdrop{background:#000a}
+.moredlg .mhd{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px 6px;flex:none}
+.moredlg .mhd b{color:var(--gold);font-weight:500;font-size:17px}
+.moredlg .x{background:var(--panel2);border:1px solid var(--line2);border-radius:3px;padding:4px 10px;color:var(--ink);font-size:13px;min-height:32px}
+.moredlg .mtabs{display:flex;flex-wrap:wrap;gap:5px;padding:4px 12px 8px;border-bottom:1px solid var(--line);flex:none}
+.moredlg [role=tab]{flex:none;background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:4px 9px;color:var(--muted);font-size:13px;white-space:nowrap;min-height:32px}
+.moredlg [role=tab][aria-selected=true]{background:var(--gold);border-color:#7a5214;color:#1a1206;font-weight:500}
+.moredlg .mbd{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding:10px 12px 14px}
+.moredlg .mbd>section[hidden]{display:none}
+.moredlg .panel.memo{margin-top:0}
+.moredlg .logp{display:flex;border:0;padding:0;background:none}
+.moredlg #log{max-height:none;overflow:visible}
+.moredlg .keys{margin-top:14px}
+.moredlg #moreActs:empty{display:none}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="app">
  <header class="hud" aria-label="สถานะนักผจญภัย">
-  <div class="who"><div class="nm" id="hName">—</div><div class="sub" id="hSub"></div><div class="sub hpath" id="hPath" data-tip="path" hidden></div></div>
+  <div class="who"><div class="nm" id="hName">—</div><div class="l2"><span class="sub" id="hSub"></span><span class="sub hpath" id="hPath" data-tip="path" hidden></span></div></div>
   <div class="flr"><span class="lbl">ชั้น</span><span class="px big" id="hFloor">0</span><span class="px dim">/100</span></div>
-  <button class="hdbtn" id="btnLB" type="button" hidden>🏆 อันดับ & ความสำเร็จ</button>
-  <button class="mute" id="btnMute" type="button" aria-label="เปิด/ปิดเสียง" aria-pressed="true" title="เปิด/ปิดเสียง">♪</button>
+  <div class="tbtns">
+   <button class="ib" id="btnLB" type="button" hidden aria-label="อันดับและความสำเร็จ" title="อันดับและความสำเร็จ">🏆</button>
+   <button class="ib mute" id="btnMute" type="button" aria-label="เปิด/ปิดเสียง" aria-pressed="true" title="เปิด/ปิดเสียง">♪</button>
+   <button class="ib" id="btnHelp" type="button" aria-haspopup="dialog" aria-label="วิธีเล่น" title="วิธีเล่น">❓</button>
+   <button class="ib" id="btnCL" type="button" aria-haspopup="dialog" aria-label="มีอะไรใหม่" title="มีอะไรใหม่">📜</button>
+   <button class="ib" id="btnMore" type="button" aria-haspopup="dialog" aria-controls="moreDlg" aria-label="เพิ่มเติม: ปาร์ตี้ บันทึก สายตระกูล สุสาน" title="เพิ่มเติม: ปาร์ตี้ บันทึก สายตระกูล สุสาน">☰</button>
+  </div>
+  <div class="prog"><div class="track" role="progressbar" aria-label="ความคืบหน้าหอคอย (ขีดแดง = ชั้นบอส)" aria-valuemin="0" aria-valuemax="100" id="track"><div class="fill" id="pFill"></div><div id="pTicks"></div><div class="mark" id="pMark"></div></div>
+   <div class="lg"><span class="px">1</span><span>ขีดแดง = ชั้นบอส</span><span class="px">100</span></div></div>
  </header>
- <div class="prog"><div class="track" role="progressbar" aria-label="ความคืบหน้าหอคอย" aria-valuemin="0" aria-valuemax="100" id="track"><div class="fill" id="pFill"></div><div id="pTicks"></div><div class="mark" id="pMark"></div></div>
-  <div class="lg"><span class="px">1</span><span>ขีดแดง = ชั้นบอส</span><span class="px">100</span></div></div>
- <div class="ctl" id="ctl" hidden>
-  <button id="btnPause" type="button" aria-pressed="false">⏸ หยุด</button>
-  <span class="dim" style="font-size:12px">ความเร็ว</span>
-  <button type="button" data-speed="1" class="px">1x</button><button type="button" data-speed="2" class="px">2x</button><button type="button" data-speed="4" class="px">4x</button><button type="button" data-speed="8" class="px">8x</button><button type="button" data-speed="16" class="px">16x</button>
-  <button type="button" id="btnDT" class="dtb" title="จับเวลาตอนเจอจุดเปลี่ยนชะตา กดเพื่อเปิด/ปิดการนับถอยหลัง 30 วินาที" aria-label="จับเวลาตอนเจอจุดเปลี่ยนชะตา กดเพื่อเปิด/ปิดการนับถอยหลัง 30 วินาที" aria-pressed="false">⏱ ไม่จับเวลา</button>
-  <span class="note" id="ctlNote"></span>
- </div>
- <div class="stance" id="stanceBox" hidden role="group" aria-label="ท่าที"><span class="dim" style="font-size:12px" data-tip="stance">ท่าที</span><span id="stBtns"></span><span class="note" id="stNote" aria-live="off"></span></div>
- <div class="nextbox" id="nextBox" hidden><div class="nt" role="presentation"><i id="nextBar"></i></div><span id="nextTxt" aria-live="off"></span></div>
  <main class="main">
+  <div class="lcol">
   <section class="sceneBox"><div class="scnwrap"><canvas id="scene" width="384" height="256" aria-label="ฉากในหอคอย"></canvas>
   <div class="chips onscene" aria-label="ค่าสถานะ">
    <div class="chip" id="c-hp" title="พลังชีวิต"><canvas class="ico" data-ico="heart" width="8" height="8"></canvas><span class="px v" id="v-hp"></span><span class="bar"><i id="b-hp"></i></span></div>
@@ -459,17 +626,42 @@ body.eb-on .helpbtn{bottom:calc(74px + env(safe-area-inset-bottom,0px))}
    <div class="chip" id="c-gold" title="เหรียญทอง"><canvas class="ico" data-ico="coin" width="8" height="8"></canvas><span class="px v" id="v-gold"></span></div>
    <div class="chip fate" id="c-fate" title="ดวงชะตา: โอกาสตายในชั้นนี้">☽ <span class="v" id="v-fate"></span></div>
   </div>
-<div class="mileban" id="mileBan" hidden role="status"></div></div><div class="biome" id="biomeTag"></div><div class="tnow" id="towerNow" hidden></div><div class="forms" id="formBox" hidden aria-label="เลือกร่างของฮีโร่"></div><div class="sceneacts" id="sceneActs" hidden aria-label="เริ่มชีวิตถัดไป"></div></section>
-  <section class="card" id="card" aria-live="polite"></section>
+<div class="mileban" id="mileBan" hidden role="status"></div><div class="nextbox" id="nextBox" hidden><div class="nt" role="presentation"><i id="nextBar"></i></div><span id="nextTxt" aria-live="off"></span></div><div class="biome" id="biomeTag"></div></div><div class="tnow" id="towerNow" hidden></div><div class="forms" id="formBox" hidden aria-label="เลือกร่างของฮีโร่"></div><div class="sceneacts" id="sceneActs" hidden aria-label="เริ่มชีวิตถัดไป"></div></section>
+  <div class="ctl" id="ctl" hidden>
+   <button id="btnPause" type="button" aria-pressed="false" title="หยุด/เดินต่อ (Space)">⏸ หยุด</button>
+   <span class="spd" role="group" aria-label="ความเร็ว"><button type="button" data-speed="1" class="px">1x</button><button type="button" data-speed="2" class="px">2x</button><button type="button" data-speed="4" class="px">4x</button><button type="button" data-speed="8" class="px">8x</button><button type="button" data-speed="16" class="px">16x</button></span>
+   <button type="button" id="btnSpd" class="px spdc" title="ความเร็ว กดเพื่อเปลี่ยน">1x</button>
+   <button type="button" id="btnDT" class="dtb" title="จับเวลาตอนเจอจุดเปลี่ยนชะตา กดเพื่อเปิด/ปิดการนับถอยหลัง 30 วินาที" aria-label="จับเวลาตอนเจอจุดเปลี่ยนชะตา กดเพื่อเปิด/ปิดการนับถอยหลัง 30 วินาที" aria-pressed="false">⏱ ไม่จับเวลา</button>
+   <div class="stance" id="stanceBox" hidden role="group" aria-label="ท่าที"><span class="stl" id="stLbl" data-tip="stance">🧭<span class="lbl"> ท่าที</span></span><span id="stBtns"></span></div>
+   <span class="note" id="ctlNote"></span>
+  </div>
+  </div>
+  <div class="rcol">
+   <section class="card" id="card" aria-live="polite"></section>
+   <section class="panel logp" id="logPanel"><h2>บันทึกการผจญภัย</h2><ol id="log"></ol></section>
+  </div>
  </main>
- <section class="lower">
-  <div class="panel"><h2>ปาร์ตี้</h2><div id="party"></div></div>
-  <div class="panel"><h2>บันทึกการผจญภัย</h2><ol id="log"></ol></div>
- </section>
- <section class="panel memo"><h2 data-tip="lineage">สายตระกูล</h2><div id="lineage"></div></section>
- <section class="panel memo"><h2>สุสานนักผจญภัย</h2><div id="memo"></div></section>
- <footer class="keys"><a href="/classic/" style="color:inherit">อยากไต่หออย่างเดียว เล่นฉบับคลาสสิก (ก่อนมีตระกูลและเมือง)</a><br>ปุ่มลัด: 1–4 เลือก · Space หยุด/เดินต่อ · Enter ดำเนินต่อ</footer>
 </div>
+<dialog class="moredlg" id="moreDlg" aria-labelledby="moreT">
+ <div class="mhd"><b id="moreT">เพิ่มเติม</b><button type="button" class="x" id="moreX" aria-label="ปิดหน้าต่างเพิ่มเติม">ปิด ✕</button></div>
+ <div class="mtabs" role="tablist" aria-label="หมวด">
+  <button type="button" role="tab" id="mt-party" data-mt="party" aria-controls="mp-party" aria-selected="true">👥 ปาร์ตี้</button>
+  <button type="button" role="tab" id="mt-log" data-mt="log" aria-controls="mp-log" aria-selected="false" tabindex="-1">📝 บันทึก</button>
+  <button type="button" role="tab" id="mt-lin" data-mt="lin" aria-controls="mp-lin" aria-selected="false" tabindex="-1">🧬 ตระกูล</button>
+  <button type="button" role="tab" id="mt-memo" data-mt="memo" aria-controls="mp-memo" aria-selected="false" tabindex="-1">🪦 สุสาน</button>
+  <button type="button" role="tab" id="mt-etc" data-mt="etc" aria-controls="mp-etc" aria-selected="false" tabindex="-1">⋯ อื่นๆ</button>
+ </div>
+ <div class="mbd" tabindex="0">
+  <section role="tabpanel" id="mp-party" data-mt="party" aria-labelledby="mt-party"><div class="panel"><h2>ปาร์ตี้</h2><div id="party"></div></div></section>
+  <section role="tabpanel" id="mp-log" data-mt="log" aria-labelledby="mt-log" hidden></section>
+  <section role="tabpanel" id="mp-lin" data-mt="lin" aria-labelledby="mt-lin" hidden><section class="panel memo"><h2 data-tip="lineage">สายตระกูล</h2><div id="lineage"></div></section></section>
+  <section role="tabpanel" id="mp-memo" data-mt="memo" aria-labelledby="mt-memo" hidden><section class="panel memo"><h2>สุสานนักผจญภัย</h2><div id="memo"></div></section></section>
+  <section role="tabpanel" id="mp-etc" data-mt="etc" aria-labelledby="mt-etc" hidden>
+   <div class="acts" id="moreActs"></div>
+   <footer class="keys"><a href="/classic/" style="color:inherit">อยากไต่หออย่างเดียว เล่นฉบับคลาสสิก (ก่อนมีตระกูลและเมือง)</a><br>ปุ่มลัด: 1–4 เลือก · Space หยุด/เดินต่อ · Enter ดำเนินต่อ</footer>
+  </section>
+ </div>
+</dialog>
 <div class="endbar" id="endBar" hidden role="region" aria-label="แชร์ชีวิตนี้"><button type="button" class="shb" id="ebShare">📤 แชร์ชีวิตนี้</button></div>
 <script src="sprites.js"></script>
 <script src="share.js"></script>

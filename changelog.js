@@ -249,9 +249,12 @@ function init(){
  // (auto.js runs first and already writes a birth-phase save for a brand-new player, so only a save of a started run counts)
  let runSave=false;try{const s=JSON.parse(get('tof-auto-save-v1')||'null');runSave=!!s&&s.phase!=='birth';}catch(e){}
  const old=runSave||['tof-auto-memorial-v1','tof-memorial-v1','tof-lineage-v1','tof-ach-v1'].some(k=>get(k));
- btn=document.createElement('button');btn.type='button';btn.className='clbtn';btn.setAttribute('aria-haspopup','dialog');
- btn.innerHTML=`📜 อัปเดต v${esc(CUR)}${norm(seen)!==norm(CUR)&&old?'<span class="dot" aria-label="มีของใหม่"></span>':''}`;btn.onclick=open;
- document.body.appendChild(btn);
+ const dot=norm(seen)!==norm(CUR)&&old?'<span class="dot" aria-label="มีของใหม่"></span>':'';
+ // the 📜 button lives in the top bar (#btnCL); pages without it get the old floating button
+ btn=document.getElementById('btnCL');
+ if(btn){btn.innerHTML=`📜${dot}`;btn.title=`มีอะไรใหม่ (v${CUR})`;btn.setAttribute('aria-label',btn.title);}
+ else{btn=document.createElement('button');btn.type='button';btn.className='clbtn';btn.setAttribute('aria-haspopup','dialog');btn.innerHTML=`📜 อัปเดต v${esc(CUR)}${dot}`;document.body.appendChild(btn);}
+ btn.onclick=open;
  if(seen&&vnum(seen)>=vnum(CUR))return;
  if(/^\/m\//.test(location.pathname)||/[?&]m=/.test(location.search))return; // a memorial link opened by a friend: don't cover it, the dot on the button is enough
  if(!old&&!seen){set(KEY,CUR);return;} // brand-new player: nothing to compare with

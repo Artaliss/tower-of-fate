@@ -2104,7 +2104,7 @@ const SPEEDS=[1,2,4,8,16];
 const DTK='tof-dtime2';let dTime=(()=>{try{return +localStorage.getItem(DTK)===30?30:0;}catch(e){return 0;}})();
 const decMs=()=>dTime*1000;
 function setDTime(v){v=v===30?30:0;dTime=v;try{localStorage.setItem(DTK,String(v));}catch(e){}
- if(S&&S.phase==='decide'){S.decMs=v*1000;S.left=S.decMs;S.cdLast=performance.now();updCd();}renderCtl();}
+ if(S&&S.phase==='decide'){S.decMs=v*1000;S.left=S.decMs;S.cdLast=performance.now();updCd();const fh=$('fkHint');if(fh)fh.textContent=fkText();}renderCtl();}
 let S=null;
 const VIS={hf:0,ef:0,nums:[],coins:[],shake:0,edead:false,walk0:0,show:null,dieAt:0};
 const THF='600 9px '+((getComputedStyle(document.documentElement).getPropertyValue('--fT')||'sans-serif').trim());
@@ -2535,21 +2535,27 @@ function partsHTML(P){return P.map(p=>{const k=chipKey(p);return`<span class="${
 const actQ=sel=>card.querySelector(sel)||(S&&S.phase==='end'&&!$('sceneActs').hidden?$('sceneActs').querySelector(sel):null);
 const inActs=el=>card.contains(el)||$('sceneActs').contains(el);
 function focusPrimary(){const b=actQ('[data-enter]')||card.querySelector('button:not(:disabled)');if(b&&document.activeElement&&document.activeElement!==document.body&&!inActs(document.activeElement))return;if(b)try{b.focus({preventScroll:true});}catch(e){}}
-function render(){if(S.phase!=='decide')card.classList.remove('legend');$('formBox').hidden=S.phase!=='birth';if(S.phase!=='end')$('sceneActs').hidden=true;renderHUD();renderParty();renderLog();renderCtl();renderLineage();saveRun();
+function render(){if(S.phase!=='decide')card.classList.remove('legend');cardMode(S.phase);$('formBox').hidden=S.phase!=='birth';if(S.phase!=='end')$('sceneActs').hidden=true;renderHUD();renderParty();renderLog();renderCtl();renderLineage();saveRun();
  const ph=S.phase;
  if(ph==='birth')renderBirth();else if(ph==='flow'){renderFlow();revealArm();}else if(ph==='decide')renderDecide();else if(ph==='combat')renderCombat();else if(ph==='dying')renderDying();else if(ph==='end')renderEnd();else if(ph==='secret')renderSecret();
  if(ph!=='end')endBar(false);try{window.SHARE&&window.SHARE.onPhase&&window.SHARE.onPhase(ph);}catch(e){}
  if(ph!=='flow')focusPrimary();}
 function renderCtl(){const on=S.phase==='flow'||S.phase==='decide'||S.phase==='combat';$('ctl').hidden=!on;if(!on){renderStance();return;}
- const p=$('btnPause');p.textContent=S.paused?'▶ เดินต่อ':'⏸ หยุด';p.setAttribute('aria-pressed',S.paused?'true':'false');
+ const p=$('btnPause');p.innerHTML=S.paused?'▶<span class="lbl"> เดินต่อ</span>':'⏸<span class="lbl"> หยุด</span>';p.setAttribute('aria-pressed',S.paused?'true':'false');p.setAttribute('aria-label',S.paused?'เดินต่อ (Space)':'หยุด (Space)');
  document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.speed===S.speed?'true':'false'));
- const dt=$('btnDT');if(dt){dt.textContent=dTime?`⏱ ${dTime} วิ`:'⏱ ไม่จับเวลา';dt.setAttribute('aria-pressed',dTime?'true':'false');}
+ {const sb=$('btnSpd');if(sb){sb.textContent=`⏩${S.speed}x`;sb.setAttribute('aria-label',`ความเร็ว ${S.speed} เท่า กดเพื่อเปลี่ยน`);}}
+ const dt=$('btnDT');if(dt){dt.innerHTML=`⏱<span class="lbl">${dTime?` ${dTime} วิ`:' ไม่จับเวลา'}</span><span class="ls">${dTime?dTime:'✕'}</span>`;dt.setAttribute('aria-pressed',dTime?'true':'false');}
  $('ctlNote').textContent=S.R?`จุดเปลี่ยน ${S.R.keys} ครั้ง`:'';renderStance();}
 // stance toggle under the speed bar: always available while the run is going
 function renderStance(){const box=$('stanceBox');if(!box)return;const on=!!S.R&&['flow','decide','combat'].includes(S.phase);box.hidden=!on;if(!on)return;
- const el=$('stBtns');if(!el.childElementCount){el.innerHTML=STK.map(k=>`<button type="button" data-st="${k}" data-tip="stance">${STANCES[k].ic} ${STANCES[k].n}</button>`).join('');
+ const el=$('stBtns');if(!el.childElementCount){el.innerHTML=STK.map(k=>`<button type="button" data-st="${k}" data-tip="stance" data-tipn="ท่าที: ${esc(STANCES[k].n)}" data-tipd="${esc(STANCES[k].d)}" aria-label="ท่าที ${esc(STANCES[k].n)}: ${esc(STANCES[k].d)}">${STANCES[k].ic}<span class="lbl"> ${STANCES[k].n}</span></button>`).join('');
   el.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>setStance(b.dataset.st));}
- el.querySelectorAll('[data-st]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.st===S.R.st?'true':'false'));$('stNote').textContent=STANCES[S.R.st].d;}
+ el.querySelectorAll('[data-st]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.st===S.R.st?'true':'false'));
+ // the active stance's effect sits in the tooltip of the 🧭 label (tap it on a phone)
+ const st=STANCES[S.R.st],lb=$('stLbl');if(lb){lb.dataset.tipn=`ท่าทีตอนนี้: ${st.n}`;lb.dataset.tipd=st.d;}}
+// card layout per phase: birth/decide/end split into a scrolling part (.cs) and a pinned part (.cpin)
+function cardMode(ph){document.body.dataset.ph=ph;const sp=ph==='birth'||ph==='decide'||ph==='end';
+ card.classList.toggle('split',sp);['birth','decide','end'].forEach(k=>card.classList.toggle('ph-'+k,ph===k));if(ph!=='decide')card.classList.remove('fk');}
 function setStance(k){const R=S.R;if(!R||!STANCES[k]||R.st===k||!R.alive)return;R.st=k;R.stCh=(R.stCh||0)+1;R.log.unshift({f:R.floor,t:`เปลี่ยนท่าทีเป็น "${STANCES[k].n}"`,c:'info'});
  renderStance();renderHUD();renderLog();saveRun();}
 // look rarity: slime colour bands are uneven (gold is rarest), eyes x mouths are 8 x 7 equally likely
@@ -2573,24 +2579,28 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  const clanH=CL.m||cp||C.id==='dsl'?`<div class="inhbox clanbox rv"${D(5)}>${CL.m?`<span data-tip="clan"><b>${CLAN_T[CL.m]}</b></span> · ${esc(clanLine(CL.m,CL.n))}`:''}${cp?`${CL.m?'<br>':''}<span data-tip="clanpet">${CF?`ไข่สัตว์ตำนานจากรัง${esc(DRG[CF]?DRG[CF].n:'มังกร')}ที่คนในตระกูลเก็บกลับมาฟักแล้ว ได้${esc(cp.n)}เป็นสัตว์ประจำตระกูล`:h.petHome?`${esc(cp.n)} สัตว์ประจำตระกูล ชาตินี้ฝากไว้ที่บ้าน`:`${esc(cp.n)} สัตว์ประจำตระกูล เดินตามมาด้วย`} (${esc(cp.d)})</span>`:''}${C.id==='dsl'?`${CL.m||cp?'<br>':''}<span data-tip="dsl">เกิดมาเป็นนักล่ามังกร อาชีพลับที่เกิดได้เฉพาะในตระกูลที่เคยฆ่ามังกร</span>`:''}${cAct.trim()?`<div class="clanacts">${cAct}</div>`:''}</div>`:'';
  const ssH=h.ss?`<div class="inhbox clanbox rv"${D(5)}><b>✨ ของขวัญจากดวงดาว</b> · เกิดมาแรงค์ SS ได้ทอง +${SS_GOLD} กับยาฟื้นฟูอีก 1 ขวด</div>`:'';
  const excH=h.ex&&h.ex.got?`<div class="inhbox clanbox rv"${D(5)}><span data-tip="excal"><b>🗡 ดาบศักดิ์สิทธิ์ในหิน</b></span> · ติดตัวมาตั้งแต่เกิด (ATK +10% · ตีบอสแรงขึ้น 10%)</div>`:'';
- card.innerHTML=`<div class="cert${an?' anim':''}"><div class="hd">✦ ใบประกาศนักผจญภัย ✦</div><div class="nm">${esc(h.name)}</div><div class="vil">ถิ่นกำเนิด: ${esc(h.village)}</div>${lin}
+ // compact certificate: name, rank, class, look and odds up top; the rank chart, stats and omens fold under "ดูสถิติ"; the buttons stay pinned under it
+ card.innerHTML=`<div class="cs"><div class="cert${an?' anim':''}"><div class="hd">✦ ใบประกาศนักผจญภัย ✦</div><div class="nm">${esc(h.name)}</div><div class="vil">ถิ่นกำเนิด: ${esc(h.village)}</div>${lin}
  <div class="tiles"><div class="tile rv"${D(0)}><span class="tl">แรงค์</span><span class="rk" style="background:${Rk.col}">RANK ${Rk.k}</span><span class="tp px">${Rk.w}%</span></div>
   <div class="tile rv"${D(1)}><span class="tl">อาชีพ</span><span class="cls">${C.n}</span><span class="tp px">${((h.cp||C.w/CLS_SUM)*100).toFixed(1)}%</span></div>
   <div class="tile rv"${D(2)} data-tip="look"><span class="tl">หน้าตา</span><b>${esc(LI.n)}</b><span class="tp px">1 ใน ${fmt(1/LI.p)}</span></div></div>
- <div class="rv"${D(0)}><div class="rchart" aria-label="การกระจายแรงค์">${bars}</div><div class="rlab">${RANKS.map(r=>`<span>${r.k}</span>`).join('')}</div></div>
- <div class="pas rv"${D(1)}>สกิลติดตัว <b>${C.p}</b> · ${C.pd}</div>${C.sp?`<div class="pas rv"${D(1)}>บัพพิเศษ <b>${C.sp}</b> · ${C.spd}</div>`:''}
- <div class="cstats rv"${D(3)}><div>HP<b>${Math.round(h.mhp)}</b></div><div>ATK<b>${Math.round(h.atk)}</b></div><div>DEF<b>${Math.round(h.def)}</b></div><div>LUK<b>${Math.round(h.luk)}</b></div><div>MP<b>${Math.round(h.mmp)}</b></div><div>ทอง<b>${fmt(h.gold)}</b></div></div>
- <div class="odds big rv"${D(4)} data-tip="combo">ฮีโร่แบบคุณ: <b>1 ใน ${fmt(combOdds(h))}</b><span class="sm">แรงค์กับอาชีพ 1 ใน ${fmt(h.odds)} · หน้าตา 1 ใน ${fmt(1/LI.p)}</span></div>
- ${inh}${ssH}${clanH}${excH}<div class="rv"${D(5)}><div class="fatebox">ดวงชะตา: <b>${esc(HINTS[h.hint])}</b></div>
+ <div class="odds big rv"${D(3)} data-tip="combo">ฮีโร่แบบคุณ: <b>1 ใน ${fmt(combOdds(h))}</b><span class="sm">แรงค์กับอาชีพ 1 ใน ${fmt(h.odds)} · หน้าตา 1 ใน ${fmt(1/LI.p)}</span></div>
+ ${inh}${ssH}${clanH}${excH}
+ <details class="cmore" id="certMore"${S.cmOpen?' open':''}><summary>ดูสถิติและดวงชะตา</summary>
+ <div class="rchart" aria-label="การกระจายแรงค์">${bars}</div><div class="rlab">${RANKS.map(r=>`<span>${r.k}</span>`).join('')}</div>
+ <div class="pas">สกิลติดตัว <b>${C.p}</b> · ${C.pd}</div>${C.sp?`<div class="pas">บัพพิเศษ <b>${C.sp}</b> · ${C.spd}</div>`:''}
+ <div class="cstats"><div>HP<b>${Math.round(h.mhp)}</b></div><div>ATK<b>${Math.round(h.atk)}</b></div><div>DEF<b>${Math.round(h.def)}</b></div><div>LUK<b>${Math.round(h.luk)}</b></div><div>MP<b>${Math.round(h.mmp)}</b></div><div>ทอง<b>${fmt(h.gold)}</b></div></div>
+ <div class="fatebox">ดวงชะตา: <b>${esc(HINTS[h.hint])}</b></div>
  <div class="pas" style="margin-top:6px">นิสัย: <b>${esc(PERS[h.pers].n)}</b> · ${esc(PERS[h.pers].d)}</div>
- <div class="omenbox ${O.k==='พร'?'bless':O.k==='คำสาป'?'curse':'mix'}"><span class="ok">${O.k==='ผสม'?'พรปนคำสาป':O.k}ประจำชาตินี้</span> <b>${esc(O.n)}</b><br>${esc(O.d)}</div>${DT?`<div class="daybox" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${esc(DT.d)}</div>`:''}</div></div>
+ <div class="omenbox ${O.k==='พร'?'bless':O.k==='คำสาป'?'curse':'mix'}"><span class="ok">${O.k==='ผสม'?'พรปนคำสาป':O.k}ประจำชาตินี้</span> <b>${esc(O.n)}</b><br>${esc(O.d)}</div>${DT?`<div class="daybox" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${esc(DT.d)}</div>`:''}</details></div>
  <div class="livebox" id="liveBox"${S.liveHTML?'':' hidden'}>${S.liveHTML||''}</div>
- <p class="dim" style="font-size:13px;margin:10px 0 0">ในโหมดนี้ชีวิตเดินไปเอง คุณได้ตัดสินใจเฉพาะตอนสำคัญ ${dTime?`มีเวลาคิด ${dTime} วินาที ถ้าไม่เลือก ฮีโร่จะเลือกเองตามนิสัย (ปิดการจับเวลาได้ที่ปุ่ม ⏱ ข้างปุ่มความเร็ว)`:'คิดได้นานเท่าที่อยาก ถ้าอยากให้นับถอยหลัง 30 วินาทีแล้วฮีโร่เลือกเองเมื่อหมดเวลา กดปุ่ม ⏱ ข้างปุ่มความเร็ว'} ทุกชั้นชะตาจะทอยว่าคุณรอดไหม โอกาสขึ้นอยู่กับ HP ที่เหลือ แผลเป็น กรรม คำสาป เพื่อนร่วมทาง และท่าทีที่คุณเลือก</p>
  <div class="nmset"><label for="inName">ตั้งชื่อเอง</label><input id="inName" type="text" maxlength="${NAME_MAX}" autocomplete="off" spellcheck="false" placeholder="${esc(h.name0||h.name)}" value="${h.cname?esc(h.name):''}"><span class="hint">ปล่อยว่างไว้ก็ใช้ชื่อที่สุ่มมา</span></div>
- <div class="acts"><button class="btn" id="btnReroll" data-k="1" ${S.rerolled?'disabled':''}>สุ่มแรงค์/อาชีพใหม่ ${S.rerolled?'(ใช้ไปแล้ว)':'(เหลือ 1 ครั้ง)'}<span class="kb">[1]</span></button>
- <button class="btn" id="btnLook" data-k="3" type="button">🎲 สุ่มหน้าตาใหม่<span class="kb">[3]</span></button>
- <button class="btn pri" id="btnEnter" data-k="2" data-enter>เข้าหอ ▲<span class="kb">[Enter]</span></button></div>
- <p class="lookn">สุ่มหน้าตาได้ไม่จำกัด แรงค์ อาชีพ และนิสัยยังเหมือนเดิม</p>${window.META?`<div class="acts">${window.META.button()}</div>`:''}${birthExtras(h)}`;
+ <p class="lookn">สุ่มหน้าตาได้ไม่จำกัด แรงค์ อาชีพ และนิสัยยังเหมือนเดิม</p>${window.META?`<div class="acts">${window.META.button()}</div>`:''}${birthExtras(h)}</div>
+ <div class="cpin"><div class="bpin"><button class="btn" id="btnReroll" data-k="1" title="สุ่มแรงค์และอาชีพใหม่ได้ครั้งเดียว" ${S.rerolled?'disabled':''}>🔄 สุ่มแรงค์ใหม่ ${S.rerolled?'(ใช้แล้ว)':'(1)'}<span class="kb">[1]</span></button>
+ <button class="btn" id="btnLook" data-k="3" type="button" title="สุ่มหน้าตาได้ไม่จำกัด แรงค์ อาชีพ และนิสัยยังเหมือนเดิม">🎲 สุ่มหน้าตา<span class="kb">[3]</span></button>
+ ${window.META&&window.META.open?`<button class="btn town" id="btnTownPin" type="button" title="ตระกูลและเมือง" aria-label="ตระกูลและเมือง">🏰<span class="tl"> เมือง</span></button>`:''}<button class="btn pri" id="btnEnter" data-k="2" data-enter>เข้าหอ ▲<span class="kb">[Enter]</span></button></div></div>`;
+ {const t=$('btnTownPin');if(t)t.onclick=()=>{try{window.META.open();}catch(e){}};}
+ {const cm=$('certMore');if(cm)cm.addEventListener('toggle',()=>{S.cmOpen=cm.open;});}
  if(!S.rvDone){S.rvDone=true;if(RANKS[h.rank]&&RANKS[h.rank].k==='SS')ach('birth_ss'); // SS counts the moment it is rolled, even if re-rolled away
   if(RM)sting('birth');else{if(h.rank>=5)VIS.star=performance.now()+1400;clearTimeout(S.rvT);S.rvT=setTimeout(()=>{if(S.phase==='birth')sting('birth');},1400);}}
  const fb=$('formBox');fb.innerHTML=[['slime','สไลม์'],['human','คน']].map(([f,n])=>`<button class="btn${look(h).form===f?' on':''}" type="button" data-form="${f}" aria-pressed="${look(h).form===f}">ร่าง: ${n}</button>`).join('');
@@ -2745,7 +2755,7 @@ function openKey(K){const R=S.R;S.K=K;S.phase='decide';S.decMs=decMs(K);S.left=S
  if(!sting(K.type==='boss'||K.rar==='l'?'boss':'key'))AUDIO.sfx(K.type==='boss'||K.rar==='l'?'boss':'levelup');render();
  // wall-clock countdown (a throttled background tab must not stretch the 30 s); decMs 0 = no timer
  clearInterval(cdI);S.cdLast=performance.now();cdI=setInterval(()=>{if(S.phase!=='decide'){clearInterval(cdI);return;}const now=performance.now(),dt=now-S.cdLast;S.cdLast=now;if(S.paused||tipPause>0||!S.decMs)return;S.left-=dt;updCd();if(S.left<=0){clearInterval(cdI);choose(S.K.pick,true);}},100);}
-function updCd(){const b=$('cdBar'),t=$('cdTxt');if(!b)return;if(!S.decMs){b.style.width='100%';b.classList.remove('low');t.textContent='ไม่จับเวลา คิดได้เต็มที่';return;}const p=clamp(S.left/S.decMs,0,1);b.style.width=(p*100)+'%';b.classList.toggle('low',S.left<=3000);
+function updCd(){const b=$('cdBar'),t=$('cdTxt');if(!b)return;b.parentNode.hidden=!S.decMs;t.hidden=!S.decMs&&!!$('fkHint');card.classList.toggle('notimer',!S.decMs);if(!S.decMs){b.style.width='100%';b.classList.remove('low');t.textContent='ไม่จับเวลา คิดได้เต็มที่';return;}const p=clamp(S.left/S.decMs,0,1);b.style.width=(p*100)+'%';b.classList.toggle('low',S.left<=3000);
  t.textContent=S.paused?'หยุดเวลาไว้':`เหลือเวลา ${Math.ceil(S.left/1000)} วินาที`;}
 // why a choice is locked: a "(…)" red chip if there is one, and how much gold is missing when the cost shows as "−N ทอง"
 function disWhy(R,c){let w='',j=-1,cost=0;(c.P||[]).forEach((p,i)=>{if(j<0&&p.c==='b'&&/^\(.+\)$/.test(p.t)){j=i;w=p.t.slice(1,-1);}
@@ -2754,11 +2764,17 @@ function disWhy(R,c){let w='',j=-1,cost=0;(c.P||[]).forEach((p,i)=>{if(j<0&&p.c=
 function renderDecide(){const K=S.K,R=S.R;
  const vs=K.vs?`<div class="vs"><div class="side">พลังของคุณ<br><b>${fmt(heroPower(R))}</b></div><div class="px" style="color:var(--ember)">VS</div><div class="side">พลังศัตรู<br><b>${fmt(power(K.ev.en.atk,K.ev.en.def,K.ev.en.mhp))}</b></div></div>`:'';
  const rt=K.rar==='l'?'<span class="rar l">★ ระดับตำนาน</span>':K.rar==='r'?'<span class="rar r">◆ หายาก</span>':'';
- card.innerHTML=`<div class="tag keytag">⚑ จุดเปลี่ยนชะตา · ${esc(K.tag)} ${rt}</div><h3>${esc(K.title)}</h3><p>${esc(K.text)}</p>${vs}
- <div class="cd" role="timer" aria-label="เวลาตัดสินใจ"><i id="cdBar"></i></div><div class="cdl" id="cdTxt"></div>
- <div class="chs">${K.ch.map((c,i)=>c.hide?'':`<button class="ch${i===K.pick?' ai':''}${c.cl?' cl':''}" data-i="${i}" data-k="${K.ch.slice(0,i+1).filter(x=>!x.hide).length}" ${c.dis?'disabled':''}><span class="k">${K.ch.slice(0,i+1).filter(x=>!x.hide).length}</span><span><span class="t">${esc(c.t)}</span><span class="s">${partsHTML(c.dis?c.P.filter((p,j)=>j!==disWhy(R,c).j):c.P)}</span>${c.dis?`<span class="lock">🔒 ${esc(disWhy(R,c).w)}</span>`:''}${i===K.pick?`<span class="aitag">ถ้าหมดเวลา ${esc(R.h.name)} (${esc(PERS[R.h.pers].n)}) จะเลือกข้อนี้</span>`:''}</span></button>`).join('')}</div>`;
- card.querySelectorAll('button.ch').forEach(b=>b.addEventListener('click',()=>choose(+b.dataset.i,false)));card.classList.toggle('legend',K.rar==='l');updCd();}
-function choose(i,timeout){if(S.phase!=='decide')return;const K=S.K,R=S.R,f=R.floor;if(!K.ch[i]||K.ch[i].dis)return;clearInterval(cdI);
+ const fk=fkOn();
+ card.innerHTML=`<div class="cs"><div class="tag keytag">⚑ จุดเปลี่ยนชะตา · ${esc(K.tag)} ${rt}</div><h3>${esc(K.title)}</h3><p>${esc(K.text)}</p>${vs}</div>
+ <div class="cpin">${fk?`<div class="fkhint" id="fkHint" role="note">${esc(fkText())}</div>`:''}<div class="cd" role="timer" aria-label="เวลาตัดสินใจ"><i id="cdBar"></i></div><div class="cdl" id="cdTxt"></div>
+ <div class="chs">${K.ch.map((c,i)=>c.hide?'':`<button class="ch${i===K.pick?' ai':''}${c.cl?' cl':''}" data-i="${i}" data-k="${K.ch.slice(0,i+1).filter(x=>!x.hide).length}" ${c.dis?'disabled':''}><span class="k">${K.ch.slice(0,i+1).filter(x=>!x.hide).length}</span><span><span class="t">${esc(c.t)}</span><span class="s">${partsHTML(c.dis?c.P.filter((p,j)=>j!==disWhy(R,c).j):c.P)}</span>${c.dis?`<span class="lock">🔒 ${esc(disWhy(R,c).w)}</span>`:''}${i===K.pick?`<span class="aitag">ถ้าหมดเวลา ${esc(R.h.name)} (${esc(PERS[R.h.pers].n)}) จะเลือกข้อนี้</span>`:''}</span></button>`).join('')}</div></div>`;
+ card.querySelectorAll('button.ch').forEach(b=>b.addEventListener('click',()=>choose(+b.dataset.i,false)));card.classList.toggle('legend',K.rar==='l');card.classList.toggle('fk',fk);updCd();}
+// first fate turn of a player's first life: pulse the card and say plainly that the game waits for a pick (or how long the timer runs)
+const FKK='tof-fk-v1';
+function fkOn(){try{if(localStorage.getItem(FKK))return false;}catch(e){return false;}return!loadMemo().length&&!loadOldMemo().length;}
+function fkDone(){try{localStorage.setItem(FKK,'1');}catch(e){}card.classList.remove('fk');}
+function fkText(){return dTime?`👇 เลือกทางภายใน ${dTime} วิ ถ้าไม่เลือก ตัวละครจะเลือกเองตามนิสัย`:'👇 แตะเลือกทางด้านล่างได้เลย เกมรอคุณอยู่ ไม่มีจับเวลา';}
+function choose(i,timeout){if(S.phase!=='decide')return;const K=S.K,R=S.R,f=R.floor;if(!K.ch[i]||K.ch[i].dis)return;clearInterval(cdI);fkDone();
  const g0=R.h.gold,k0=R.karma;const out=applyKey(R,K,i);if(!out)return;if(timeout)R.timeouts++;
  else if(K.type!=='shop'){const dk=clamp(R.karma-k0,-4,4);if(dk)R.kl=clamp((R.kl||0)*.9+dk,-12,12);} // only your own picks move the lean
  showOutcome(K,i,out,{t:timeout?`หมดเวลา ${R.h.name} (${PERS[R.h.pers].n}) เลือกเอง: "${K.ch[i].t}"`:`คุณเลือก "${K.ch[i].t}"`,c:timeout?'lv':'info'},g0,false,f);}
@@ -3124,7 +3140,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  const DT=dayOf(h),dHit=!!DT&&dayHit(R);
  const dayH=DT?`<div class="daybox end" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${dHit?`ชีวิตนี้ได้เจอ${esc(DT.hn)}`:`ชีวิตนี้ไม่ได้เจอ${esc(DT.hn)}`}<span id="dayStat">${esc(S.dayStat||'')}</span></div>`:'';
  const share=!!(window.SHARE&&window.SHARE.open),lb=!!(window.LB&&window.LB.open);
- card.innerHTML=`<div class="epi"><div class="tag">${won?'ตำนานบทใหม่':'แผ่นจารึกหน้าหลุมศพ'}</div><div class="big">${won?'👑 ':'✝ '}${esc(h.name)}</div><div class="rtitle${S.title.gold?' gold':''}">ฉายา: ${esc(S.title.t)}</div>
+ card.innerHTML=`<div class="cs"><div class="epi"><div class="tag">${won?'ตำนานบทใหม่':'แผ่นจารึกหน้าหลุมศพ'}</div><div class="big">${won?'👑 ':'✝ '}${esc(h.name)}</div><div class="rtitle${S.title.gold?' gold':''}">ฉายา: ${esc(S.title.t)}</div>
  <dl class="kv"><dt>แรงค์/อาชีพ</dt><dd>${RANKS[h.rank].k} · ${R.turned?esc(clsName(R.turned.from)):C.n} (1 ใน ${fmt(h.odds)})</dd>${R.turned?`<dt>เปลี่ยนร่าง</dt><dd>จาก${esc(clsName(R.turned.from))}เป็น${esc(C.n)} ที่ชั้น ${R.turned.f}</dd>`:''}${R.unl?`<dt>ปลดล็อก</dt><dd>ชีวิตต่อไปมีโอกาสเกิดเป็น${esc(clsName(R.unl))}</dd>`:''}${pathOf(R)?`<dt>ทางของอาชีพ</dt><dd><span data-tip="path">${esc(pathOf(R).n)}</span> · ${R.pathHi?`ขั้นสูงสุด "${esc(pathHiName(R))}"`:'ยังไม่ถึงขั้นแรก'} · ${Math.floor(R.path||0)} แต้ม</dd>`:''}${crownArch(R)?`<dt>ชิงตำแหน่ง</dt><dd>「${esc(crownArch(R).t)}」 ${esc(crownArch(R).d)}</dd>`:''}<dt>ชั้นที่ไปถึง</dt><dd class="px">${fl} / 100</dd><dt>เลเวล</dt><dd class="px">${h.lv}</dd>
  <dt>${won?'ผลลัพธ์':'สาเหตุการตาย'}</dt><dd>${esc(won?'พิชิตผู้กลืนดาราและยืนบนยอดหอคอย':R.cause)}</dd>${secSum(R)?`<dt>ชั้นลับ</dt><dd>${esc(secSum(R))}</dd>`:''}${CLAN_T[R.clanM]?`<dt>ตระกูล</dt><dd><span data-tip="clan">${CLAN_T[R.clanM]}</span>${R.clanM==='s'?` · ต้องล้มมังกรอีก ${3-(R.clanN|0)} ตัวคำสาปจึงจะคลาย`:''}</dd>`:''}${excRow(R)}${godRow(R)}<dt>ดวงชะตา</dt><dd>${esc(fateLine(R))}</dd>
  <dt>จุดเปลี่ยน</dt><dd>${R.keys} ครั้ง${R.timeouts?` · ปล่อยให้นิสัย${esc(PERS[h.pers].n)}เลือกแทน ${R.timeouts} ครั้ง`:''}${R.sameN+R.plainN?` · ตอบไปเองโดยไม่ต้องหยุด ${R.sameN+R.plainN} ครั้ง`:''}</dd><dt>ทองที่ทิ้งไว้</dt><dd class="px">${fmt(h.gold)}</dd>
@@ -3134,14 +3150,15 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  ${certH}
  ${patHTML(S.pat)}
  ${dayH}
- ${share||lb?`<div class="acts endacts" style="margin-top:0">${share?'<button class="btn shr" id="btnShare" type="button">📤 แชร์ชีวิตนี้<small>การ์ด + ลิงก์ให้เพื่อนมาลองบ้าง</small></button>':''}${lb?'<button class="btn" id="btnLB2" type="button">🏆 อันดับ & ความสำเร็จ</button>':''}</div>`:''}
+ <div id="gwSlot"></div>
  ${ledgerHTML(R)}
  ${S.mont.length?`<h2>ช่วงเวลาที่ยังจำได้</h2><ol class="mont">${S.mont.map(m=>`<li class="${m.rar}"><span class="px">${m.f}F</span><span><b>${esc(m.t)}</b> · เลือก "${esc(m.c)}"${m.res?`<br><span class="x">${esc(m.res)}</span>`:''}</span></li>`).join('')}</ol>`:''}
  ${cohH}
  <p class="dim" style="font-size:12px;margin:6px 0 10px">ดวงประจำชาติ: ${esc(omenOf(h).n)}${S.fresh?` · ชาตินี้เจอเรื่องที่ไม่เคยเจอมาก่อน ${S.fresh} เรื่อง`:''}</p>
  <h2>แผนที่การไต่หอ</h2><div class="grid100">${cells}</div>
  <div class="legend">${Object.keys(MAPN).map(k=>`<span><i style="background:${MAPC[k]}"></i>${MAPN[k]}</span>`).join('')}<span><i style="background:#2a6a5a"></i>จุดเขียว = ฟาร์ม</span></div>
- <h2 style="margin-top:12px">เทียบกับนักผจญภัย 2,000 คนที่ทอยชะตาจากตารางเดียวกัน</h2>${cmpH}`;
+ <h2 style="margin-top:12px">เทียบกับนักผจญภัย 2,000 คนที่ทอยชะตาจากตารางเดียวกัน</h2>${cmpH}</div>
+ <div class="cpin"><div class="acts endacts">${share?'<button class="btn shr" id="btnShare" type="button">📤 แชร์ชีวิตนี้<small>การ์ด + ลิงก์ให้เพื่อนมาลองบ้าง</small></button>':''}${lb?'<button class="btn" id="btnLB2" type="button" title="อันดับและความสำเร็จ">🏆 อันดับ</button>':''}</div></div>`;
  // heir / reborn sit right under the scene so they can be pressed without scrolling down the card
  const SA=$('sceneActs');SA.innerHTML=`<div class="acts endacts"><button class="btn pri" id="btnHeir" data-k="1" data-enter data-tip="lineage">สืบทอดโดยลูกศิษย์ ↗<span class="kb">[Enter]</span></button><button class="btn" id="btnReborn" data-k="2" data-tip="reborn">เกิดใหม่ ↻<span class="kb">[2]</span></button></div>
  <p class="dim">ลูกศิษย์ได้ทอง ${fmt(Math.min(600,Math.round(h.gold*.3)))}${R.pets.length?` กับ${esc(PETS[R.pets[0]].n)}`:''} และรับกรรมของคุณไปบางส่วน · เกิดใหม่ได้เริ่มสายใหม่ แต่กรรมชาตินี้จะติดไปกับดวงเกิดนิดหน่อย</p>`;SA.hidden=false;
@@ -3200,7 +3217,7 @@ function gwList(R){const h=R.h,won=R.won,fl=won?100:R.floor,b=biome(fl),L=gwLost
 function gwMount(R){if(!S.gw)S.gw=gwList(R);const W=S.gw,G=S.gwG||(S.gwG={});if(!W.length)return;const old=card.querySelector('.gw');if(old)old.remove();
  const sec=document.createElement('section');sec.className='gw';sec.setAttribute('aria-labelledby','gwH');
  sec.innerHTML=`<h2 id="gwH">ความปรารถนาที่ค้างไว้</h2><p class="gwl">สิ่งที่${esc(R.h.name)}ไม่ทันได้ทำ กด "มอบให้" แล้วเราจะวาดวันนั้นให้</p><div class="gws">${W.map((w,i)=>`<figure class="gwc${G[w.k]?' on':''}" style="--r:${GW_TILT[i]||0}deg"><div class="gwp"><canvas width="300" height="200" aria-hidden="true"></canvas></div><figcaption><b>${esc(w.t)}</b><span>${esc(w.m)}</span><i class="gwh"${G[w.k]?'':' hidden'}>${esc(w.w)}</i></figcaption><button type="button" class="btn gwb" data-i="${i}">${G[w.k]?'📤 แชร์วันนี้':'มอบให้'}</button></figure>`).join('')}</div><p class="gwmsg" role="status" aria-live="polite"></p>`;
- const A=card.querySelectorAll('.endacts'),at=A[A.length-1];if(at&&at.parentNode)at.parentNode.insertBefore(sec,at.nextSibling);else card.appendChild(sec);
+ const slot=$('gwSlot');if(slot)slot.appendChild(sec);else card.appendChild(sec);
  sec.querySelectorAll('canvas').forEach((c,i)=>gwPaint(c,W[i]));
  sec.querySelectorAll('.gwb').forEach(b=>b.onclick=()=>{const w=W[+b.dataset.i];if(!w)return;if(G[w.k]){gwShare(w);return;}G[w.k]=1;gwKeep(R,w);ach('gw',{k:w.k});
   const f=b.closest('.gwc');f.classList.add('on');f.querySelector('.gwh').hidden=false;b.textContent='📤 แชร์วันนี้';
@@ -3287,6 +3304,29 @@ function togglePause(){if(!['flow','decide','combat'].includes(S.phase))return;S
 $('btnPause').onclick=togglePause;
 {const b=$('btnDT');if(b)b.onclick=()=>setDTime(dTime?0:30);}
 document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.speed));
+{const b=$('btnSpd');if(b)b.onclick=()=>setSpeed(SPEEDS[(SPEEDS.indexOf(S.speed)+1)%SPEEDS.length]);} // phones: one button cycles 1→16x
+// ---- "เพิ่มเติม" sheet: party, full log, lineage, graveyard (+ save move), links. Holds the game clock while open, like the help window ----
+(function(){const d=$('moreDlg'),b=$('btnMore');if(!d||!b)return;const lp=$('logPanel'),home=lp.parentNode,slot=$('mp-log'),tabs=[...d.querySelectorAll('[role=tab]')];
+ let cur='party',held=false;
+ const hold=on=>{if(on===held)return;held=on;try{document.dispatchEvent(new CustomEvent('tof:pause',{detail:{on}}));}catch(e){}};
+ function sel(id,focus){cur=id;tabs.forEach(t=>{const on=t.dataset.mt===id;t.setAttribute('aria-selected',on?'true':'false');t.tabIndex=on?0:-1;if(on&&focus)try{t.focus();}catch(e){}});
+  d.querySelectorAll('[role=tabpanel]').forEach(p=>p.hidden=p.dataset.mt!==id);d.querySelector('.mbd').scrollTop=0;}
+ function acts(){const a=$('moreActs');if(!a)return;a.innerHTML='';const M=window.META;
+  if(M&&M.open){const t=document.createElement('button');t.type='button';t.className='btn';t.textContent='🏰 ตระกูลและเมือง';t.onclick=()=>{close();try{M.open();}catch(e){}};a.appendChild(t);}
+  if(window.LB&&window.LB.open){const t=document.createElement('button');t.type='button';t.className='btn';t.textContent='🏆 อันดับและความสำเร็จ';t.onclick=()=>{close();try{window.LB.open();}catch(e){}};a.appendChild(t);}}
+ function open(id){if(S){renderParty();renderLog();renderLineage();}renderMemo();slot.appendChild(lp);acts();sel(id||cur,false);
+  if(!d.open){try{d.showModal();}catch(e){d.setAttribute('open','');}}hold(true);const t=tabs.find(x=>x.dataset.mt===cur);if(t)try{t.focus();}catch(e){}}
+ function done(){if(lp.parentNode!==home)home.appendChild(lp);hold(false);}
+ function close(){if(d.open&&d.close)d.close();else{d.removeAttribute('open');done();}}
+ d.addEventListener('close',()=>{done();try{b.focus({preventScroll:true});}catch(e){}});
+ d.addEventListener('click',e=>{if(e.target===d)close();});
+ $('moreX').onclick=close;b.onclick=()=>open();
+ d.querySelector('.mtabs').addEventListener('click',e=>{const t=e.target.closest('[role=tab]');if(t)sel(t.dataset.mt,true);});
+ d.querySelector('.mtabs').addEventListener('keydown',e=>{const ids=tabs.map(t=>t.dataset.mt);let i=ids.indexOf(cur);
+  if(e.key==='ArrowRight')i=(i+1)%ids.length;else if(e.key==='ArrowLeft')i=(i-1+ids.length)%ids.length;else if(e.key==='Home')i=0;else if(e.key==='End')i=ids.length-1;else return;e.preventDefault();sel(ids[i],true);});
+ // game hotkeys (1–4, Space, Enter) stay out while the sheet is open
+ d.addEventListener('keydown',e=>{if(e.key!=='Escape')e.stopPropagation();});
+ window.MORE={open,close};})();
 document.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;if(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return;const k=e.key;
  if(/^[1-4]$/.test(k)){const b=actQ(`button[data-k="${k}"]`);if(b&&!b.disabled){e.preventDefault();b.click();}}
  else if(k===' '||k==='Spacebar'){if(['flow','decide','combat'].includes(S.phase)){e.preventDefault();togglePause();}}
