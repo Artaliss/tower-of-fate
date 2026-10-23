@@ -1,5 +1,5 @@
 // memorial.js — online memorial /m/<id> of one finished life (v2.7, after 1in8b.life, docs/rea/1in8b-rea-v2.md §3.5; free, no login)
-// - create(d,{onDone}): "ตั้งอนุสรณ์ออนไลน์" on the end screen -> notice that it is public -> the browser draws the 1200x630 link preview
+// - create(d,{onDone}): "ตั้งอนุสรณ์ออนไลน์" on the end screen -> notice that it is public -> the browser draws the 600x315 JPEG link preview
 //   -> POST /api/memorial -> link, copy, share. The owner key (24 hex) stays in localStorage 'tof-memo-own-v1'; the server keeps its SHA-256.
 // - viewer: /m/<id> (or ?m=<id>) opens an overlay over the game: cover, name, floor, title, HP/map strip of 100 floors,
 //   candles (POST /api/candle), tabs album (floor bands 1–25/26–50/51–75/76–100) · guestbook (5 fixed words) · last moments (replays the ending),
@@ -44,7 +44,7 @@ async function api(url,body,ms){const ctl=typeof AbortController!=='undefined'?n
   const r=await fetch(url,o);let j=null;try{j=await r.json();}catch(e){}return{st:r.status,j:j&&typeof j==='object'?j:{}};}
  catch(e){return{st:0,j:{}};}finally{clearTimeout(tm);}}
 function errTxt(r){if(r.st===0)return'ต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้งนะ';if(r.st===429)return'วันนี้กดแบบนี้บ่อยไปหน่อย พักสักครู่แล้วค่อยลองใหม่';
- if(r.j.error==='not-found')return'ไม่พบอนุสรณ์นี้ อาจถูกถอดออกไปแล้ว';if(r.j.error==='too-large')return'ข้อมูลของชีวิตนี้ยาวเกินไป ตั้งอนุสรณ์ไม่ได้';
+ if(r.j.error==='not-found')return'ไม่พบอนุสรณ์นี้ อาจถูกถอดออกไปแล้ว หรือไม่มีใครเปิดดูเลย 90 วันจนถูกลบไป';if(r.j.error==='too-large')return'ข้อมูลของชีวิตนี้ยาวเกินไป ตั้งอนุสรณ์ไม่ได้';
  return'ตอนนี้ระบบอนุสรณ์ยังไม่เปิด ลองใหม่ทีหลังนะ';}
 
 // ---------- scenes (same layout as the end cinematic in auto.js, drawn from the stored descriptors) ----------
@@ -79,7 +79,7 @@ function drawFrame(x,fr,d,t){if(!fr)return;if(fr.k==='u'){drawFun(x,d,t);return;
 const lastFr=d=>(d.fr||[]).find(f=>f.k==='d'||f.k==='w')||(d.fr||[])[0];
 function safeDraw(x,fr,d,t){try{drawFrame(x,fr,d,t);}catch(e){x.fillStyle='#15232a';x.fillRect(0,0,192,128);}}
 
-// ---------- link preview 1200x630 (drawn once, uploaded with the memorial) ----------
+// ---------- link preview (laid out at 1200x630, scaled to 600x315 JPEG ~25–40 KB before upload; the server drops images over 160 KB) ----------
 let fontsP=null;
 function waitFonts(){if(fontsP)return fontsP;const fs=document.fonts;if(!fs||!fs.load)return fontsP=Promise.resolve();
  const L=Promise.all(['500 20px Mitr','600 20px Mitr'].map(f=>fs.load(f,'หอคอยโชคชะตา 0123').catch(()=>null)));
@@ -98,8 +98,9 @@ async function ogImage(d){await waitFonts();const W=1200,H=630,{c,x}=cvs(W,H),s=
  const st=cvs(64,36);A.blit(st.x,A.STONE,26,14,{key:'stone',noShadow:true});A.blit(st.x,A.WREATH,28,21,{key:'wreath',noShadow:true});[[14,26],[46,26],[18,29],[42,29]].forEach(([X,Y],i)=>A.drawCandle(st.x,X,Y,0,i));
  x.drawImage(st.c,0,0,64,36,880,396,256,144);
  x.fillStyle='#8b7a62';x.font=`400 22px ${fT}`;x.textAlign='right';x.fillText('tower-of-fate.pages.dev',1136,600);x.textAlign='left';
- let u=c.toDataURL('image/png');if(u.length>380000)u=c.toDataURL('image/jpeg',.88);if(u.length>380000)u=c.toDataURL('image/jpeg',.72);
- return u.length>390000?null:u;}
+ const o=cvs(600,315);o.x.imageSmoothingEnabled=true;try{o.x.imageSmoothingQuality='high';}catch(e){}o.x.drawImage(c,0,0,600,315);
+ let u=o.c.toDataURL('image/jpeg',.82);if(u.length>110000)u=o.c.toDataURL('image/jpeg',.65);
+ return /^data:image\/jpeg;/.test(u)&&u.length<=150000?u:null;}
 
 // ---------- CSS ----------
 let cssDone=false;
@@ -164,7 +165,7 @@ function css(){if(cssDone)return;cssDone=true;const st=el('style');st.textConten
 .mmc h2{margin:0;font-size:19px;font-weight:600;color:#f4bb4a}
 .mmc p{margin:0;font-size:14px;line-height:1.6;color:#d8cdb4}
 .mmc .dim{color:#8fa39b;font-size:12.5px}
-.mmc img{width:100%;height:auto;aspect-ratio:1200/630;border-radius:6px;border:1px solid #3d5a66;background:#0f1a1f;display:block}
+.mmc img{width:100%;height:auto;aspect-ratio:600/315;border-radius:6px;border:1px solid #3d5a66;background:#0f1a1f;display:block}
 .mmc-row{display:flex;gap:8px;flex-wrap:wrap}.mmc-row button{flex:1;min-width:120px}
 .mmc button{font:500 14.5px ${fT};border-radius:8px;padding:10px 12px;min-height:44px;cursor:pointer;border:2px solid #3d5a66;background:#1c2e36;color:#f1e7d0}
 .mmc button.pri{background:#e86a3a;border-color:#000;color:#1a0b04;box-shadow:inset 0 -3px 0 #a8431c}
@@ -183,8 +184,8 @@ function cShow(){if(!cdlg.open){try{cdlg.showModal();}catch(e){cdlg.setAttribute
 function create(d,opt){opt=opt||{};if(!d||cbusy)return;cBuild();const box=cdlg._box;box.replaceChildren();
  const t=el('h2',{id:'mmc-t'},'ตั้งอนุสรณ์ออนไลน์');
  const p1=el('p',null,`อนุสรณ์คือหน้าเว็บของ${d.n} ใครได้ลิงก์ไปก็เปิดดู จุดเทียน และฝากคำไว้ได้`);
- const p2=el('p',null,'ชื่อ ฉายา ฉากที่จำได้ และสาเหตุที่จากไปจะขึ้นให้ทุกคนเห็น ไม่ต้องสมัครสมาชิก ถ้าเปลี่ยนใจก็ถอดออกจากเครื่องนี้ได้');
- const img=el('img',{alt:`ภาพตัวอย่างลิงก์อนุสรณ์ของ ${d.n}`,width:'1200',height:'630'});
+ const p2=el('p',null,'ชื่อ ฉายา ฉากที่จำได้ และสาเหตุที่จากไปจะขึ้นให้ทุกคนเห็น ไม่ต้องสมัครสมาชิก ถ้าเปลี่ยนใจก็ถอดออกจากเครื่องนี้ได้ ถ้าไม่มีใครเปิดลิงก์เลย 90 วัน อนุสรณ์จะหายไปเอง');
+ const img=el('img',{alt:`ภาพตัวอย่างลิงก์อนุสรณ์ของ ${d.n}`,width:'600',height:'315'});
  const msg=el('p',{class:'mmc-msg',role:'status','aria-live':'polite'});
  const go=el('button',{type:'button',class:'pri'},'ตั้งอนุสรณ์'),no=el('button',{type:'button'},'ยังก่อน');
  const row=el('div',{class:'mmc-row'});row.append(go,no);box.append(t,img,p1,p2,row,msg);no.onclick=cClose;
@@ -196,7 +197,7 @@ function create(d,opt){opt=opt||{};if(!d||cbusy)return;cBuild();const box=cdlg._
   const id=r.j.id,O=ownLoad();O[id]={k:dk,n:d.n,f:d.f,at:Date.now()};ownSave(O);try{opt.onDone&&opt.onDone(id);}catch(e){}try{window.ACH&&window.ACH.onEvent&&window.ACH.onEvent('memo',{id});}catch(e){}
   done(d,id,og);};}
 function done(d,id,og){const box=cdlg._box;box.replaceChildren();const url=linkOf(id);
- const t=el('h2',{id:'mmc-t'},'อนุสรณ์เปิดแล้ว');const img=el('img',{alt:`ภาพตัวอย่างลิงก์อนุสรณ์ของ ${d.n}`,width:'1200',height:'630'});if(og)img.src=og;else img.hidden=true;
+ const t=el('h2',{id:'mmc-t'},'อนุสรณ์เปิดแล้ว');const img=el('img',{alt:`ภาพตัวอย่างลิงก์อนุสรณ์ของ ${d.n}`,width:'600',height:'315'});if(og)img.src=og;else img.hidden=true;
  const p=el('p',null,`ส่งลิงก์นี้ให้เพื่อน แล้วเขาจะจุดเทียนให้${d.n}ได้`);const inp=el('input',{type:'text',readonly:'',value:url,'aria-label':'ลิงก์อนุสรณ์'});
  const msg=el('p',{class:'mmc-msg',role:'status','aria-live':'polite'});
  const bC=el('button',{type:'button',class:'pri'},'คัดลอกลิงก์'),bS=el('button',{type:'button'},'แชร์'),bL=el('button',{type:'button'},'ส่งใน LINE'),bO=el('button',{type:'button'},'เปิดดูอนุสรณ์'),bX=el('button',{type:'button'},'ปิด');
@@ -224,6 +225,7 @@ window.addEventListener('keydown',e=>{const top=RP.on?RP.el:V.el;if(!top||top.co
  if(e.key==='Escape'||e.key==='Esc'){e.preventDefault();if(RP.on)rpClose();else close();}},true);
 async function open(id){if(!okId(id))return;if(!V.el){V.lastFocus=document.activeElement;}V.id=id;V.m=null;const o=vBuild();try{o.querySelector('.x').focus({preventScroll:true});}catch(e){}
  const r=await api('/api/memorial?id='+id);if(V.id!==id||V.el!==o)return;
+ if(r.st===404&&r.j.error==='not-found'){const O=ownLoad();if(O[id]){delete O[id];ownSave(O);}}
  if(!r.j.ok||!r.j.m||!r.j.m.d){o.querySelector('.mmv-body').innerHTML=`<div class="mmv-state" role="status">${esc(errTxt(r))}<br><br><button type="button" class="mmv-btn">ลองเกิดดูบ้าง</button></div>`;o.querySelector('.mmv-state .mmv-btn').onclick=tryBirth;return;}
  V.m=r.j.m;render();}
 function stripHTML(d){const fl=d.f>100?100:d.f,hp=d.hp||[],mp=d.mp||[];let s='';
