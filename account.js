@@ -111,7 +111,7 @@ function renderOut(el){
  <form class="ac-f" id="acForm" autocomplete="on"><input id="acName" name="username" autocomplete="username" maxlength="16" placeholder="ชื่อบัญชี (3–16 ตัว)" aria-label="ชื่อบัญชี">
  <input id="acPw" name="password" type="password" autocomplete="current-password" maxlength="72" placeholder="รหัสผ่าน (8 ตัวขึ้นไป)" aria-label="รหัสผ่าน">
  <div><button class="mt-btn pri" type="submit" data-a="login">เข้าสู่ระบบ</button><button class="mt-btn" type="button" data-a="signup">สมัครบัญชีใหม่</button></div></form>
- ${msgHTML()}<p class="mt-dim">ลืมรหัสผ่านแล้วกู้คืนไม่ได้ เพราะเราไม่เก็บอีเมล จดไว้ให้ดีนะ</p>${shopHTML(M.load())}`;
+ ${msgHTML()}<p class="mt-dim">ชื่อบัญชีจะขึ้นคู่กับผลรอบบนกระดานอันดับให้คนอื่นเห็น อย่าใช้ชื่อจริงหรือชื่อที่ใช้ล็อกอินที่อื่น</p><p class="mt-dim">ลืมรหัสผ่านแล้วกู้คืนไม่ได้ เพราะเราไม่เก็บอีเมล จดไว้ให้ดีนะ</p>${shopHTML(M.load())}`;
  const f=el.querySelector('#acForm'),go=async a=>{if(busy)return;const n=f.querySelector('#acName').value.trim(),pw=f.querySelector('#acPw').value;
   if(!NAME_RE.test(n)){say(errTxt({st:400,j:{error:'bad-name'}}),true);return;}if(pw.length<8){say(errTxt({st:400,j:{error:'bad-pw'}}),true);return;}
   busy=true;say(a==='signup'?'กำลังสร้างบัญชี…':'กำลังเข้าสู่ระบบ…');const r=await acct({a,name:n,pw},false);busy=false;

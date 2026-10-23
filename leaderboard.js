@@ -3,6 +3,8 @@
 // v2.3: แท็บ 'wall' ชีวิตที่แบ่งปัน (/api/posts) + แนบตัวนับการแชร์ (tof-share-stat-v1) ไปกับผลรอบเป็น field ss
 // v2.7: ตัวนับการแชร์ส่งเองผ่าน /api/live {a:'ss'} (LB.ssSoon) ไม่รอผลรอบแล้ว · id เครื่อง 16 hex (tof-dev-v1) ติดไปกับโพสต์ คะแนน และตัวนับ เป็น field dv
 // v0.2.8: หอเกียรติยศ แท็บ 'hof' (GET /api/scores?hof=1) วาดฮีโร่จาก field lk {f,s,p} + gear ['excal'] ที่ติดไปกับผลรอบ (ไม่อยู่ใน canon)
+// v0.3.5: ถ้าเข้าสู่ระบบบัญชีไว้ (account.js เก็บโทเคนใน tof-acct-v1) ส่ง Authorization: Bearer แบบเดียวกับ /api/acct ไปกับผลรอบ
+//         เซิร์ฟเวอร์อ่านชื่อบัญชีจาก session เองแล้วเก็บเป็น field ac แสดงคู่กับชื่อฮีโร่ทุกตาราง (เกมไม่ส่งชื่อบัญชีเอง)
 // POST/GET '/api/scores' (Cloudflare Pages Function). ส่งไม่สำเร็จจะเก็บคิวไว้ใน localStorage แล้วส่งใหม่ตอนโหลดครั้งหน้า
 (function(){
 'use strict';
@@ -86,11 +88,17 @@ function ssDone(sent){try{const v=rd(K_SS,null);if(!v||typeof v!=='object'||!sen
   const c=num(t[k]);if(c>0)t[k]=Math.max(0,Math.floor(c)-n);}
  wr(K_SS,v);}catch(e){}}
 
+// ---- บัญชี (v0.3.5): อ่านอย่างเดียว โทเคนหมดอายุ/หลุดระบบ account.js เป็นคนลบ ----
+const K_AC='tof-acct-v1';
+function acSess(){const v=rd(K_AC,null);if(!v||typeof v!=='object'||typeof v.tok!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(v.tok))return null;
+ if(v.exp&&num(v.exp)<Date.now())return null;return {tok:v.tok,name:clean(String(v.name||''),16)};}
+const acTag=(ac,cls)=>{const a=clean(String(ac||''),16);return a?`<span class="${cls||'lb-ac'}" title="เล่นโดยบัญชี ${esc(a)}">👤 ${esc(a)}</span>`:'';};
+
 // ---- submit / queue ----
 let flushing=false;
 function submit(summary){try{if(!summary||typeof summary!=='object'||!(num(summary.floor)>=1))return null;const e=toEntry(summary);
  const mine=rd(K_MINE,[]);const L=Array.isArray(mine)?mine:[];
- if(!L.some(x=>x&&x.id===e.id)){L.push(Object.assign({cause:clean(String((summary&&summary.cause)||''),60)},e));L.sort(cmp);wr(K_MINE,L.slice(0,20));}
+ if(!L.some(x=>x&&x.id===e.id)){const sa=acSess();L.push(Object.assign({cause:clean(String((summary&&summary.cause)||''),60)},e,sa&&sa.name?{ac:sa.name}:{}));L.sort(cmp);wr(K_MINE,L.slice(0,20));}
  const ids=rd(K_IDS,[]);if(Array.isArray(ids)&&!ids.includes(e.id)){ids.push(e.id);wr(K_IDS,ids.slice(-200));}
  const q=rd(K_Q,[]);const Q=Array.isArray(q)?q:[];if(!Q.some(x=>x&&x.id===e.id))Q.push(e);wr(K_Q,Q.slice(-20));
  flush();return e.id;}catch(err){return null;}}
@@ -100,7 +108,8 @@ async function flush(){if(flushing||typeof fetch!=='function')return;flushing=tr
   const old=Date.now()-29*86400e3;const Q=Q0.filter(e=>e&&num(e.date)>old);
   const keep=[];
   for(const e of Q){let st=0;
-   try{const {id,...body}=e;body.dv=devId();const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),credentials:'same-origin'});st=r.status;
+   try{const {id,...body}=e;body.dv=devId();const H={'Content-Type':'application/json'},sa=acSess();if(sa)H.Authorization='Bearer '+sa.tok;
+    const r=await fetch(API,{method:'POST',headers:H,body:JSON.stringify(body),credentials:'same-origin'});st=r.status;
     if(st>=200&&st<300){let j=null;try{j=await r.json();}catch(err){}if(e.ss&&j&&j.ss===1)ssDone(e.ss);
      if(j&&j.hof===1){hcache=null;try{window.ACH&&ACH.grant&&ACH.grant('hof');}catch(err){}}}}catch(err){st=0;}
    // 2xx = ส่งแล้ว, 4xx (ยกเว้น 429/404/408) = ข้อมูลไม่ผ่าน ส่งซ้ำก็ไม่ผ่าน ทิ้งได้
@@ -144,6 +153,8 @@ function css(){if(document.getElementById('lb-css'))return;const st=document.cre
 .lb-who b i{font-style:normal;color:var(--gold,#f4bb4a);font-weight:400}
 .lb-who span{display:block;color:var(--muted,#a3b5ad);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lb-who b>span{display:inline}
+.lb-who span>.lb-ac{display:inline-block;max-width:11em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;color:var(--ink,#f1e7d0);opacity:.75}
+.lb-acme{margin:0 0 8px;font-size:12px;color:var(--muted,#a3b5ad);text-align:center;overflow-wrap:anywhere}.lb-acme b{color:var(--ink,#f1e7d0);font-weight:500}
 .lb-fl{text-align:right;font-family:'DotGothic16','Mitr',monospace;line-height:1.2}
 .lb-fl b{font-size:16px;color:var(--ink,#f1e7d0)}
 .lb-fl span{display:block;font-size:11px;color:var(--dim,#6f857e)}
@@ -181,13 +192,14 @@ function css(){if(document.getElementById('lb-css'))return;const st=document.cre
 .hof-c canvas{display:block;width:100%;height:auto;aspect-ratio:2/1;image-rendering:pixelated;image-rendering:crisp-edges;border-radius:2px;margin-bottom:4px;background:var(--panel2,#1c2e36)}
 .hof-c b{font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hof-c i{font-style:normal;color:var(--gold,#f4bb4a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hof-c .hac{color:var(--muted,#a3b5ad);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hof-c .cl{color:var(--muted,#a3b5ad);overflow-wrap:anywhere}
 .hof-c .ft{display:flex;align-items:baseline;justify-content:space-between;gap:4px;margin-top:2px;color:var(--dim,#6f857e);font-size:11px}
 .hof-c .ft em{font-style:normal;font-family:var(--fP,'DotGothic16','Mitr',monospace);font-size:14px;color:var(--gold,#f4bb4a)}.hof-c.s101 .ft em{color:var(--sc-sec,#d77ad0)}
 .hof-c .tg{display:flex;flex-wrap:wrap;gap:3px}.hof-c .tg .lb-drg,.hof-c .tg .lb-tag{margin-left:0}
 .lb-drg.ex{background:#1a3a4a;color:#d8f6ff;border:1px solid #8fe0ff}
 .lb-drg.hid{background:#5a1d14;color:#ffd2b8;border:1px solid #ff7a5a}
-@media (max-width:420px){.hof-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.lb-row{grid-template-columns:22px 30px 1fr auto;gap:6px;padding:5px 6px}.lb-hd h2{font-size:15px}.lb-tabs button{padding:6px 8px;font-size:12.5px}}
+@media (max-width:420px){.lb-who span>.lb-ac{max-width:8em}.hof-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.lb-row{grid-template-columns:22px 30px 1fr auto;gap:6px;padding:5px 6px}.lb-hd h2{font-size:15px}.lb-tabs button{padding:6px 8px;font-size:12.5px}}
 @media (prefers-reduced-motion:no-preference){#lbDlg[open]{animation:lbIn .2s steps(3)}@keyframes lbIn{from{opacity:0;transform:translateY(8px)}}}`;
  document.head.appendChild(st);}
 
@@ -210,7 +222,7 @@ function row(e,i,me){const rk=RANKC[e.rankK]?e.rankK:'?';
  const cls=['dsl','nec','ang'].includes(e.clsId)?`<span class="lb-hid"><em>อาชีพลับ</em>${cls0}</span>`:cls0;
  const sw=(gearIn(e.gear)||[]).includes('excal')?'<span class="lb-drg ex" title="พกดาบศักดิ์สิทธิ์ในหิน ATK +10% ตีบอสแรงขึ้น 10%">🗡</span>':'';
  const drg=e.drg==='f'?'<span class="lb-drg f" title="ไว้ชีวิตมังกรบนชั้นลับ">🐉 สหายมังกร</span>':e.drg==='s'?'<span class="lb-drg s" title="ล้มมังกรบนชั้นลับ">⚔ นักล่ามังกร</span>':'';
- const sub=[cls+(e.form==='slime'?' (สไลม์)':''),e.village?'จาก'+esc(e.village):'','รุ่นที่ '+int(e.gen,1,9999),e.ach?`<span title="ความสำเร็จที่ปลดล็อกแล้ว ${int(e.ach,0,500)} อย่าง">🏅${int(e.ach,0,500)}</span>`:''].filter(Boolean).join(' · ');
+ const sub=[acTag(e.ac),cls+(e.form==='slime'?' (สไลม์)':''),e.village?'จาก'+esc(e.village):'','รุ่นที่ '+int(e.gen,1,9999),e.ach?`<span title="ความสำเร็จที่ปลดล็อกแล้ว ${int(e.ach,0,500)} อย่าง">🏅${int(e.ach,0,500)}</span>`:''].filter(Boolean).join(' · ');
  return `<li class="lb-row${me?' me':''}${e.won?' win':''}"><span class="no">${i==null?'':i+1}</span><span class="lb-rk" style="background:${RANKC[rk]||'#888'}">${esc(rk)}</span>
 <span class="lb-who"><b>${esc(e.name)}${drg}${sw}${e.title?` <i>“${esc(e.title)}”</i>`:''}${me?'<span class="lb-tag">คุณ</span>':''}${e.ok===0?'<span class="lb-drg" style="border:1px solid #6f857e;color:#a3b5ad" title="รอบนี้ไม่มีตั๋วจากเซิร์ฟเวอร์ หรือจบเร็วเกินกว่าที่เล่นได้จริง">ไม่นับอันดับ</span>':''}</b><span>${sub}</span></span>
 <span class="lb-fl">${e.floor===101?'<b>🐉 101</b>':e.won?'<b>👑</b>':`<b>${int(e.floor,0,100)}</b>`}<span title="คะแนนชีวิต">${e.floor===101?'ชั้นลับ':e.won?'พิชิตยอด':'ชั้น'} · ${num(e.score).toLocaleString('en-US')} คะแนน</span></span></li>`;}
@@ -221,6 +233,7 @@ const LEGEND=`<details class="lb-leg"><summary>อ่านตารางยั
 <li><b>คะแนน</b> คือคะแนนชีวิต ได้จากชั้นที่ไปถึง + บอสที่ล้มได้ตัวละ 3 + พิชิตยอดอีก 30 + ครึ่งหนึ่งของเลเวล + ผ่านชั้นลับอีก 10 ถึง 15 แล้วบวกหรือลบตามบัญชีกรรมตอนจบ ใช้ตัดสินตอนไปได้ชั้นเท่ากัน</li>
 <li><b>🏅</b> จำนวนความสำเร็จที่คนนั้นปลดล็อกไว้ตอนส่งผล</li>
 <li><b>อันดับทั่วโลก</b> รับเฉพาะรอบที่เล่นจบบนเว็บนี้จริง (เซิร์ฟเวอร์ออกตั๋วให้ตอนเข้าหอ) รอบที่ไม่มีตั๋วหรือจบเร็วผิดปกติจะขึ้นแค่ในแท็บล่าสุด พร้อมป้าย "ไม่นับอันดับ"</li>
+<li><b>👤</b> ชื่อบัญชีของคนที่เล่นรอบนั้น (ขึ้นเฉพาะตอนเข้าสู่ระบบไว้)</li>
 <li><b>รุ่นที่</b> ลำดับรุ่นในสายตระกูล (ลูกศิษย์สืบทอดต่อกันมากี่รุ่น) · <b>F ถึง SS</b> แรงค์ตอนเกิด</li></ul></details>`;
 function msg(t,s){return `<div class="lb-msg"><b>${t}</b>${s||''}</div>`;}
 async function load(){if(cache&&Date.now()-cacheAt<30e3)return cache;
@@ -239,9 +252,10 @@ async function show(t){if(!dlg)return;cur=t;
  if(t==='wall'){wall(B,mine);return;}
  if(t==='hof'){hof(B,mine);return;}
  if(t==='mine'){const q=rd(K_Q,[]);const pend=Array.isArray(q)?q.length:0;
-  B.innerHTML=mine.length?`<ul class="lb-list">${mine.slice().sort(cmp).map((e,i)=>row(e,i,false)).join('')}</ul>`+
+  const sa=acSess(),acL=`<p class="lb-acme">${sa&&sa.name?`เข้าสู่ระบบเป็น <b title="${esc(sa.name)}">👤 ${esc(sa.name)}</b> ชื่อนี้จะขึ้นคู่กับผลรอบบนกระดาน`:'ยังไม่ได้เข้าสู่ระบบ ผลรอบจะขึ้นกระดานโดยไม่มีชื่อบัญชี'}</p>`;
+  B.innerHTML=acL+(mine.length?`<ul class="lb-list">${mine.slice().sort(cmp).map((e,i)=>row(e,i,false)).join('')}</ul>`+
    `<p class="lb-note">เก็บไว้ในเครื่องนี้ 20 รอบที่ดีที่สุด${pend?` · รอส่งขึ้นกระดาน ${pend} รอบ`:''}</p>`
-   :msg('ยังไม่มีบันทึก','ลองปีนหอสักรอบ แล้วผลจะมาโผล่ตรงนี้');return;}
+   :msg('ยังไม่มีบันทึก','ลองปีนหอสักรอบ แล้วผลจะมาโผล่ตรงนี้'));return;}
  B.innerHTML=msg('กำลังโหลดกระดาน…','');
  const d=await load();if(cur!==t)return;
  if(d.error){B.innerHTML=msg(d.error==='kv-not-configured'?'กระดานอันดับยังไม่เปิดใช้':'ต่อกระดานอันดับไม่ได้ตอนนี้',
@@ -288,7 +302,7 @@ function hofCard(e,i,me){const cls0=CLSN[e.clsId]||esc(e.clsN)||'',s101=e.floor=
   e.drg==='f'?'<span class="lb-drg f">🐉 สหายมังกร</span>':e.drg==='s'?'<span class="lb-drg s">⚔ นักล่ามังกร</span>':'',
   ...(Array.isArray(e.gear)?e.gear.filter(g=>GEARN[g]).map(g=>`<span class="lb-drg ex">${GEARN[g]}</span>`):[]),me?'<span class="lb-tag">คุณ</span>':''].filter(Boolean).join('');
  return `<li class="hof-c${me?' me':''}${s101?' s101':''}"><canvas width="${HW}" height="${HH}" data-i="${i}" role="img" aria-label="${esc(e.name)} ${cls0}"></canvas>
-<b title="${esc(e.name)}">${esc(e.name)}</b>${e.title?`<i title="${esc(e.title)}">“${esc(e.title)}”</i>`:''}
+<b title="${esc(e.name)}">${esc(e.name)}</b>${acTag(e.ac,'hac')}${e.title?`<i title="${esc(e.title)}">“${esc(e.title)}”</i>`:''}
 <span class="cl">${cls0}${e.form==='slime'&&e.clsId!=='nec'&&e.clsId!=='ang'?' (สไลม์)':''}${petN?' · มี'+esc(petN):''}</span>${tags?`<span class="tg">${tags}</span>`:''}
 <span class="ft"><em>${s101?'🐉 101':'👑 100'}</em><span>${esc(fdate(e.date))}</span></span></li>`;}
 async function hof(B,mine){B.innerHTML=msg('กำลังเปิดหอเกียรติยศ…','');

@@ -2686,7 +2686,7 @@ const agoT=ms=>ms<9e4?'เมื่อสักครู่':ms<36e5?`${Math.rou
 // birth screen: how many people are climbing right now + a rotating line about recent lives
 function liveBox(){const L=window.LB&&window.LB.live;if(!L||S.liveAsk)return;S.liveAsk=1;const run=S;
  Promise.all([L.get(dayKey()),L.recent()]).then(([g,rec])=>{if(S!==run)return;const now=Date.now();
-  const feed=(Array.isArray(rec)?rec:[]).filter(e=>e&&now-(e.at||e.date)<864e5).slice(0,8).map(e=>`${agoT(now-(e.at||e.date))} ${e.name} ${e.floor===101?'ผ่านชั้นลับเหนือยอดหอ':e.won?'พิชิตยอดหอคอย':`ล้มลงที่ชั้น ${e.floor}`}`);
+  const feed=(Array.isArray(rec)?rec:[]).filter(e=>e&&now-(e.at||e.date)<864e5).slice(0,8).map(e=>`${agoT(now-(e.at||e.date))} ${e.name}${e.ac?` (👤 ${e.ac})`:''} ${e.floor===101?'ผ่านชั้นลับเหนือยอดหอ':e.won?'พิชิตยอดหอคอย':`ล้มลงที่ชั้น ${e.floor}`}`);
   if(!g&&!feed.length)return;
   S.liveHTML=`${g?`<div>🔥 ${g.n?`ตอนนี้มี <b class="px">${fmt(g.n)}</b> คนกำลังไต่หอ`:'ตอนนี้ในหอยังเงียบ ยังไม่มีใครไต่อยู่'}${g.day&&g.day.n?` · วันนี้เข้าหอไปแล้ว ${fmt(g.day.n)} คน`:''}</div>`:''}${feed.length?`<div class="feed" id="liveFeed">${esc(feed[0])}</div>`:''}`;
   const box=$('liveBox');if(box){box.innerHTML=S.liveHTML;box.hidden=false;}

@@ -10,8 +10,12 @@
 //         ok:0 rows carry nok = why: 'tk' no ticket, 'time' too fast, 'dv' other device, 'score' / 'drg' does not add up
 //         a ticketed win (ok:1) is also kept in 'hof' (newest HOF_N winners): one extra write, only on won runs; response hof:1
 // GET ?hof=1 -> {hof:[...]} winners from 'hof' + any won rows still in 'top'/'recent' (covers wins from before 'hof' existed)
+//         optional header 'Authorization: Bearer <token>' = the account.js session (same as /api/acct). If it is a live session the
+//         account name is read from D1 (acct_sess JOIN acct, one read, no write) and stored on the row as 'ac' (v0.3.5); never taken
+//         from the body. Bad/expired/missing token, or no account tables yet -> no 'ac', the score is still accepted.
 
 import { store, tix } from './store.js';
+import { who, okName } from './acctlib.js';
 import { readLive, prune, writeLive, okDay, okDv, thDay, shareStats, addShare } from './live.js';
 const TOP_N = 100, RECENT_N = 50, HOF_N = 100;
 const RL_MAX = 10, RL_WIN = 600;          // 10 posts / 10 min / IP
@@ -112,7 +116,7 @@ export function validate(b, now = Date.now()) {
 // share analytics (v2.3): old clients piggyback share counters on a score post, summed into live.d[day].ss (shareStats/addShare live in live.js since v2.7)
 
 // hall of fame row: what a card needs, nothing more
-const HOF_K = ['id', 'name', 'village', 'rankK', 'clsId', 'clsN', 'form', 'floor', 'won', 'title', 'score', 'gen', 'date', 'drg', 'clan', 'lk', 'gear'];
+const HOF_K = ['id', 'name', 'village', 'rankK', 'clsId', 'clsN', 'form', 'floor', 'won', 'title', 'score', 'gen', 'date', 'drg', 'clan', 'lk', 'gear', 'ac'];
 const hofRow = e => { const o = {}; for (const k of HOF_K) if (e[k] !== undefined) o[k] = e[k]; return o; };
 export function hofMerge(hof, top, recent) {
   const seen = new Set(), out = [];
@@ -211,6 +215,11 @@ export async function onRequestPost({ request, env }) {
       if (await kv.get(dupKey)) return json({ ok: true, dup: true, id: e.id });
       await kv.put(dupKey, '1', { expirationTtl: DUP_TTL });
     }
+  }
+
+  // account name (v0.3.5): only from a live session in D1, cleaned like every other name; anything wrong just leaves 'ac' off
+  if (env.TOF_DB && request.headers.get('Authorization')) {
+    try { const u = await who(env.TOF_DB, request, now); const ac = u && clean(String(u.name || ''), 16); if (ac && okName(ac)) e.ac = ac; } catch { }
   }
 
   // only runs that carry a server ticket and pass the checks reach 'top'; the rest still show in 'recent' with ok:0

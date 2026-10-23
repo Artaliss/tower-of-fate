@@ -224,7 +224,7 @@ the score post. Neither is part of `canon()` or `h`, so older clients still pass
 stored on the `top` / `recent` rows.
 
 Storage: key `hof` holds the newest 100 winners, trimmed to what a card needs
-(`id name village rankK clsId clsN form floor won title score gen date drg clan lk gear`).
+(`id name village rankK clsId clsN form floor won title score gen date drg clan lk gear ac`).
 It is written only for a ticketed win (`won` and `ok:1`), so it costs one extra write on roughly
 3 to 4% of runs and nothing on the rest. The POST response then carries `hof:1`, which unlocks
 the achievement `hof` (ขึ้นหอเกียรติยศ) through `ACH.grant('hof')`.
@@ -236,3 +236,27 @@ from the name, the same fallback old saves use.
 
 Not wired yet: `summary.gear` (see the TODO in `toEntry()` in leaderboard.js). Add
 `gear: carriesExcalibur ? ['excal'] : []` to `const sum = {...}` in auto.js.
+
+## Account name on rows (v0.3.5, field `ac`)
+
+When the player is signed in (account.js keeps the session in `tof-acct-v1`), `leaderboard.js`
+sends the score with `Authorization: Bearer <token>`, the same header `/api/acct` uses. The body
+never carries the name; an `ac` in the body is dropped by `validate()` like any unknown field.
+
+`scores.js` looks the token up with `who()` from `acctlib.js` (one read: `acct_sess JOIN acct`,
+no write), cleans the name with `clean(name, 16)` and checks it with `okName()`, then stores it as
+`ac` on the row in `recent`, `top` and `hof`. A missing, malformed, unknown or expired token, or
+account tables that do not exist yet, just leave `ac` off and the score goes through as before.
+The lookup runs after the dup checks, so a duplicate post costs no extra read. `ac` is not part
+of `canon()`, so ids and hashes are unchanged and old clients keep working.
+
+Accounts have one name (login name = public name), so that is what shows. The sign-up form says
+the name appears on the leaderboard.
+
+Shown in: top and recent rows (first item of the grey line under the hero name, `👤 name`, cut
+with `…` and a tooltip), hall of fame cards (line under the name), the "ของฉัน" tab (which
+account is signed in, plus `ac` saved locally on each run) and the birth-screen feed in auto.js.
+The ticket request (`/api/live start`) does not send the token.
+
+Test: `node tools/lb-acct-test.mjs` (real SQLite as D1: session gives `ac`, bad/expired token
+gives no `ac` but the score is accepted, body `ac` ignored, same writes with or without a session).
