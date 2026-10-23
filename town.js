@@ -66,7 +66,7 @@ sunglasses:{n:'แว่นกันแดด',draw(c,x,y){R(c,x-4,y+3,3,2,'#141
 // แถวบน: ป้อม/ประตูดันเจี้ยน/ร้านเทศกาล · กลาง: น้ำพุ + รูปปั้นหัวหน้าตระกูล · ซ้าย: กระดานเควส · ขวา: ลานฝึก · ล่าง: คอกสัตว์เลี้ยง
 const BY=46,FX=96,FY=88,PEN={x0:50,y0:120,x1:142,y1:156};
 // r = กรอบแตะ [x0,y0,x1,y1] · tab = แท็บที่เปิด · focus = ส่งต่อให้ CITY.focus
-const BLD=[{id:'clan',tab:'clan',n:'ป้อมทหารรับจ้าง',ic:'🛡',x:30,r:[14,0,46,BY]},
+const BLD=[{id:'clan',tab:'merc',n:'ป้อมทหารรับจ้าง',ic:'🛡',x:30,r:[14,0,46,BY]},
  {id:'hard',tab:'hard',n:'ประตูดันเจี้ยน',ic:'🌀',x:96,r:[80,6,112,BY]},
  {id:'fest',tab:'fest',n:'ร้านเทศกาล',ic:'🎃',x:162,r:[146,14,178,BY]},
  {id:'quest',tab:'quest',n:'กระดานเควส',ic:'📜',x:22,y:90,r:[7,58,37,91]},
@@ -156,6 +156,11 @@ function decorOf(P){const d=((P.mod||{}).city||{}).decor;return Array.isArray(d)
 function jobsOf(P){const j=((P.mod||{}).city||{}).jobs,pen=new Set(),busy=new Set();if(j&&typeof j==='object')for(const k in j)if(Array.isArray(j[k]))j[k].forEach(id=>(k==='pen'?pen:busy).add(id));
  pen.forEach(id=>busy.delete(id));return{pen,busy};}
 function petMood(id){try{const m=window.CITY&&window.CITY.petMood&&window.CITY.petMood(id);if(typeof m==='number')return{e:m>=80?'😄':m>=55?'🙂':m>=35?'😐':'😣',n:`อารมณ์ ${m}/100`};if(!m)return null;if(typeof m==='string')return{e:m,n:''};return{e:m.e||m.emoji||m.icon||'',n:m.n||m.t||m.text||''};}catch(e){return null;}}
+// ความรู้สึกสัตว์: CITY.petMood ให้เลข 0-100 (หรือสตริง/อ็อบเจกต์จากเวอร์ชันอื่น) → อีโมจิ + ประโยคสั้นๆ
+const MOOD=[[80,'😄',n=>`${n}กำลังอารมณ์ดี วิ่งเล่นไม่หยุด`],[60,'🙂',n=>`${n}นอนอาบแดดข้างกองฟาง ดูสบายใจ`],[35,'😐',n=>`${n}เริ่มเบื่อ อยากให้ใครมาเล่นด้วย`],[-1,'😢',n=>`${n}งอนอยู่มุมคอก รอขนมอยู่`]];
+function moodLine(p,n){let v=null;try{v=window.CITY&&window.CITY.petMood&&window.CITY.petMood(p.id);}catch(e){}const dft={e:'🙂',t:`${n}เดินเล่นอยู่ในคอก`};
+ if(typeof v==='number'&&isFinite(v)){const r=MOOD.find(x=>v>=x[0]);return{e:r[1],t:r[2](n)};}
+ if(typeof v==='string'&&v)return{e:v,t:dft.t};if(v&&typeof v==='object')return{e:v.e||v.emoji||v.icon||dft.e,t:v.n||v.t||v.text||dft.t};return dft;}
 const rnd=(a,b)=>a+Math.random()*(b-a);
 // พื้นที่เดินในลาน: เว้นน้ำพุ กระดานเควส ลานฝึก และไม่ลงไปแถวคอก
 function okPlaza(x,y){return((x-FX)/40)**2+((y-FY+2)/19)**2>=1&&!(x<40&&y<94)&&!(x>150&&y<94);}
@@ -164,12 +169,14 @@ function pick(e){let tx,ty;if(e.pen){e.q=[{x:rnd(PEN.x0+8,PEN.x1-8),y:rnd(PEN.y0
  // ข้ามฝั่งน้ำพุ: อ้อมใต้น้ำพุก่อน
  e.q=(e.x<FX)!==(tx<FX)?[{x:FX+rnd(-12,12),y:rnd(108,113)},{x:tx,y:ty}]:[{x:tx,y:ty}];}
 function build(P){const hd=P.roster.find(m=>m.id===P.head),mt=mat(P),ents=[],stat=[],J=jobsOf(P);
- stat.push({s:hd?noHat(spOf(hd)):null,x:FX,y:FY,sc:2,rg:1,info:hd?`<b>👑 ${esc(hd.name)}</b><br><span class="mt-dim">รูปปั้นหัวหน้าตระกูลกลางน้ำพุ${mt===1?' (ทอง)':mt===2?' (รุ้ง)':''}</span>`:`<b>แท่นกลางน้ำพุยังว่างอยู่</b><br><span class="mt-dim">${P.wins?'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูลได้ที่ป้อมทหารรับจ้าง':'ไต่หอให้ถึงชั้น 100 เพื่อหาลูกรักมาเป็นหัวหน้าตระกูล'}</span>`});
+ stat.push({s:hd?noHat(spOf(hd)):null,x:FX,y:FY,sc:2,rg:1,info:hd?`<b>👑 ${esc(hd.name)}</b><br><span class="mt-dim">รูปปั้นหัวหน้าตระกูลกลางน้ำพุ${mt===1?' (ทอง)':mt===2?' (รุ้ง)':''}</span>`:`<b>แท่นกลางน้ำพุยังว่างอยู่</b><br><span class="mt-dim">${P.wins?'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูลได้ที่ปุ่มคนในตระกูล 🧑 มุมขวาล่าง':'ไต่หอให้ถึงชั้น 100 เพื่อหาลูกรักมาเป็นหัวหน้าตระกูล'}</span>`});
  P.statues.filter(s=>!hd||s.name!==hd.name).slice(-ST_SLOT.length).reverse().forEach((s,i)=>{let sp=null;try{sp=A().heroSpr(s.cls||'war',{form:'human',seed:s.name});}catch(e){}
   stat.push({s:sp,x:ST_SLOT[i][0],y:ST_SLOT[i][1],sc:1,info:`<b>🗿 ${esc(s.name)}</b><br><span class="mt-dim">${esc(M.clsN(s.cls))} · ผู้พิชิตยอดหอ${s.sec==='f'||s.sec==='s'?' และชั้นลับ':''}</span>`});});
  const spawn=e=>{if(e.pen){e.x=rnd(PEN.x0+8,PEN.x1-8);e.y=rnd(PEN.y0+8,PEN.y1-4);}else{for(let i=0;i<12;i++){e.x=rnd(10,182);e.y=rnd(64,112);if(okPlaza(e.x,e.y))break;}}pick(e);ents.push(e);};
  P.roster.forEach(m=>{if(J.busy.has(m.id))return;const s=spOf(m);if(!s)return;const pen=J.pen.has(m.id);spawn({k:'m',m,s,pen,w:wearOf(P,m.id),sp:pen?rnd(5,8):rnd(9,15),pause:rnd(0,2)});});
  P.pets.forEach(p=>{const s=petSp(p.k);if(s)spawn({k:'p',p,s,pen:true,sp:rnd(10,17),pause:rnd(0,2)});});
+ // ยังไม่มีใครในตระกูลมาดูแลคอก: ชาวไร่ประจำคอกยืนเฝ้าแทน
+ if(!J.pen.size){let s=null;try{s=A().heroSpr('far',{form:'human',seed:'ชาวไร่'});}catch(e){}if(s)spawn({k:'n',s,pen:true,sp:rnd(4,6),pause:rnd(1,3)});}
  const dec=decorOf(P).slice(0,DE_SLOT.length).map((k,i)=>({k,x:DE_SLOT[i][0],y:DE_SLOT[i][1]}));
  return{ents,stat,dec,mt,J};}
 function step(D,dt){D.ents.forEach(e=>{if(e.pause>0){e.pause-=dt;return;}const g=e.q&&e.q[0];if(!g){pick(e);return;}const dx=g.x-e.x,dy=g.y-e.y,d=Math.hypot(dx,dy);
@@ -206,43 +213,103 @@ function css(){if(document.getElementById('twCss'))return;const st=document.crea
 .tw-mini{flex:1 1 100%;display:block;position:relative;width:100%;max-width:420px;padding:0;border:1px solid var(--line,#2c3a36);border-radius:8px;overflow:hidden;background:#0e1513;cursor:pointer;color:inherit;font:inherit}
 .tw-mini canvas{display:block;width:100%;height:auto;max-height:130px;image-rendering:pixelated}
 .tw-mini span{position:absolute;left:6px;bottom:5px;padding:1px 7px;border-radius:5px;background:rgba(10,14,16,.78);font-size:12px}
-.tw-mini:focus-visible{outline:2px solid var(--focus,#ffd76a);outline-offset:2px}`;document.head.appendChild(st);}
-const tabOf=id=>document.querySelector(`#metaDlg .mt-tabs [data-t="${id}"]`);
+.tw-mini.nw canvas{filter:grayscale(.6) brightness(.7)}
+.tw-mini:focus-visible{outline:2px solid var(--focus,#ffd76a);outline-offset:2px}
+.tw-hud{position:absolute;inset:0;z-index:1;pointer-events:none}.tw-hud button,.tw-hud .tw-panel{pointer-events:auto}
+.tw-gold{position:absolute;top:3px;right:8px;font-family:var(--fP,'DotGothic16',monospace);font-size:clamp(16px,4.6vw,24px);color:var(--gold,#f4bb4a);text-shadow:0 2px 0 #000,0 0 6px rgba(0,0,0,.9);white-space:nowrap}
+.tw-sign{position:absolute;top:1.5%;left:50%;transform:translateX(-50%);max-width:44%;padding:2px 10px;border:2px solid #4a2e16;border-radius:4px;background:#8a5a32;color:#fff4d8;font:inherit;font-size:clamp(11px,2.8vw,15px);line-height:1.25;text-align:center;cursor:pointer;box-shadow:inset 0 1px 0 #b07a42,0 2px 0 rgba(0,0,0,.5)}
+.tw-sign b,.tw-sign small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tw-sign small{font-size:.74em;color:#ffd98a}
+.tw-bot{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);display:flex;gap:4px}
+.tw-gatebtn{padding:2px 8px;border-radius:10px;border:1px solid #a060ff;background:rgba(30,10,50,.8);color:#f0e0ff;font:inherit;font-size:11.5px;white-space:nowrap;cursor:pointer}
+.tw-ic{width:42px;height:42px;padding:0;border-radius:10px;border:2px solid var(--line2,#3d5a66);background:rgba(20,28,34,.9);font-size:21px;line-height:1;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.5)}
+.tw-bl{position:absolute;left:6px;bottom:6px}.tw-br{position:absolute;right:6px;bottom:6px;display:flex;flex-direction:column;gap:6px}
+.tw-hud button:focus-visible{outline:2px solid var(--focus,#ffd76a);outline-offset:2px}
+.tw-panel{position:absolute;left:5%;right:5%;top:7%;max-height:86%;overflow-y:auto;z-index:3;padding:10px 12px;border-radius:8px;border:1px solid var(--gold,#f4bb4a);background:rgba(14,21,19,.97);font-size:13px;line-height:1.5}
+.tw-ph{display:flex;justify-content:space-between;align-items:center;gap:8px}.tw-x{background:none;border:0;color:inherit;font-size:16px;cursor:pointer;padding:2px 6px}
+.tw-pets{list-style:none;margin:6px 0;padding:0}.tw-pets li{display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)}.tw-pets .e{font-size:20px;flex:none}
+.tw-in{width:100%;box-sizing:border-box;margin:6px 0;padding:6px 8px;border-radius:6px;border:1px solid var(--line,#2c3a36);background:#0b1215;color:inherit;font:inherit;font-size:16px}`;document.head.appendChild(st);}
+// ถามจาก META ตรงๆ เพราะหน้าเมืองตอนเปิดเกมยังไม่มีหน้าต่าง #metaDlg
+const tabOf=id=>M.hasTab?M.hasTab(id):!!document.querySelector(`#metaDlg .mt-tabs [data-t="${id}"]`);
+const tabLk=id=>{try{return M.tabLock?!!M.tabLock(id):false;}catch(e){return false;}};
 function go(b){M.open(b.tab);if(b.focus)try{window.CITY&&window.CITY.focus&&window.CITY.focus(b.focus);}catch(e){}}
-function render(el,P){css();const hd=P.roster.find(m=>m.id===P.head),dec=decorOf(P),J=jobsOf(P),inPen=P.roster.filter(m=>J.pen.has(m.id)).length,away=P.roster.filter(m=>J.busy.has(m.id)).length,walk=P.roster.length-inPen-away;
- el.innerHTML=`<p class="mt-dim" style="margin:0">ลานหน้าบ้านของตระกูล แตะใครก็ได้เพื่อดูว่าเป็นใคร แตะอาคารหรือคอกสัตว์เพื่อไปทำธุระ</p>
- <div class="tw-wrap"><canvas class="tw-cv" width="${W}" height="${H}" role="img" aria-label="ลานหน้าบ้านตระกูล มีน้ำพุกลางลาน คนเดินเล่น ${walk} คน สัตว์เลี้ยงในคอก ${P.pets.length} ตัว"></canvas><div class="tw-pop" hidden></div></div>
- ${hd?'':`<p class="tw-note">🗿 ${P.wins?'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูลได้ที่ป้อมทหารรับจ้าง แล้วรูปปั้นจะขึ้นกลางน้ำพุ':'ไต่หอให้ถึงชั้น 100 เพื่อหาลูกรักมาเป็นหัวหน้าตระกูล'}</p>`}
- <div class="tw-bld">${BLD.map(b=>{const tb=tabOf(b.tab),lk=tb&&tb.classList.contains('lk');return`<button class="mt-btn" type="button" data-go="${b.id}" ${tb?'':'disabled'}>${b.ic} ${esc(b.n)}<small>${!tb?'เร็วๆ นี้':lk?'🔒 ยังเข้าไม่ได้':'แตะเพื่อเข้าไป'}</small></button>`;}).join('')}</div>
- <p class="mt-dim" style="margin:8px 0 0">เดินเล่นอยู่ ${walk} คน${inPen?` · ดูแลคอกสัตว์ ${inPen} คน`:''}${away?` · ไปทำงาน ${away} คน`:''} · สัตว์เลี้ยง ${P.pets.length} ตัว · รูปปั้น ${Math.min(P.statues.filter(s=>!hd||s.name!==hd.name).length,ST_SLOT.length)+(hd?1:0)} รูป${dec.length?` · ของตกแต่ง ${Math.min(dec.length,DE_SLOT.length)} ชิ้น`:''}</p>`;
- el.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{const d=BLD.find(x=>x.id===b.dataset.go);if(d)go(d);});
- const cv=el.querySelector('.tw-cv'),pop=el.querySelector('.tw-pop'),S=scene(cv,P);let pt=0;
+// แตะในฉาก: คน/สัตว์/รูปปั้นขึ้นป้ายบอก อาคารพาไปแท็บนั้น (ใช้ทั้งแท็บล็อบบี้และหน้าเมืองตอนเปิดเกม)
+function tapper(cv,pop,S,P,o){let pt=0;
  const say=(html,px,py)=>{pop.innerHTML=html;pop.hidden=false;const wr=cv.parentNode.getBoundingClientRect(),pw=pop.offsetWidth,ph=pop.offsetHeight;
   pop.style.left=Math.max(4,Math.min(wr.width-pw-4,px-pw/2))+'px';pop.style.top=Math.max(4,py-ph-10<4?py+14:py-ph-10)+'px';clearTimeout(pt);pt=setTimeout(()=>{pop.hidden=true;},3500);};
  cv.addEventListener('click',ev=>{const r=cv.getBoundingClientRect(),k=W/r.width,x=(ev.clientX-r.left)*k,y=(ev.clientY-r.top)*k,px=ev.clientX-r.left,py=ev.clientY-r.top,D=S.D;
   const e=D.ents.slice().sort((p,q)=>q.y-p.y).find(e=>x>=e.x-e.s.w/2-1&&x<=e.x+e.s.w/2+1&&y>=e.y-e.s.h-2&&y<=e.y+1);
-  if(e){if(e.k==='p'){const d=(C().PETS||{})[e.p.k]||{n:e.p.k},md=petMood(e.p.id);if(md&&md.e){e.mood={e:md.e,until:performance.now()+2500};S.redraw();}
-    return say(`<b>${e.p.legend?'✨ ':''}${esc(d.n)}</b>${md&&md.e?' '+esc(md.e):''}<br><span class="mt-dim">${md&&md.n?esc(md.n)+' · ':''}สัตว์เลี้ยงจาก ${esc(e.p.from||'')}</span>`,px,py);}
+  if(e){if(e.k==='p'){const d=(C().PETS||{})[e.p.k]||{n:e.p.k},md=moodLine(e.p,d.n);e.mood={e:md.e,until:performance.now()+2500};S.redraw();
+    return say(`<b>${e.p.legend?'✨ ':''}${esc(d.n)}</b> ${esc(md.e)}<br><span class="mt-dim">${esc(md.t)} · สัตว์เลี้ยงจาก ${esc(e.p.from||'')}</span>`,px,py);}
+   if(e.k==='n')return say('<b>🧑‍🌾 ชาวไร่ประจำคอก</b><br><span class="mt-dim">ส่งคนในตระกูลมาช่วยดูแลสัตว์ได้ที่หน้าบริหารเมือง</span>',px,py);
    const m=e.m,rk=m.master?'Master':m.rank,wr=WEAR[e.w];return say(`${rk?`<span class="rk" style="background:${M.rkCol(rk)}">${esc(rk)}</span>`:''}<b>${esc(m.name)}</b>${P.head===m.id?' 👑':''}<br><span class="mt-dim">${m.kind==='merc'?'ลูกจ้าง · ':''}${esc(M.clsN(m.cls))} Lv.${m.lv|0}${wr?' · ใส่'+esc(wr.n):''}${e.pen?' · ดูแลคอกสัตว์':''}</span>`,px,py);}
   const s=D.stat.find(s=>{const h=(s.sc>1?9:5)+16*s.sc;return Math.abs(x-s.x)<=Math.max(8,8*s.sc)&&y>=s.y-h-2&&y<=s.y+1;});if(s)return say(s.info,px,py);
   const b=BLD.find(b=>x>=b.r[0]&&x<=b.r[2]&&y>=b.r[1]&&y<=b.r[3]);
-  if(b){if(tabOf(b.tab))return go(b);return say(`<b>${b.ic} ${esc(b.n)}</b><br><span class="mt-dim">เร็วๆ นี้</span>`,px,py);}
+  if(b){if(o&&o.on&&o.on(b))return;if(b.tab&&tabOf(b.tab))return go(b);return say(`<b>${b.ic} ${esc(b.n)}</b><br><span class="mt-dim">เร็วๆ นี้</span>`,px,py);}
   if(((x-FX)/31)**2+((y-FY+2)/13)**2<1)return say(D.stat[0].info,px,py);
   pop.hidden=true;});
+ return S;}
+// ---------- ปุ่มมุมจอ ป้ายชื่อตระกูล และหน้าต่างเล็กในห้อง (ใช้ทั้งแท็บล็อบบี้และหน้าเมืองตอนเปิดเกม) ----------
+// ชื่อตระกูล: ตั้งเอง (P.clanName) > ฉายาตระกูลจากมังกร (CLAN_T) > สายตระกูลของฮีโร่ > ชื่อหัวหน้าตระกูล
+function clanT(){try{const T=C().CLAN_T||{},K=window.__auto&&window.__auto.clan&&window.__auto.clan.load();return(K&&T[K.m])||'';}catch(e){return'';}}
+function defName(P){const t=clanT();if(t)return t;let hs='';try{hs=window.__auto.S.hero.house||'';}catch(e){}if(hs)return'ตระกูล'+hs;const hd=P.roster.find(m=>m.id===P.head);return hd?'ตระกูล'+hd.name:'ตระกูลของเรา';}
+function clanName(P){const t=clanT();return P.clanName?{n:P.clanName,t}:{n:defName(P),t:''};}
+const signHTML=P=>{const cn=clanName(P);return`<b>${esc(cn.n)}</b>${cn.t?`<small>${esc(cn.t)}</small>`:''}`;};
+function hudSync(){const P=M.load();document.querySelectorAll('.tw-hud').forEach(dv=>{const g=dv.querySelector('.tw-gold b'),s=dv.querySelector('.tw-sign');if(g)g.textContent=P.gold.toLocaleString();if(s)s.innerHTML=signHTML(P);});}
+window.addEventListener('tof:meta-close',()=>{try{hudSync();}catch(e){}});
+function panel(pn,title,body){pn.hidden=false;pn.innerHTML=`<div class="tw-ph"><b>${title}</b><button type="button" class="tw-x" aria-label="ปิด">✕</button></div>${body}`;pn.querySelector('.tw-x').onclick=()=>{pn.hidden=true;};}
+function nameEdit(pn){const P=M.load(),t=clanT();
+ panel(pn,'🪧 ตั้งชื่อตระกูล',`<p class="mt-dim" style="margin:4px 0 0">ชื่อนี้จะขึ้นบนป้ายเหนือลานหน้าบ้าน${t?` ส่วนฉายา "${esc(t)}" ยังอยู่ใต้ชื่อเหมือนเดิม`:''}</p>
+ <input type="text" class="tw-in" maxlength="20" autocomplete="off" value="${esc(P.clanName||'')}" placeholder="${esc(defName(P))}" aria-label="ชื่อตระกูล">
+ <button type="button" class="mt-btn pri" data-sv>บันทึก</button>${P.clanName?'<button type="button" class="mt-btn" data-rs>กลับไปใช้ชื่อเดิม</button>':''}`);
+ const inp=pn.querySelector('input'),done=v=>{const Q=M.load();if(v)Q.clanName=v;else delete Q.clanName;M.save(Q);if(v)M.grantAch('clan_name');pn.hidden=true;hudSync();};
+ setTimeout(()=>{try{inp.focus();}catch(e){}},0);
+ pn.querySelector('[data-sv]').onclick=()=>done(inp.value.replace(/[<>]/g,'').replace(/\s+/g,' ').trim().slice(0,20));
+ inp.onkeydown=ev=>{if(ev.key==='Enter'){ev.preventDefault();pn.querySelector('[data-sv]').click();}};
+ const rs=pn.querySelector('[data-rs]');if(rs)rs.onclick=()=>done('');}
+function garden(pn){const P=M.load(),J=jobsOf(P),care=P.roster.filter(m=>J.pen.has(m.id)),PE=C().PETS||{};
+ panel(pn,'🐾 คอกสัตว์เลี้ยง',`<p class="mt-dim" style="margin:4px 0 0">สัตว์ในคอก ${P.pets.length} ตัว · ${care.length?'คนดูแล: '+care.map(m=>esc(m.name)).join(', '):'ยังไม่มีคนในตระกูลมาช่วยดูแล มีแต่ชาวไร่ประจำคอก'}</p>
+ ${P.pets.length?`<ul class="tw-pets">${P.pets.map(p=>{const d=PE[p.k]||{n:p.k},md=moodLine(p,d.n);return`<li><span class="e" aria-hidden="true">${esc(md.e)}</span><span><b>${p.legend?'✨ ':''}${esc(d.n)}</b><br><span class="mt-dim">${esc(md.t)}</span></span></li>`;}).join('')}</ul>`:'<p class="mt-dim">คอกยังว่างอยู่ สัตว์ที่อยู่กับฮีโร่จนพิชิตยอดหอจะมาวิ่งเล่นที่นี่</p>'}
+ <button type="button" class="mt-btn pri" data-gp>🏘 ไปหน้าเมือง ให้ขนมหรือส่งคนมาดูแล</button>`);
+ pn.querySelector('[data-gp]').onclick=()=>{pn.hidden=true;go(BLD.find(b=>b.id==='pen'));};}
+function shop(){try{if(window.FEST&&window.FEST.active()&&tabOf('fest')&&!tabLk('fest'))return M.open('fest');}catch(e){}
+ M.open('city');setTimeout(()=>{const h=[...document.querySelectorAll('#metaDlg h3')].find(x=>x.textContent.indexOf('ร้านของตกแต่ง')>=0);if(h)h.scrollIntoView({block:'start',behavior:'smooth'});},80);}
+// o.portal() = ปุ่มกลับไปลงดันเจี้ยน · คืน {on(b)} ให้ tapper ส่งการแตะคอกสัตว์มาที่นี่
+function hud(wrap,P,o){o=o||{};css();const dv=document.createElement('div');dv.className='tw-hud';const hardOk=P.unlock&&P.unlock.hard&&tabOf('hard');
+ dv.innerHTML=`<div class="tw-gold" aria-label="เหรียญเมือง ${P.gold}"><span aria-hidden="true">🪙</span> <b>${P.gold.toLocaleString()}</b></div>
+ <button type="button" class="tw-sign" data-h="sign" title="แตะเพื่อตั้งชื่อตระกูล">${signHTML(P)}</button>
+ <div class="tw-bot"><button type="button" class="tw-gatebtn" data-h="gate">✨ กลับไปลงดันเจี้ยน</button>${hardOk?'<button type="button" class="tw-gatebtn" data-h="hard">🌀 โหมดยาก</button>':''}</div>
+ <button type="button" class="tw-ic tw-bl" data-h="trophy" title="ห้องรางวัล" aria-label="ห้องรางวัล: ความสำเร็จ เหรียญตรา โล่รางวัลเควส">🏠</button>
+ <div class="tw-br"><button type="button" class="tw-ic" data-h="clan" title="คนในตระกูล" aria-label="คนในตระกูล">🧑</button><button type="button" class="tw-ic" data-h="shop" title="ร้านของตกแต่ง" aria-label="ร้านของตกแต่งเมือง">🛒</button></div>
+ <div class="tw-panel" hidden role="dialog" aria-label="รายละเอียด"></div>`;
+ wrap.appendChild(dv);const pn=dv.querySelector('.tw-panel'),portal=()=>{if(o.portal)o.portal();};
+ const act={sign:()=>nameEdit(pn),gate:portal,hard:()=>M.open('hard'),trophy:()=>M.open(tabOf('trophy')?'trophy':'clan'),clan:()=>M.open('clan'),shop};
+ dv.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>act[b.dataset.h]());
+ const onB={pen:()=>garden(pn)};return{on(b){const f=onB[b.id];if(!f)return false;f();return true;}};}
+// ปุ่มกลับไปลงดันเจี้ยนในแท็บล็อบบี้: ปิดหน้าต่าง (และหน้าเมืองตอนเปิดเกมถ้ายังเปิดอยู่) กลับไปหน้าเกิด/รอบที่เล่นอยู่
+function leave(){const d=document.getElementById('metaDlg');if(d&&d.open)d.close();try{window.HIRE&&window.HIRE.closeGate&&window.HIRE.closeGate();}catch(e){}}
+function render(el,P){css();const hd=P.roster.find(m=>m.id===P.head),dec=decorOf(P),J=jobsOf(P),inPen=P.roster.filter(m=>J.pen.has(m.id)).length,away=P.roster.filter(m=>J.busy.has(m.id)).length,walk=P.roster.length-inPen-away;
+ el.innerHTML=`<p class="mt-dim" style="margin:0">ลานหน้าบ้านของตระกูล แตะใครก็ได้เพื่อดูว่าเป็นใคร แตะอาคารหรือคอกสัตว์เพื่อไปทำธุระ แตะป้ายชื่อด้านบนเพื่อตั้งชื่อตระกูล</p>
+ <div class="tw-wrap"><canvas class="tw-cv" width="${W}" height="${H}" role="img" aria-label="ลานหน้าบ้านตระกูล มีน้ำพุกลางลาน คนเดินเล่น ${walk} คน สัตว์เลี้ยงในคอก ${P.pets.length} ตัว"></canvas><div class="tw-pop" hidden></div></div>
+ ${hd?'':`<p class="tw-note">🗿 ${P.wins?'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูลได้ที่ปุ่มคนในตระกูล 🧑 แล้วรูปปั้นจะขึ้นกลางน้ำพุ':'ไต่หอให้ถึงชั้น 100 เพื่อหาลูกรักมาเป็นหัวหน้าตระกูล'}</p>`}
+ <div class="tw-bld">${BLD.filter(b=>b.tab).map(b=>{const tb=tabOf(b.tab),lk=tb&&tabLk(b.tab);return`<button class="mt-btn" type="button" data-go="${b.id}" ${tb?'':'disabled'}>${b.ic} ${esc(b.n)}<small>${!tb?'เร็วๆ นี้':lk?'🔒 ยังเข้าไม่ได้':'แตะเพื่อเข้าไป'}</small></button>`;}).join('')}</div>
+ <p class="mt-dim" style="margin:8px 0 0">เดินเล่นอยู่ ${walk} คน${inPen?` · ดูแลคอกสัตว์ ${inPen} คน`:''}${away?` · ไปทำงาน ${away} คน`:''} · สัตว์เลี้ยง ${P.pets.length} ตัว · รูปปั้น ${Math.min(P.statues.filter(s=>!hd||s.name!==hd.name).length,ST_SLOT.length)+(hd?1:0)} รูป${dec.length?` · ของตกแต่ง ${Math.min(dec.length,DE_SLOT.length)} ชิ้น`:''}</p>`;
+ el.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{const d=BLD.find(x=>x.id===b.dataset.go);if(d)go(d);});
+ const cv=el.querySelector('.tw-cv');tapper(cv,el.querySelector('.tw-pop'),scene(cv,P),P,hud(el.querySelector('.tw-wrap'),P,{portal:leave}));
  grants(P);}
 function grants(P){const g=M.grantAch;g('town_open');if(P.roster.length>=10)g('town_10');if(P.statues.length>=3)g('town_st3');if(decorOf(P).length>=6)g('town_decor');if(P.pets.length>=5)g('town_pets');}
 M.tab('town',{n:'🏘 ล็อบบี้ตระกูล',o:5,render});
 try{window.ACH&&window.ACH.add&&window.ACH.add([
- {id:'town_open',n:'กลับบ้าน',d:'เปิดล็อบบี้ตระกูลเป็นครั้งแรก',icon:'🏘',tier:'bronze'},
- {id:'town_10',n:'ลานคึกคัก',d:'มีคนในตระกูลครบ 10 คน',icon:'👪',tier:'silver'},
- {id:'town_st3',n:'สวนรูปปั้น',d:'มีรูปปั้นผู้พิชิตยอดหอตั้งอยู่ในลาน 3 รูป',icon:'🗿',tier:'gold'},
- {id:'town_decor',n:'บ้านใครสวยขนาดนี้',d:'วางของตกแต่งในลานครบ 6 ชิ้น',icon:'⛲',tier:'silver'},
- {id:'town_pets',n:'คอกเต็ม',d:'มีสัตว์เลี้ยงวิ่งเล่นในคอก 5 ตัว',icon:'🐾',tier:'silver'}]);}catch(e){}
+ {id:'town_open',n:'กลับบ้าน',d:'เปิดล็อบบี้ตระกูลเป็นครั้งแรก',icon:'🏘',tier:'bronze',ext:1},
+ {id:'town_10',n:'ลานคึกคัก',d:'มีคนในตระกูลครบ 10 คน',icon:'👪',tier:'silver',ext:1},
+ {id:'town_st3',n:'สวนรูปปั้น',d:'มีรูปปั้นผู้พิชิตยอดหอตั้งอยู่ในลาน 3 รูป',icon:'🗿',tier:'gold',ext:1},
+ {id:'town_decor',n:'บ้านใครสวยขนาดนี้',d:'วางของตกแต่งในลานครบ 6 ชิ้น',icon:'⛲',tier:'silver',ext:1},
+ {id:'town_pets',n:'คอกเต็ม',d:'มีสัตว์เลี้ยงวิ่งเล่นในคอก 5 ตัว',icon:'🐾',tier:'silver',ext:1},
+ {id:'clan_name',n:'ป้ายนี้ของเรา',d:'ตั้งชื่อตระกูลเองบนป้ายเหนือลาน',icon:'🪧',tier:'bronze',ext:1}]);}catch(e){}
 // ---------- พรีวิวบนหน้าเกิด: ต่อท้ายปุ่ม 🏰 ผ่าน META.button/bind (ไม่ต้องแก้ auto.js) ----------
-function mini(){css();return`<button type="button" class="tw-mini" id="twMini" aria-label="เข้าล็อบบี้ตระกูล"><canvas width="${W}" height="${MINI_H}"></canvas><span>🏘 ล็อบบี้ตระกูล · แตะเพื่อเข้าไป</span></button>`;}
+function mini(){css();const nw=!(M.load().runs>0);return`<button type="button" class="tw-mini${nw?' nw':''}" id="twMini" aria-label="${nw?'เมืองแรกของตระกูล จะเปิดหลังจบรอบแรก':'เข้าล็อบบี้ตระกูล'}"><canvas width="${W}" height="${MINI_H}"></canvas><span>${nw?'🏘 เมืองแรก · เปิดหลังไต่หอจบรอบแรก':'🏘 ล็อบบี้ตระกูล · แตะเพื่อเข้าไป'}</span></button>`;}
 function bindMini(){const b=document.getElementById('twMini');if(!b||b._tw)return;b._tw=1;b.onclick=()=>M.open('town');scene(b.querySelector('canvas'),M.load(),true);}
 const ob=M.button,obd=M.bind;
 M.button=function(){return ob.apply(this,arguments)+mini();};
 M.bind=function(){obd.apply(this,arguments);try{bindMini();}catch(e){}};
-window.TOWN={DECOR,WEAR,mini,bindMini};
+window.TOWN={DECOR,WEAR,mini,bindMini,W,H,BLD,scene,tapper,hud,hudSync,clanName,go,tabOf,tabLk,css,spOf};
 })();

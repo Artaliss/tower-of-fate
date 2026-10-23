@@ -247,5 +247,5 @@ try{window.ACH&&window.ACH.add&&window.ACH.add([
  {id:'city_jobs',n:'เมืองที่ไม่เคยหลับ',d:'มีคนประจำครบทุกอาคารที่รับคนทำงาน',icon:'🌃',tier:'gold'}]);}catch(e){}
 // เปิดแท็บเมืองแล้วเลื่อนไปที่การ์ดอาคาร (town.js เรียกตอนแตะอาคารในล็อบบี้)
 function focus(id){M.open('city');setTimeout(()=>{const c=document.querySelector(`#metaDlg [data-bld="${id}"]`);if(!c)return;c.scrollIntoView({block:'center',behavior:'smooth'});c.classList.add('cq-hi');setTimeout(()=>c.classList.remove('cq-hi'),1600);},60);}
-window.CITY={bonus,lv:id=>lvOf(M.load(),id),busy,petMood,petMul,focus};
+window.CITY={bonus,lv:id=>lvOf(M.load(),id),busy,petMood,petMul,focus,perm:()=>PERM.map(q=>({id:q.id,ic:q.ic,n:q.n,st:q.st.length,hard:!!q.hard}))}; // perm: ห้องรางวัลใน gate.js
 })();

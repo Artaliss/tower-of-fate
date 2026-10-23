@@ -149,6 +149,7 @@ const TRAITS=[
  {id:'mouth',n:'ปากหมา',d:'ฝีมือดีขึ้น 15% แต่ชอบด่าชาวบ้าน กรรมชั่ว −1 ตอนรับเข้าทีม',pw:1.15,lines:['"หน้าตาอย่างเจ้านี่นะจะขึ้นถึงยอดหอ ฮ่า! เอาเถอะ ข้าไปด้วย"','"เจ้าดูอ่อนกว่าที่ลือกันอีกนะ แต่ทองเจ้าดูดีอยู่"']},
  {id:'medic',n:'หมอยาเถื่อน',d:'ผ่านบอสได้ทีไร ต้มยาให้ 1 ขวด',pw:.9,lines:['"ข้ามียาทุกอย่าง ยกเว้นยาแก้โง่"','"ปวดหัวตัวร้อน มาหาข้า ส่วนขาขาดอันนั้นต้องลุ้นเอา"']}];
 const trOf=c=>TRAITS.find(t=>t.id===c.tr);
+window.CONTENT.TRAITS=TRAITS; // gate.js shows the traits of the mercenaries for hire
 const hasTr=(R,id)=>R.comps.some(c=>c.tr===id);
 const omenOf=h=>RUN_OMENS.find(o=>o.id===h.omen)||RUN_OMENS[0];
 // daily theme (v2.2): h.day={d:'YYYY-MM-DD',t:id} is set at birth; the run keeps it even past midnight
@@ -2417,6 +2418,7 @@ function unlApply(R){const U=loadUnl(),t=R.turned?cid(R):'';let ch=0;
  if(t==='ang'&&!U.ang){U.ang=1;ch=1;R.unl=R.unl||'ang';}
  if(ch)try{localStorage.setItem(UKEY,JSON.stringify(U));}catch(e){}}
 const CKEY='tof-clan-v1',CLAN_T={f:'ตระกูลสหายมังกร',s:'ตระกูลนักล่ามังกร',d:'ตระกูลดยุกปราบมังกร'},EGGP={k:'drk',s:'drs',g:'drg'};
+window.CONTENT.CLAN_T=CLAN_T; // town.js puts the family title on the hall sign
 const clan0=()=>({v:1,m:'',n:0,egg:'',pet:'',cls:0,fresh:'',log:[],g2:1,g3:1});
 // g2: saves from before v0.2.14 that already carry a mark get every mark at once (they could not switch before)
 function loadClan(){try{const v=JSON.parse(localStorage.getItem(CKEY)||'null');if(isObj(v)){const C=Object.assign(clan0(),v);if(!v.g2){if(['f','s','d'].includes(C.m))C.got='fsd';saveClan(C);}
@@ -2648,6 +2650,8 @@ function startRun(){clearTimeout(S.rvT);VIS.star=0;if(!S.hero.ex)S.hero.ex=excBi
  // cohort: 3-4 heroes rolled the same way enter with you; their whole lives are simulated now with the same hazard table and AI
  R.coh=[];for(let i=0,n=ri(3,4);i<n;i++){const ch=rollHero();ch.day=S.hero.day;const L=autoLife(ch);poolAdd(L);R.coh.push({n:ch.name,rk:RANKS[ch.rank].k,cn:CLASSES[ch.cls].n,f:L.won?100:L.floor,won:L.won,cause:L.won?'พิชิตยอดหอคอย':L.cause,ck:L.ck||''});}
  const o=mkOut();say(R,o,`${S.hero.name} ก้าวเข้าสู่หอคอยโชคชะตา`,'lv');
+ // gate.js: the one companion hired at the town fort walks in with you (early-floor strength, refunded for a necromancer)
+ try{const c=window.HIRE&&window.HIRE.take(R,{cp:MD(R,'cp',1),nec:cid(R)==='nec',say:(t,k)=>say(R,o,t,k||'good')});if(c&&R.comps.length<2)R.comps.push(c);}catch(e){}
  say(R,o,`เพื่อนรุ่นเดียวกันอีก ${R.coh.length} คนเข้าหอมาพร้อมคุณ: ${R.coh.map(c=>c.n).join(', ')}`,'info');
  if(R.pets.length&&S.hero.inh&&S.hero.inh.pet)say(R,o,`${PETS[R.pets[0]].n}ของอาจารย์${S.hero.inh.from}เดินตามเข้ามาด้วย`,'good');
  {const CL=S.hero.clan||{};if(CL.pet&&R.pets.includes(CL.pet))say(R,o,`${PETS[CL.pet].n} สัตว์ประจำตระกูล เดินตามเข้ามาด้วย`,'good');if(CL.m==='s')say(R,o,`คำสาปนักล่ามังกรติดตัวมาด้วย มอนสเตอร์เผ่ามังกรจะดุกว่าปกติ (ล้มมังกรไปแล้ว ${CL.n||0}/3)`,'bad');

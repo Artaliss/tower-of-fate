@@ -27,7 +27,7 @@ function recordRun(R){if(!R||!R.h)return;const P=load();P.runs++;
  if(R.won){P.wins++;if(!P.unlock.city){P.unlock.city=true;P.newUnl=1;}if(!P.unlock.hard){P.unlock.hard=true;P.newUnl=1;}
   // หัวหน้าตระกูลคนแรกได้รูปปั้นที่ lobby
   P.statues.push({name:R.h.name,cls:((C().CLASSES||[])[R.h.cls]||{}).id||'',sec:(R.sec&&R.sec.res)||'',t:Date.now()});if(P.statues.length>30)P.statues.shift();}
- const add=[snapHero(R)];if(R.won&&Array.isArray(R.comps))R.comps.slice(0,2).forEach(c=>{if(c&&c.n)add.push(snapComp(R,c));});
+ const add=[snapHero(R)];if(R.won&&Array.isArray(R.comps))R.comps.slice(0,2).forEach(c=>{if(c&&c.n&&!c.clan)add.push(snapComp(R,c));}); // c.clan = คนในตระกูลที่จ้างจากป้อม มีชื่อในทะเบียนอยู่แล้ว
  P.wait=(Array.isArray(P.wait)?P.wait:[]);add.forEach(m=>{if(P.roster.length<P.slots.m)P.roster.push(m);else P.wait.unshift(m);});P.wait=P.wait.slice(0,6);
  if(R.won&&Array.isArray(R.pets))R.pets.forEach(k=>{if(P.pets.length<P.slots.p&&!P.pets.some(p=>p.k===k&&p.from===R.h.name))P.pets.push({id:uid(),k,from:R.h.name,t:Date.now(),legend:['drk','drs','drg','unicorn','fairy','phoenix','griffin'].includes(k)||undefined});});
  save(P);H.forEach(f=>{try{f(R,P);}catch(e){}});}
@@ -78,10 +78,10 @@ function slotCost(kind,P){return kind==='m'?600+(P.slots.m-SLOT_M)*300:800+(P.sl
 tab('clan',{n:'👪 สมาชิกตระกูล',o:10,render(el,P){const W=Array.isArray(P.wait)?P.wait:[],PE=C().PETS||{};
  const mMax=P.slots.m>=SLOT_M_MAX,pMax=P.slots.p>=SLOT_P_MAX,cm=slotCost('m',P),cp=slotCost('p',P);
  el.innerHTML=`<p class="mt-dim">ทุกคนที่ไต่หอจบรอบจะเข้ามาอยู่ในตระกูล ใช้เป็นกองทัพและตี้ลงดันเจี้ยนโหมดยากได้ ลูกจ้างที่รอดถึงยอดหอก็ตามมาด้วย</p>
- <h3>สมาชิก ${P.roster.length}/${P.slots.m}</h3><div class="mt-grid">${P.roster.map(m=>memberCard(m,P)).join('')||'<span class="mt-dim">ยังไม่มีใคร ลองไต่หอให้จบสักรอบ</span>'}</div>
+ <h3>สมาชิก ${P.roster.length}/${P.slots.m}</h3>${P.roster.length?[['hero','🧝 ฮีโร่'],['merc','🛡 ลูกจ้าง']].map(([k,t])=>{const L=P.roster.filter(m=>(m.kind==='merc')===(k==='merc'));return L.length?`<h4 style="margin:10px 0 6px">${t} ${L.length} คน</h4><div class="mt-grid">${L.map(m=>memberCard(m,P)).join('')}</div>`:'';}).join(''):'<span class="mt-dim">ยังไม่มีใคร ลองไต่หอให้จบสักรอบ</span>'}
  <button class="mt-btn" data-slot="m" ${mMax||P.gold<cm?'disabled':''}>${mMax?'ช่องสมาชิกเต็มขั้นแล้ว':`เพิ่มช่องสมาชิก (🪙 ${cm})`}</button>
  ${W.length?`<h3>รอเข้าตระกูล (ที่เต็ม)</h3><p class="mt-dim">ลบคนเก่าออกก่อน แล้วรับคนใหม่เข้ามา</p><div class="mt-grid">${W.map(m=>`<div class="mt-card"><b>${esc(m.name)}</b><div class="mt-dim">${esc(clsN(m.cls))} Lv.${m.lv} · ${m.won?'พิชิตยอด':'ชั้น '+m.floor}</div><button class="mt-btn pri" data-take="${m.id}" ${P.roster.length>=P.slots.m?'disabled':''}>รับเข้าตระกูล</button><button class="mt-btn" data-drop="${m.id}">ปล่อยไป</button></div>`).join('')}</div>`:''}
- <h3>สัตว์เลี้ยง ${P.pets.length}/${P.slots.p}</h3><div class="mt-grid">${P.pets.map(p=>{const d=PE[p.k]||{n:p.k};return`<div class="mt-card"><b>${p.legend?'✨ ':''}${esc(d.n)}</b><div class="mt-dim">${esc(d.d||'')}</div><div class="mt-dim">จาก ${esc(p.from||'')}</div><button class="mt-btn" data-pdel="${p.id}">ปล่อยคืนป่า</button></div>`;}).join('')||'<span class="mt-dim">สัตว์ที่อยู่กับคุณจนพิชิตยอดหอจะมาอยู่ที่นี่</span>'}</div>
+ <h3>🐾 สัตว์เลี้ยง ${P.pets.length}/${P.slots.p}</h3><div class="mt-grid">${P.pets.map(p=>{const d=PE[p.k]||{n:p.k};return`<div class="mt-card"><b>${p.legend?'✨ ':''}${esc(d.n)}</b><div class="mt-dim">${esc(d.d||'')}</div><div class="mt-dim">จาก ${esc(p.from||'')}</div><button class="mt-btn" data-pdel="${p.id}">ปล่อยคืนป่า</button></div>`;}).join('')||'<span class="mt-dim">สัตว์ที่อยู่กับคุณจนพิชิตยอดหอจะมาอยู่ที่นี่</span>'}</div>
  <button class="mt-btn" data-slot="p" ${pMax||P.gold<cp?'disabled':''}>${pMax?'ช่องสัตว์เลี้ยงเต็มขั้นแล้ว':`เพิ่มช่องสัตว์เลี้ยง (🪙 ${cp})`}</button>`;
  const upd=f=>{const Q=load();f(Q);save(Q);refresh();};
  el.querySelectorAll('[data-head]').forEach(b=>b.onclick=()=>upd(Q=>{Q.head=b.dataset.head;grantAch('meta_head');}));
@@ -95,5 +95,5 @@ function button(){const P=load();return`<button class="btn" id="btnMeta" type="b
 function bind(){const b=document.getElementById('btnMeta');if(b)b.onclick=()=>open();}
 try{window.ACH&&window.ACH.add&&window.ACH.add([{id:'meta_head',n:'ลูกรักของตระกูล',d:'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูล',icon:'👑',tier:'gold'},{id:'meta_slot',n:'บ้านหลังใหญ่ขึ้น',d:'จ่ายเหรียญเมืองเพิ่มช่องในตระกูล',icon:'🏠',tier:'bronze'}]);}catch(e){}
 const API={load,save,refresh,addGold,grantAch,open,uid,esc,clsN,rkCol};
-window.META=Object.assign(API,{recordRun,tab,onRun,hasWon,button,bind,SLOT_M_MAX,SLOT_P_MAX});
+window.META=Object.assign(API,{recordRun,tab,onRun,hasWon,button,bind,SLOT_M_MAX,SLOT_P_MAX,hasTab:id=>!!TABS[id],tabLock:id=>{const T=TABS[id];return T&&T.lock?T.lock(load()):'';}});
 })();
