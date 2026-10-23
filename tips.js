@@ -121,13 +121,11 @@ const ALIAS={exp:'basic',potion:'shop',clan:'legacy',clanpet:'legacy',excal:'leg
 const TAB_OF={};TABS.forEach(t=>t.K.forEach(k=>TAB_OF[k]=t.id));Object.assign(TAB_OF,ALIAS);
 T.forEach(t=>{if(!TAB_OF[t.k]&&!t.hid){TAB_OF[t.k]='basic';TABS[0].K.push(t.k);}});
 
-// ---- intro on the birth screen: small chips that open inline ----
+// ---- intro on the birth screen: three short lines, the rest lives in the help window ----
 const INTRO=[
-{id:'fate',ic:'🔮',n:'ชะตา',tab:'fate',d:['ทุกชั้นเกมทอยว่าคุณรอดไหม ยิ่งขึ้นสูงยิ่งเสี่ยง','HP ต่ำ แผลเป็น คำสาป และกรรมชั่วทำให้เสี่ยงขึ้น ส่วนโชค กรรมดี และเพื่อนร่วมทางช่วยให้เสี่ยงน้อยลง','ดูระดับความเสี่ยงได้ที่ช่อง ☽ บนฉาก']},
-{id:'karma',ic:'☯️',n:'กรรมดี/ชั่ว',tab:'karma',d:['ตัวเลือกที่มี ✦ ให้กรรมดี ✧ ให้กรรมชั่ว แต้มจริงเกมซ่อนไว้','กรรมชั่วทำให้เสี่ยงตายขึ้น และทหารรับจ้างอาจทรยศ กรรมดีช่วยให้เสี่ยงน้อยลง','ตอนตายเกมเปิดบัญชีกรรม แล้วสรุปเป็นคะแนนชีวิตกับฉายา']},
-{id:'legacy',ic:'🧬',n:'ส่งต่อโชคชะตา',tab:'legacy',d:['ตายแล้วให้ลูกศิษย์สืบทอดได้ ศิษย์ได้ทอง สัตว์เลี้ยง และกรรมส่วนหนึ่งของอาจารย์','หรือจะเกิดใหม่ เริ่มสายตระกูลใหม่ก็ได้ กรรมชาติก่อนยังเอียงดวงเกิดอยู่นิดหน่อย']},
-{id:'key',ic:'⚑',n:'จุดเปลี่ยนชะตา',tab:'basic',d:['ราวทุก 5–6 ชั้นเกมหยุดให้คุณเลือก คิดได้ไม่จำกัดเวลา (ปุ่ม ⏱ เปิดนับถอยหลัง 30 วินาทีได้)','แตะป้ายเล็กใต้ตัวเลือกเพื่อดูว่าผลนั้นหมายถึงอะไร ระหว่างอ่าน เวลาจะหยุดเดิน','ถ้าเปิดนับถอยหลังไว้ หมดเวลาแล้วฮีโร่เลือกเองตามนิสัย']},
-{id:'stance',ic:'🧭',n:'ท่าที',tab:'fate',d:['บุก ระวังตัว หาของ หรือช่วยเหลือ เปลี่ยนได้ตลอดใต้แถบความเร็ว','ผลต่อชั้นมีนิดเดียวแต่สะสมไปเรื่อยๆ ตอนจบเกมเอาท่าทีที่ใช้มาเขียนคำไว้อาลัย']}];
+['🗼','ฮีโร่เดินขึ้นหอเอง ทุกชั้นเกมทอยว่ารอดไหม ยิ่งสูงยิ่งเสี่ยง'],
+['⚑','ราวทุก 5-6 ชั้น เกมจะหยุดให้คุณเลือกทาง แตะป้ายใต้ตัวเลือกเพื่อดูว่าได้อะไรเสียอะไร'],
+['🧬','ตายแล้วให้ลูกศิษย์สืบทอดต่อ หรือจะเกิดใหม่ก็ได้']];
 
 const ls={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -181,6 +179,10 @@ const css=document.createElement('style');css.textContent=`
 .tofintro .ti-row button[aria-expanded=true]{border-color:var(--gold2,#b97a22);color:var(--gold,#f4bb4a);background:#2a2412}
 .tofintro .ti-body{margin:0 10px 8px;padding:6px 8px;border-left:2px solid var(--gold2,#b97a22);color:var(--muted,#a3b5ad);line-height:1.5}
 .tofintro .ti-body p{margin:0 0 3px}
+.tofintro .ti-l{list-style:none;margin:0;padding:0}
+.tofintro .ti-l li{display:flex;gap:6px;padding:1px 0;color:var(--ink,#f1e7d0)}
+.tofintro .ti-l li>span:first-child{flex:none;width:1.3em;text-align:center}
+.cs>.tofintro{margin:0 0 8px}
 .tofintro .ti-body .ti-more{background:none;border:0;padding:2px 0;color:var(--gold,#f4bb4a);font:inherit;text-decoration:underline;text-underline-offset:3px}
 @media (prefers-reduced-motion:reduce){.tofintro .ti-hd .ti-c{transition:none}}`;
 document.head.appendChild(css);
@@ -225,7 +227,7 @@ document.addEventListener('click',e=>{const t=e.target;if(box.contains(t))return
   if(ctl){e.preventDefault();e.stopImmediatePropagation();}
   if(cur===el&&pinned)hide();else show(el,true);return;}
  if(pinned)hide();},true);
-addEventListener('scroll',()=>{if(cur)hide();},{passive:true});addEventListener('resize',()=>{if(cur)hide();});
+addEventListener('scroll',e=>{if(cur&&!box.contains(e.target))hide();},{passive:true,capture:true}); // capture: the card and side panels scroll inside the page nowaddEventListener('resize',()=>{if(cur)hide();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&cur)hide();});
 
 // ---- help window with tabs ----
@@ -240,14 +242,15 @@ function openHelp(tab){if(!dlg)return;hide();selectTab(tab||ls.get('tof-help-tab
  setP('help',true);const b=dlg.querySelector('[role=tab][aria-selected=true]');if(b)try{b.focus();}catch(e){}}
 function closeHelp(){if(!dlg)return;if(dlg.open&&dlg.close)dlg.close();else dlg.removeAttribute('open');setP('help',false);}
 function addHelp(){document.body.appendChild(box);
- const b=document.createElement('button');b.type='button';b.className='helpbtn';b.textContent='❓ วิธีเล่น';b.setAttribute('aria-haspopup','dialog');
+ // the ❓ button lives in the top bar (#btnHelp); pages without it get the old floating button
+ const top=document.getElementById('btnHelp'),b=top||document.createElement('button');if(!top){b.type='button';b.className='helpbtn';b.textContent='❓ วิธีเล่น';b.setAttribute('aria-haspopup','dialog');}
  const d=dlg=document.createElement('dialog');d.className='helpdlg';d.setAttribute('aria-labelledby','tofHelpT');
  d.innerHTML=`<div class="hd"><b id="tofHelpT">วิธีเล่นหอคอยโชคชะตา</b><button type="button" class="x" aria-label="ปิดวิธีเล่น">ปิด ✕</button></div>
  <div class="tabs" role="tablist" aria-label="หมวดวิธีเล่น">${TABS.map(t=>`<button type="button" role="tab" id="htab-${t.id}" data-tab="${t.id}" aria-controls="hpan-${t.id}" aria-selected="false" tabindex="-1">${t.ic} ${esc(t.n)}</button>`).join('')}</div>
  <div class="bd" tabindex="0">${TABS.map(t=>`<section role="tabpanel" id="hpan-${t.id}" data-tab="${t.id}" aria-labelledby="htab-${t.id}" hidden>
   <ul class="hl">${t.L.map(([e,s])=>`<li><span class="e" aria-hidden="true">${e}</span><span>${esc(s)}</span></li>`).join('')}</ul>
   <div class="gl">คำที่เจอบ่อยในหมวดนี้</div>${t.K.map(termHTML).join('')}</section>`).join('')}</div>`;
- document.body.append(b,d);
+ if(top)document.body.append(d);else document.body.append(b,d);
  b.onclick=()=>openHelp();
  d.querySelector('.x').onclick=closeHelp;
  d.addEventListener('close',()=>setP('help',false));
@@ -260,23 +263,16 @@ function addHelp(){document.body.appendChild(box);
  d.addEventListener('keydown',e=>{if(e.key!=='Escape')e.stopPropagation();});}
 
 // ---- intro strip on the birth screen (#card is re-rendered with innerHTML, so the observer re-mounts it) ----
-let introOpen=null;
+// sits at the top of the card's scrolling part so a first-time player reads it before the certificate
 function mountIntro(){const c=document.getElementById('card');if(!c||!c.querySelector('#btnEnter')||c.querySelector('.tofintro'))return;
- const shut=ls.get('tof-intro-v1')==='0';
- const w=document.createElement('div');w.className='tofintro'+(shut?' shut':'');w.setAttribute('role','region');w.setAttribute('aria-label','ระบบสำคัญ');
- w.innerHTML=`<button type="button" class="ti-hd" aria-expanded="${!shut}" aria-controls="tofIntroB"><span aria-hidden="true">📖</span> ระบบสำคัญ<span class="ti-s">แตะหัวข้อเพื่ออ่านสั้นๆ</span><span class="ti-c" aria-hidden="true">▾</span></button>
- <div id="tofIntroB"><div class="ti-row">${INTRO.map(x=>`<button type="button" data-ti="${x.id}" aria-expanded="false" aria-controls="tofIntroD">${x.ic} ${esc(x.n)}</button>`).join('')}</div>
- <div class="ti-body" id="tofIntroD" hidden aria-live="polite"></div></div>`;
- const body=w.querySelector('.ti-body');
- function openChip(id){introOpen=id;const x=INTRO.find(i=>i.id===id);
-  w.querySelectorAll('[data-ti]').forEach(b=>b.setAttribute('aria-expanded',b.dataset.ti===id?'true':'false'));
-  if(!x){body.hidden=true;body.textContent='';return;}
-  body.innerHTML=x.d.map(s=>`<p>${esc(s)}</p>`).join('')+`<button type="button" class="ti-more">อ่านต่อใน วิธีเล่น (${x.ic} ${esc(TABS.find(t=>t.id===x.tab).n)})</button>`;body.hidden=false;
-  body.querySelector('.ti-more').onclick=()=>openHelp(x.tab);}
+ // returning players (someone already in the graveyard) start with it folded unless they opened it themselves
+ const pref=ls.get('tof-intro-v1'),shut=pref==='0'||(pref==null&&(ls.get('tof-auto-memorial-v1')||'[]')!=='[]');
+ const w=document.createElement('div');w.className='tofintro'+(shut?' shut':'');w.setAttribute('role','region');w.setAttribute('aria-label','เล่นยังไง');
+ w.innerHTML=`<button type="button" class="ti-hd" aria-expanded="${!shut}" aria-controls="tofIntroB"><span aria-hidden="true">📖</span> เล่นยังไง<span class="ti-s"></span><span class="ti-c" aria-hidden="true">▾</span></button>
+ <div class="ti-body" id="tofIntroB"><ul class="ti-l">${INTRO.map(([e,s])=>`<li><span aria-hidden="true">${e}</span><span>${esc(s)}</span></li>`).join('')}</ul><button type="button" class="ti-more">อ่านวิธีเล่นทั้งหมด</button></div>`;
+ w.querySelector('.ti-more').onclick=()=>openHelp('basic');
  w.querySelector('.ti-hd').onclick=()=>{const s=!w.classList.contains('shut');w.classList.toggle('shut',s);w.querySelector('.ti-hd').setAttribute('aria-expanded',String(!s));ls.set('tof-intro-v1',s?'0':'1');};
- w.querySelectorAll('[data-ti]').forEach(b=>b.onclick=()=>openChip(introOpen===b.dataset.ti?null:b.dataset.ti));
- if(introOpen)openChip(introOpen);
- const a=c.querySelector('.nmset');if(a)a.parentNode.insertBefore(w,a);else c.appendChild(w);}
+ const a=c.querySelector('.cs')||c;a.insertBefore(w,a.firstChild);}
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 window.TIPS={T,tag,open:openHelp,close:closeHelp,hide};
