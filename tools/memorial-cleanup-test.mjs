@@ -118,5 +118,9 @@ const bdb = { prepare: sql => { const mk = (a = []) => ({ bind: (...b) => mk(b),
 r = await api.onRequestGet({ request: new Request(O + '/api/memorial?id=ccccccccc'), env: { TOF_DB: bdb } });
 ok(r.status === 503, 'no tables -> 503 not-ready');
 
+// 6) real ms stamps: a view seen an hour ago must not try another write (|0 used to overflow)
+const tnow = Date.now();
+ok(await api.touchSeen(bdb, 'x', tnow - 3600e3, tnow) === false, 'recent real-ms seen -> no write');
+
 console.log(fail ? `\n${fail} failed` : '\nall passed');
 process.exit(fail ? 1 : 0);

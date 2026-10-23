@@ -84,7 +84,7 @@ export async function ensureSeen(db) {
 export const _resetSeen = () => { seenReady = false; };   // tests only
 // call with the seen value already read from the row; writes only when it is stale
 export async function touchSeen(db, id, seen, now = Date.now()) {
-  if (!(now - (seen | 0) >= SEEN_EVERY)) return false;
+  if (!(now - (Number(seen) || 0) >= SEEN_EVERY)) return false;   // ms does not fit in |0
   await db.prepare('UPDATE memorial SET seen = ? WHERE id = ? AND seen < ?').bind(now, id, now - SEEN_EVERY).run();
   return true;
 }
@@ -212,7 +212,7 @@ export async function onRequestGet({ request, env, waitUntil }) {
     const m = pub(r); if (!m.d) return json({ error: 'not-found' }, 404);
     if (hasSeen) afterView(db, id, r.seen, waitUntil);
     // X-Seen: last-view stamp before this request (-1 = no seen column), so the cleanup can be checked from outside
-    return json({ ok: true, m }, 200, { 'Cache-Control': 'public, max-age=15', 'X-Seen': String(hasSeen ? r.seen | 0 : -1) });
+    return json({ ok: true, m }, 200, { 'Cache-Control': 'public, max-age=15', 'X-Seen': String(hasSeen ? Number(r.seen) || 0 : -1) });
   } catch (e) { return dbErr(e); }
 }
 
