@@ -202,7 +202,7 @@ const eAtk=R=>R.h.atk*(hasPet(R,'fox')?1.12:1)*(hasPet(R,'drk')?1.1:1)*(hasSw(R)
 const eDef=R=>R.h.def*(hasPet(R,'wolf')?1.12:1)*(hasPet(R,'drs')?1.1:1)*(hasTr(R,'shield')?1.1:1)*stOf(R).df;
 const eLuk=R=>(R.h.luk+(hasPet(R,'owl')?6:0)+(hasPet(R,'drg')?3:0)+(hasTr(R,'lucky')?4:0))*(cid(R)==='far'?1.5:1);
 const riskAdj=(R,p)=>clamp(p*clamp(1-(eLuk(R)-8)*.012,.45,1.25)*(cid(R)==='arc'?1-.05*pathTier(R):cid(R)==='ang'&&pathTier(R)>=3?.85:1),.02,.95);
-const critCh=R=>clamp(.05+eLuk(R)*.004+(cid(R)==='arc'?.12:0),0,.5);
+const critCh=R=>clamp(.05+eLuk(R)*.004+(cid(R)==='arc'?.17:0),0,.5); // archer: .12 eagle eye + .05 special buff
 const dodgeCh=R=>clamp(eLuk(R)*.0025+(cid(R)==='arc'?.03*pathTier(R):0)+(cid(R)==='ang'?.05+.02*Math.min(2,pathTier(R)):0),0,.3);
 const fleeCh=R=>clamp(.45+eLuk(R)*.008+(cid(R)==='arc'?.2:0),.1,.92);
 const tameCh=R=>clamp(.12+eLuk(R)*.006,.05,.6);
@@ -239,36 +239,49 @@ const compCost=(R,c)=>Math.round(25*scl(R.floor)*MD(R,'cc',1)*(c&&c.cm||1));
 const warpCost=R=>Math.round(70*scl(R.floor));
 // boss sneak (v2.5.1): a roll, not a free pass. LUK, class and path tier raise it, higher floors lower it; caught = boss fight at −25% HP and the boss strikes first
 const SNK={b:.5,f:.0025,c:{rog:.15,arc:.1,ang:.05},hp:.25,ai:.05};
-const sneakCh=R=>{const id=cid(R),T=pathTier(R);return clamp(SNK.b+clamp((eLuk(R)-8)*.01,-.05,.2)+(SNK.c[id]||0)+(id==='rog'||id==='arc'?.05:.02)*T-SNK.f*R.floor,.1,.9);};
+const sneakCh=R=>{const id=cid(R),T=pathTier(R);return clamp(SNK.b+clamp((eLuk(R)-8)*.01,-.05,.2)+(SNK.c[id]||0)+(id==='rog'?SPB.rog.s:0)+(id==='rog'||id==='arc'?.05:.02)*T-SNK.f*R.floor,.1,.9);};
 function sneakWin(R,en,n){const h=R.h,hp0=h.hp;h.hp=Math.max(1,hp0-h.mhp*SNK.hp);const w=estimateWin(R,en,n,{ambush:true});h.hp=hp0;return w;}
 function power(a,d,hp){return Math.round(a*1.6+d*1.2+hp*.15);}
 const heroPower=R=>power(eAtk(R)+R.comps.reduce((s,c)=>s+c.pw*.6,0)+(cid(R)==='nec'?boneN(R)*bonePw(R)*.6:0),eDef(R),R.h.mhp);
-function fight(R,en,o){o=o||{};const h=R.h,id=cid(R),T=pathTier(R),A=eAtk(R)*(id==='war'?1+.02*T:id==='ang'?1+.03*Math.min(2,T):1),D=eDef(R),cc=critCh(R),dg=dodgeCh(R),rec=!o.dry;
- let hp=h.hp,ehp=en.hp,mp=h.mp,stole=0,ph=0;const ev=[];const bm=(id==='dsl'?(isDrg(en)?1.5+.1*T:en.boss?1.1+.03*T:1):en.boss&&id==='dra'?1.25+.03*T:1)*(en.boss&&hasSw(R)?EXC.boss:1),em=o.enMul||1,st=o.stop||0;
+// class special buffs (CLASSES sp/spd in events.js holds the text, the numbers live here)
+// war rage below hp for n hero turns · mag skill dmg · pri heals · rog sneak +s, gold pickup chance g · far +x ATK/DEF per buffing pet and bites
+// dra ATK/DEF · dsl dragons d, ordinary non-dragon monsters o · nec raised corpse pw (x bonePw) · ang once a life below hp: heal h, then ATK a for f floors
+const SPB={war:{hp:.4,a:1.08,n:5},mag:1.05,pri:1.06,rog:{s:.05,g:.5},far:.04,dra:1.15,dsl:{d:1.2,o:.95},nec:{pw:.9},ang:{hp:.2,h:.5,a:.85,f:5}};
+const PET_A=['fox','drk'],PET_D=['wolf','drs'];
+function spOf(R){const id=cid(R);if(id==='dra')return{a:SPB.dra,d:SPB.dra};
+ if(id==='far'){const n=L=>R.pets.filter(p=>L.includes(p)).length;return{a:1+SPB.far*n(PET_A),d:1+SPB.far*n(PET_D)};}return{a:1,d:1};}
+const rzOn=R=>cid(R)==='nec'&&!!R.rz&&R.floor<=R.rz.f+1; // the raised corpse walks with you until the floor after it fell is done
+function fight(R,en,o){o=o||{};const h=R.h,id=cid(R),T=pathTier(R),sk=spOf(R),A=eAtk(R)*(id==='war'?1+.02*T:id==='ang'?1+.03*Math.min(2,T):1)*sk.a,D=eDef(R)*sk.d,cc=critCh(R),dg=dodgeCh(R),rec=!o.dry;
+ let hp=h.hp,ehp=en.hp,mp=h.mp,stole=0,ph=0,rg=0,rgOn=0,wg=0;const ev=[];const bm=(id==='dsl'?(isDrg(en)?(1.5+.1*T)*SPB.dsl.d:en.boss?1.1+.03*T:SPB.dsl.o):en.boss&&id==='dra'?1.25+.03*T:1)*(en.boss&&hasSw(R)?EXC.boss:1),em=o.enMul||1,st=o.stop||0;
  const hit=(a,d)=>a*a/(a+d);
  // class path styles (v2.4): archer volley first, rogue stab from the shadows, mage double cast, priest heals when low
  const amb=o.ambush&&!en.calm&&!(id==='rog'&&T>=2&&rnd()<.3*(T-1));
  if(id==='arc'&&T>=1){const d=hit(A,en.def)*(.35+.15*T)*bm;ehp-=d;rec&&ev.push({t:'volley',d,hp,ehp});}
- if(mp>=10&&!(id==='pri'&&T>=2)){mp-=10;if(id==='pri'){hp=Math.min(h.mhp,hp+h.mhp*(.2+.03*T));rec&&ev.push({t:'heal',hp,ehp});}else{const d=hit(A,en.def)*(id==='mag'?2.2:1.3)*bm;ehp-=d;rec&&ev.push({t:'skill',d,hp,ehp});
-  if(id==='mag'&&T>=2&&mp>=10&&ehp>st){mp-=10;const d2=hit(A,en.def)*.8*bm;ehp-=d2;rec&&ev.push({t:'skill',d:d2,hp,ehp,x2:1});}}}
+ if(mp>=10&&!(id==='pri'&&T>=2)){mp-=10;if(id==='pri'){hp=Math.min(h.mhp,hp+h.mhp*(.2+.03*T)*SPB.pri);rec&&ev.push({t:'heal',hp,ehp});}else{const d=hit(A,en.def)*(id==='mag'?2.2*SPB.mag:1.3)*bm;ehp-=d;rec&&ev.push({t:'skill',d,hp,ehp});
+  if(id==='mag'&&T>=2&&mp>=10&&ehp>st){mp-=10;const d2=hit(A,en.def)*.8*SPB.mag*bm;ehp-=d2;rec&&ev.push({t:'skill',d:d2,hp,ehp,x2:1});}}}
  if(id==='rog'&&T>=1&&!amb&&ehp>st){const d=hit(A,en.def)*1.8*(1+.15*(T-1))*bm;ehp-=d;rec&&ev.push({t:'stab',d,hp,ehp});}
- if(amb){const d=hit(en.atk*em,D)*rr(.85,1.15);hp-=d;rec&&ev.push({t:'e',d,hp,ehp});}
+ // angel: once a life, about to fall, the wings heal half of max HP; ATK is down for a few floors after
+ const wing=()=>{if(id!=='ang'||wg||R.angR||hp>=h.mhp*SPB.ang.hp)return;wg=1;hp=Math.min(h.mhp,Math.max(0,hp)+h.mhp*SPB.ang.h);rec&&ev.push({t:'wing',hp,ehp});
+  if(rec){R.angR=R.floor;addMod(R,{a:SPB.ang.a},SPB.ang.f-1,'ปีกช้ำหลังคืนชีพ','🪽','ang','ปีกหายช้ำแล้ว ATK กลับมาเท่าเดิม');}};
+ if(amb){const d=hit(en.atk*em,D)*rr(.85,1.15);hp-=d;rec&&ev.push({t:'e',d,hp,ehp});wing();}
  for(let r=0;r<(o.lim||(en.boss&&R.floor===100?BAL.fR:40))&&ehp>st&&hp>0;r++){
-  const cr=rnd()<cc;let d=hit(A,en.def)*rr(.85,1.15)*(cr?1.8:1)*bm;ehp-=d;rec&&ev.push({t:'h',d,cr,hp,ehp});if(ehp<=st)break;
+  const cr=rnd()<cc;let d=hit(A,en.def)*rr(.85,1.15)*(cr?1.8:1)*bm*(rg>0?SPB.war.a:1);if(rg>0)rg--;ehp-=d;rec&&ev.push({t:'h',d,cr,hp,ehp});if(ehp<=st)break;
   for(const c of R.comps){if(c.cls==='pri')hp=Math.min(h.mhp,hp+h.mhp*.03);const d2=hit(c.pw,en.def)*rr(.8,1.2)*(c.cls==='pri'?.5:1);ehp-=d2;rec&&ev.push({t:'c',n:c.n,d:d2,hp,ehp});if(ehp<=st)break;}
   if(ehp<=st)break;
-  if(id==='nec'){const bp=bonePw(R);for(let j=0,nb=boneN(R);j<nb&&ehp>st;j++){const d=hit(bp,en.def)*rr(.8,1.2);ehp-=d;if(T>=3)hp=Math.min(h.mhp,hp+d*.15);rec&&ev.push({t:'c',n:'โครงกระดูก',d,hp,ehp,bone:j});}if(ehp<=st)break;}
-  for(let pi=0;pi<R.pets.length&&ehp>st;pi++){const p=R.pets[pi],k=(p==='wolf'?.25:0)+(id==='far'&&T>=1?.06+.06*T:0);if(!k)continue;const d3=hit(A*k,en.def);ehp-=d3;rec&&ev.push({t:'p',d:d3,hp,ehp,pi});}
+  if(id==='nec'){const bp=bonePw(R);for(let j=0,nb=boneN(R);j<nb&&ehp>st;j++){const d=hit(bp,en.def)*rr(.8,1.2);ehp-=d;if(T>=3)hp=Math.min(h.mhp,hp+d*.15);rec&&ev.push({t:'c',n:'โครงกระดูก',d,hp,ehp,bone:j});}
+   if(rzOn(R)&&ehp>st){const d=hit(R.rz.pw,en.def)*rr(.8,1.2);ehp-=d;rec&&ev.push({t:'c',n:R.rz.n,d,hp,ehp,bone:1});}if(ehp<=st)break;}
+  for(let pi=0;pi<R.pets.length&&ehp>st;pi++){const p=R.pets[pi],k0=(p==='wolf'?.25:0)+(id==='far'&&T>=1?.06+.06*T:0),k=k0&&id==='far'?k0+SPB.far:k0;if(!k)continue;const d3=hit(A*k,en.def);ehp-=d3;rec&&ev.push({t:'p',d:d3,hp,ehp,pi});}
   if(ehp<=st)break;
   if(id==='rog'&&T>=3&&rec&&!stole&&rnd()<.25){stole=Math.round((BAL.g0+BAL.g1*R.floor)*.8*gMul(R));h.gold+=stole;ev.push({t:'steal',g:stole,hp,ehp});}
   if(en.calm)continue;
   if(rnd()<dg){rec&&ev.push({t:'miss',hp,ehp});continue;}
-  const ed=hit(en.atk*em,D)*rr(.85,1.15)*(id==='war'?.9:1);hp-=ed;rec&&ev.push({t:'e',d:ed,hp,ehp});
+  const ed=hit(en.atk*em,D)*rr(.85,1.15)*(id==='war'?.9:1);hp-=ed;rec&&ev.push({t:'e',d:ed,hp,ehp});wing();
+  if(id==='war'&&!rgOn&&hp>0&&hp<h.mhp*SPB.war.hp){rgOn=1;rg=SPB.war.n;rec&&ev.push({t:'rage',hp,ehp});}
   if(hp<=0&&id==='dra'&&T>=3&&en.boss&&!R.dsv){hp=1;if(rec){R.dsv=1;ev.push({t:'save',hp,ehp});}}
-  if(hp>0&&id==='war'&&T>=2&&rnd()<.1+.05*(T-2)){const d=hit(A,en.def)*.6*bm;ehp-=d;rec&&ev.push({t:'counter',d,hp,ehp});if(ehp<=st)break;}
-  if(hp>0&&id==='pri'&&T>=2&&!ph&&hp<h.mhp*.4&&mp>=10){ph=1;mp-=10;hp=Math.min(h.mhp,hp+h.mhp*(.22+.03*T));rec&&ev.push({t:'heal',hp,ehp});}
+  if(hp>0&&id==='war'&&T>=2&&rnd()<.1+.05*(T-2)){const d=hit(A,en.def)*.6*bm*(rg>0?SPB.war.a:1);ehp-=d;rec&&ev.push({t:'counter',d,hp,ehp});if(ehp<=st)break;}
+  if(hp>0&&id==='pri'&&T>=2&&!ph&&hp<h.mhp*.4&&mp>=10){ph=1;mp-=10;hp=Math.min(h.mhp,hp+h.mhp*(.22+.03*T)*SPB.pri);rec&&ev.push({t:'heal',hp,ehp});}
  }
- return{win:hp>0&&(!o.need||ehp<=st),hp:Math.max(0,hp),mp,ev,ehp:Math.max(0,ehp),stole};
+ return{win:hp>0&&(!o.need||ehp<=st),hp:Math.max(0,hp),mp,ev,ehp:Math.max(0,ehp),stole,rage:rgOn,wing:wg};
 }
 // boss rubber band (v2.3): no farming loop any more, so a boss far above the hero eases off until the hero has about BFIT.t to win at full HP
 const BFIT={t:.3,lo:.55,st:.9};
@@ -324,11 +337,23 @@ function doFight(R,en,out,o){o=o||{};const h=R.h,f=R.floor;
  const res=fight(R,en,o);
  out.combat={en,ev:res.ev,win:res.win,startHp:h.hp,mhp:h.mhp};h.hp=res.hp;h.mp=res.mp;out.enemy=en;
  if(res.stole)say(R,out,`ฉกทองจาก${en.n}กลางวงต่อสู้ได้ ${res.stole} ทอง`,'good');if(res.ev.some(e=>e.t==='save'))say(R,out,'เลือดมังกรพยุงร่างไว้ คุณไม่ยอมล้มทั้งที่ควรจะตายไปแล้ว','lv');
+ spSay(R,en,res,out);
  if(res.win){R.kills++;const k=o.rw||1;const ex=(BAL.ex0+BAL.ex1*f)*(en.boss?6:1)*k;
   const gd=Math.round((en.boss?(60+15*f)*rr(.9,1.2):(BAL.g0+BAL.g1*f)*rr(.7,1.3)*k)*(cid(R)==='rog'?1.3:1)*gMul(R)*stOf(R).g);
-  h.gold+=gd;say(R,out,`ปราบ${en.n}! +${Math.round(ex)} EXP · +${gd} ทอง`,'good');gainExp(R,ex,out);if(en.boss){out.coins=gd;bossPerks(R,gd,out);}if(clanM(R)==='s'&&isDrg(en)&&(en.boss||en.drg))drgFell(R,out);}
+  h.gold+=gd;say(R,out,`ปราบ${en.n}! +${Math.round(ex)} EXP · +${gd} ทอง`,'good');gainExp(R,ex,out);if(en.boss){out.coins=gd;bossPerks(R,gd,out);}if(clanM(R)==='s'&&isDrg(en)&&(en.boss||en.drg))drgFell(R,out);
+  if(en.boss&&res.rage)spAch(R,'sp_war_boss');
+  if(cid(R)==='nec'&&!en.boss&&!en.big&&(!R.rz||R.rz.f<f)){R.rz={f,n:`ศพ${en.n}`,pw:bonePw(R)*SPB.nec.pw};R.rzN=(R.rzN||0)+1;say(R,out,`${en.n}ลุกขึ้นมาอีกครั้ง คราวนี้มันยืนข้างคุณ`,'lv');}}
  else{out.cause=o.cause||`ถูก${en.n}สังหารที่ชั้น ${f}`;say(R,out,`พ่ายแพ้ต่อ${en.n}…`,'bad');}
  return res.win;}
+// class special buff lines: event ones every time, always-on ones once a life so the log does not fill up
+const SP_L={mag:'มานาไหลแรงกว่าปกติ สกิลแรงขึ้น 5%',arc:'ตาเหยี่ยวจับจุดตายได้ คริติคอลออกง่ายขึ้น',pri:'พรแห่งการรักษาอยู่กับคุณ ฮีลแรงขึ้น 6%',dra:'เกล็ดมังกรขึ้นตามแขน ATK และ DEF +15%'};
+const spAch=(R,id)=>{const L=R.spA||(R.spA=[]);if(!L.includes(id))L.push(id);};
+function spSay(R,en,res,out){const id=cid(R),L=R.spL||(R.spL={});
+ if(res.rage){R.rageN=(R.rageN||0)+1;say(R,out,'เลือดนักรบเดือด ตีแรงขึ้นไปอีกห้าเทิร์น','lv');}
+ if(res.wing)sayK(R,out,'ปีกสีขาวกางออกตอนร่างใกล้ดับ แสงอุ่นๆ ดึงคุณกลับมา (ATK −15% อีก 5 ชั้น)','lv');
+ if(id==='dsl'&&isDrg(en))say(R,out,`กลิ่นมังกร! มือคุณกระชับอาวุธแน่นขึ้น ตี${en.n}แรงขึ้น 20%`,'lv');
+ if(id==='far'&&!L.far&&(spOf(R).a>1||spOf(R).d>1)){L.far=1;say(R,out,'สัตว์เลี้ยงรู้ใจคนเลี้ยง สู้เต็มแรงกว่าเดิม','lv');}
+ if(SP_L[id]&&!L[id]){L[id]=1;say(R,out,SP_L[id],'lv');}}
 // np: no pet/companion encounters (floors nobody gets to answer)
 function genEvent(R,np){const f=R.floor;if(f%10===0){const en=modMon(R,mkBoss(f),MD(R,'boss',1)),k=BLATE[f]||1;en.hp*=k;en.mhp=en.hp;en.atk*=k;return{kind:'boss',en:bossFit(R,en,BFIT.t)};}
  let r=rnd();if(r<.3)return{kind:'mon',en:genMonster(f,R)};r-=.3;
@@ -421,7 +446,8 @@ function resolve(R,ev,i){const h=R.h,f=R.floor;const out={msgs:[],combat:null,af
    if(doFight(R,en,out,{cause:`พ่ายแพ้ต่อบอส ${en.n} (ชั้น ${f})`})){R.bosses++;pathTg(R,isDrg(en)?['fight','dragon']:['fight'],out);R.retreats=0;if(f===100){R.won=true;R.sec=rnd()<SEC_P?{st:'ask',c:pick(['k','s','g'])}:{st:'none'};out.after='end';say(R,out,'พิชิตยอดหอคอยโชคชะตา!','lv');}else out.after='shop';}}
   else if(i===1){if(R.warps>0)R.warps--;else h.gold-=warpCost(R);R.map[f-1]='warp';R.retreats=0;say(R,out,`ฉีกม้วนวาร์ป ข้าม${en.n}ไปอย่างเงียบๆ`,'info');out.after='shop';}
   else{R.retreats=0;
-   if(rnd()<sneakCh(R)){R.sneaks=(R.sneaks||0)+1;pathTg(R,['sneak'],out);shiftFate(R,-2);R.map[f-1]='flee';say(R,out,`ลัดเลาะช่องแคบหลังห้องบอส ผ่าน${en.n}ไปได้โดยมันไม่ทันเห็น`,'info');out.after='shop';}
+   if(rnd()<sneakCh(R)){R.sneaks=(R.sneaks||0)+1;pathTg(R,['sneak'],out);shiftFate(R,-2);R.map[f-1]='flee';say(R,out,`ลัดเลาะช่องแคบหลังห้องบอส ผ่าน${en.n}ไปได้โดยมันไม่ทันเห็น`,'info');
+    if(cid(R)==='rog'&&rnd()<SPB.rog.g){const g=Math.round((BAL.g0+BAL.g1*f)*2*gMul(R));h.gold+=g;say(R,out,`ระหว่างย่องผ่าน มือไวหยิบถุงทองข้างห้องบอสติดมาด้วย +${g} ทอง`,'good');}out.after='shop';}
    else{R.caught=(R.caught||0)+1;h.hp=Math.max(1,h.hp-h.mhp*SNK.hp);R.map[f-1]='boss';say(R,out,`ก้อนหินใต้เท้าหลุดดังก๊อก ${en.n}หันมาเห็นพอดี คุณถลอกไปทั้งตัวตอนถอยหนี และยังตั้งหลักไม่ทัน`,'bad');
     if(doFight(R,en,out,{ambush:true,cause:`${en.n}จับได้ตอนแอบย่องผ่าน (ชั้น ${f})`})){R.bosses++;pathTg(R,isDrg(en)?['fight','dragon']:['fight'],out);out.after='shop';}}}}
  if(R.alive&&h.hp<=0)mortal(R,out,out.cause||`สิ้นใจที่ชั้น ${f}`);
@@ -437,7 +463,8 @@ function farm(R){const out={msgs:[],combat:null,after:'result',coins:0,cause:''}
  if(R.h.hp<=0)mortal(R,out,out.cause);return out;}
 function drink(R){if(R.potions<1)return false;R.potions--;R.h.hp=Math.min(R.h.mhp,R.h.hp+R.h.mhp*.45);return true;}
 function climb(R){const out={msgs:[]},h=R.h,id=cid(R),hf0=h.hp/h.mhp;R.floor++;if(R.floor>R.maxFloor)R.maxFloor=R.floor;R.farmN=0;
- const rg=BAL.regen+MD(R,'regen',0)+(id==='pri'?.05+.005*pathTier(R):0)+(id==='dra'?.03:0)+(id==='ang'?.02:0)+(hasPet(R,'slime')?.04:0)+(hasPet(R,'drs')?.02:0);h.hp=Math.min(h.mhp,h.hp+h.mhp*rg);h.mp=Math.min(h.mmp,h.mp+h.mmp*.2);
+ const rg=BAL.regen+MD(R,'regen',0)+(id==='pri'?(.05+.005*pathTier(R))*SPB.pri:0)+(id==='dra'?.03:0)+(id==='ang'?.02:0)+(hasPet(R,'slime')?.04:0)+(hasPet(R,'drs')?.02:0);h.hp=Math.min(h.mhp,h.hp+h.mhp*rg);h.mp=Math.min(h.mmp,h.mp+h.mmp*.2);
+ if(R.rz&&R.floor>R.rz.f+1){say(R,out,`${R.rz.n}พังลงเป็นกองกระดูก`,'info');R.rz=null;}
  R.comps.forEach(c=>c.pw*=1.015);
  {const d=h.gold-(R.gPrev||0);if(d>0)R.gIn=(R.gIn||0)+d;R.gPrev=h.gold;}
  // stance "help": now and then a small good deed on the way up
@@ -2043,6 +2070,15 @@ if(typeof document==='undefined'){window.AUTO_SIM={SPECIAL,ARCS,DRAMA,PATHS,path
 // ================= UI =================
 const {heroSpr,MSPR,BSPR,PSPR,PROPS,COIN,ICONS,sprCanvas,blit,bgImg,bgDraw,drawOverlay,drawProp,compSpr,compKey}=window.ART;
 const AUDIO=window.AUDIO;
+// class special buff achievements: R.spA collects flags during the run (headless cohort lives never reach here)
+const SP_NEC=50; // sim: a necromancer life raises ~38 on average, 30 was reached by 82%
+try{window.ACH&&window.ACH.add&&window.ACH.add([
+ {id:'sp_war_boss',n:'เลือดเดือดล้มบอส',d:'นักรบเลือดเดือดกลางห้องบอสแล้วยังล้มบอสได้',icon:'🩸',tier:'silver'},
+ {id:'sp_ang_win',n:'ปีกที่หักแล้วยังบินถึงยอด',d:'ทูตสวรรค์ที่คืนชีพไปแล้วยังพิชิตยอดหอได้',icon:'🪽',tier:'gold',hid:1},
+ {id:'sp_nec_army',n:'กองทัพคนตาย',d:`เนโครแมนเซอร์ปลุกศพมอนขึ้นมาช่วยตีครบ ${SP_NEC} ตัวในชีวิตเดียว`,icon:'🧟',tier:'gold',hid:1}]);}catch(e){}
+function spGrant(R){if(!R||!window.ACH||!window.ACH.grant)return;const L=[...(R.spA||[])];
+ if(R.won&&R.angR)L.push('sp_ang_win');if((R.rzN||0)>=SP_NEC)L.push('sp_nec_army');
+ L.forEach(id=>{try{window.ACH.grant(id);}catch(e){}});}
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -2123,6 +2159,8 @@ function fxEv(e,C){if(RM||!S)return;const en=C.en,E=ePos(en),boss=!!en.boss,R=S.
   if(C.last&&C.win)killFx(en,Math.max(70,D*.35));};
  const proj=(s,x0,y0,arc,d,hit,o)=>fo(Object.assign({k:'proj',s,x0,y0,x1:E.x-2,y1:E.y,arc,d,hit},o||{}));
  const heal=(amt,big)=>{if(amt<.5)return;num('+'+Math.round(amt),52,big?78:84,'#6aff8a');for(let i=0;i<(big?14:4);i++)pt(52+fr(-7,7),fr(84,100),0,fr(-1.2,-.4),i%2?'#8aff9a':'#ffffff',fr(400,750),{g:-.01,dr:.98});};
+ if(e.t==='rage'){fo({k:'ring',x:52,y:99,r0:3,r1:15,col:'#ff5a3a',d:460,fy:.35});burst(52,90,10,['#ff5a3a','#ffb0a0','#ffffff'],1.6);num('เดือด!',50,76,'#ff8a5a',1);return;}
+ if(e.t==='wing')e=Object.assign({},e,{t:'heal'});
  if(e.t==='volley'||e.t==='stab')e=Object.assign({},e,{t:'skill'});else if(e.t==='counter')e=Object.assign({},e,{t:'h'});
  if(e.t==='steal'){num('+'+e.g,52,74,'#ffd04a');if(C.snd)AUDIO.sfx('coin');for(let i=0;i<6;i++)pt(E.x,E.y,-fr(1,2.2),fr(-1.5,-.4),'#ffd04a',fr(300,520),{g:.05,dr:.97});return;}
  if(e.t==='save'){fo({k:'ring',x:52,y:99,r0:3,r1:16,col:'#ff8a2a',d:520,fy:.35});burst(52,90,12,FIRE,1.8);num('รอด!',50,76,'#ffd04a',1);return;}
@@ -2310,7 +2348,7 @@ function floatD(k,d,i){if(RM)return;const el=$('c-'+k);if(!el)return;if(i){setTi
 function miniCanvas(spr,key){const c=document.createElement('canvas');c.width=16;c.height=16;const x=c.getContext('2d');x.drawImage(sprCanvas(spr,false,false,key),Math.floor((16-spr.w)/2),Math.floor((16-spr.h)/2));return c;}
 function renderParty(){const el=$('party');el.innerHTML='';const R=S.R,h=R?R.h:S.hero,C=CLASSES[h.cls];
  const add=(spr,key,title,desc)=>{const d=document.createElement('div');d.className='mem';d.appendChild(miniCanvas(spr,key));const t=document.createElement('div');t.innerHTML=`<div>${esc(title)}</div><div class="d">${esc(desc)}</div>`;d.appendChild(t);el.appendChild(d);};
- const hs=heroSpr(C.id,look(h));add(hs,'h'+hs.id,`${h.name} (Lv.${h.lv} ${C.n})`,`สกิลติดตัว: ${C.p} · ${C.pd}`);
+ const hs=heroSpr(C.id,look(h));add(hs,'h'+hs.id,`${h.name} (Lv.${h.lv} ${C.n})`,`สกิลติดตัว: ${C.p} · ${C.pd}${C.sp?` · บัพพิเศษ: ${C.sp} · ${C.spd}`:''}`);
  if(R){R.pets.forEach(p=>add(PSPR[p],'p'+p,`สัตว์เลี้ยง: ${PETS[p].n}`,PETS[p].d));R.comps.forEach(c=>{const v=cSpr(c),T=trOf(c);add(v.s,v.k,`${c.n} · ${clsName(c.cls)}${T?' · '+T.n:''}${c.legend?' ★':''}`,`พลังโจมตี ${Math.round(c.pw)}${c.cls==='pri'?' · ฟื้น HP ระหว่างสู้':''}`);});
   if(!R.pets.length&&!R.comps.length){const p=document.createElement('div');p.className='d';p.style.cssText='font-size:12px;color:var(--dim);padding:4px 0';p.textContent='ยังไม่มีเพื่อนร่วมทาง';el.appendChild(p);}
   const inv=document.createElement('div');inv.className='inv';inv.innerHTML=`<span>ยาฟื้นพลัง <b>${R.potions}</b></span><span>ม้วนวาร์ป <b>${R.warps}</b></span><span>สังหาร <b>${R.kills}</b></span><span>แผลเป็น <b>${R.scars}</b></span><span>ดวงประจำชาติ <b>${esc(omenOf(R.h).n)}</b></span>${R.egg?'<span>อุ้มไข่อยู่ <b>1</b></span>':''}`;el.appendChild(inv);}}
@@ -2515,7 +2553,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
   <div class="tile rv"${D(1)}><span class="tl">อาชีพ</span><span class="cls">${C.n}</span><span class="tp px">${((h.cp||C.w/CLS_SUM)*100).toFixed(1)}%</span></div>
   <div class="tile rv"${D(2)} data-tip="look"><span class="tl">หน้าตา</span><b>${esc(LI.n)}</b><span class="tp px">1 ใน ${fmt(1/LI.p)}</span></div></div>
  <div class="rv"${D(0)}><div class="rchart" aria-label="การกระจายแรงค์">${bars}</div><div class="rlab">${RANKS.map(r=>`<span>${r.k}</span>`).join('')}</div></div>
- <div class="pas rv"${D(1)}>สกิลติดตัว <b>${C.p}</b> · ${C.pd}</div>
+ <div class="pas rv"${D(1)}>สกิลติดตัว <b>${C.p}</b> · ${C.pd}</div>${C.sp?`<div class="pas rv"${D(1)}>บัพพิเศษ <b>${C.sp}</b> · ${C.spd}</div>`:''}
  <div class="cstats rv"${D(3)}><div>HP<b>${Math.round(h.mhp)}</b></div><div>ATK<b>${Math.round(h.atk)}</b></div><div>DEF<b>${Math.round(h.def)}</b></div><div>LUK<b>${Math.round(h.luk)}</b></div><div>MP<b>${Math.round(h.mmp)}</b></div><div>ทอง<b>${fmt(h.gold)}</b></div></div>
  <div class="odds big rv"${D(4)} data-tip="combo">ฮีโร่แบบคุณ: <b>1 ใน ${fmt(combOdds(h))}</b><span class="sm">แรงค์กับอาชีพ 1 ใน ${fmt(h.odds)} · หน้าตา 1 ใน ${fmt(1/LI.p)}</span></div>
  ${inh}${ssH}${clanH}${excH}<div class="rv"${D(5)}><div class="fatebox">ดวงชะตา: <b>${esc(HINTS[h.hint])}</b></div>
@@ -2760,7 +2798,7 @@ const secSum=R=>{const X=R.sec||{},D=DRG[X.c];if(!D)return'';return X.res==='n'?
 let cbTimer=null;
 function cbLine(e,en){const n=Math.round(e.d||0);
  if(e.t==='h')return(e.cr?'คริติคอล! ':'')+`คุณโจมตี ${n}`;if(e.t==='skill')return e.x2?`ร่ายซ้ำอีกรอบ! ${n} ดาเมจ`:`ใช้สกิล! ${n} ดาเมจ`;if(e.t==='volley')return`ยิงชุดแรกก่อนศัตรูขยับ ${n}`;if(e.t==='stab')return`แทงจากเงา! ${n}`;
- if(e.t==='counter')return`สวนกลับ ${n}`;if(e.t==='steal')return`ฉกทองมาได้ ${e.g}`;if(e.t==='save')return'เลือดมังกรพยุงร่างไว้';if(e.t==='heal')return'สวดรักษาตัวเอง';if(e.t==='c')return`${e.n} โจมตี ${n}`;if(e.t==='p')return`สัตว์เลี้ยงกัด ${n}`;if(e.t==='miss')return`หลบการโจมตีได้!`;return`${en.n} โจมตี ${n}`;}
+ if(e.t==='rage')return'เลือดนักรบเดือด! ตีแรงขึ้น';if(e.t==='wing')return'ปีกสวรรค์ดึงคุณกลับมา';if(e.t==='counter')return`สวนกลับ ${n}`;if(e.t==='steal')return`ฉกทองมาได้ ${e.g}`;if(e.t==='save')return'เลือดมังกรพยุงร่างไว้';if(e.t==='heal')return'สวดรักษาตัวเอง';if(e.t==='c')return`${e.n} โจมตี ${n}`;if(e.t==='p')return`สัตว์เลี้ยงกัด ${n}`;if(e.t==='miss')return`หลบการโจมตีได้!`;return`${en.n} โจมตี ${n}`;}
 function playCombat(){clearTimeout(cbTimer);const cb=S.cb;if(!cb)return;const step=RM?0:clamp(2600/Math.max(1,cb.ev.length),60,240)/Math.sqrt(S.speed);
  const tick2=()=>{if(S.phase!=='combat'||S.cb!==cb)return;if(cb.i>=cb.ev.length){finishCombat();return;}
   const pv=cb.hp,e=cb.ev[cb.i++];cb.hp=e.hp;cb.ehp=e.ehp;cb.lines.unshift(cbLine(e,cb.en));const last=cb.i>=cb.ev.length;
@@ -3093,7 +3131,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
   twN:Object.keys(R.used).filter(k=>k.startsWith('sp:tw_')).length,facW:(R.fac&&R.fac.h||[]).filter(x=>x.me===1).length,facB:(R.fac&&R.fac.h||[]).filter(x=>x.b).length,ltG:R.ltG||0,
   dz:R.dZ&&R.dZ.in?(dayZone(R)&&fl>dayZone(R).b?2:1):0,sn:Object.keys(R.sn||{}),stE:Object.keys(R.stE||{}).length,
   exT:R.exT|0,exG:!!R.exc,sw:hasSw(R),gear:hasSw(R)?['excal']:[],nwA:Array.isArray(R.nwA)?[...R.nwA]:[],godK:R.godK?1:0};
- if(!S.sent){S.sent=true;try{window.ACH&&window.ACH.onRunEnd&&window.ACH.onRunEnd(sum);}catch(e){}try{window.LB&&window.LB.submit&&window.LB.submit(sum);}catch(e){}
+ if(!S.sent){S.sent=true;try{window.ACH&&window.ACH.onRunEnd&&window.ACH.onRunEnd(sum);}catch(e){}spGrant(R);try{window.LB&&window.LB.submit&&window.LB.submit(sum);}catch(e){}
   // day stats come back a moment after this run was submitted
   if(DT&&h.day&&window.LB&&window.LB.live){const run=S.runId;setTimeout(()=>window.LB.live.get(h.day.d).then(g=>{const d=g&&g.day;if(!d||!d.n||!S||S.runId!==run)return;
    S.dayStat=` · จาก ${fmt(d.n)} คนที่เข้าหอวันนี้ ${Math.round(d.h/d.n*100)}% ได้เจอเรื่องนี้ ${dHit?'ชีวิตนี้เป็นหนึ่งในนั้น':'ชีวิตนี้ไม่ได้อยู่ในกลุ่มนั้น'}`;const el=$('dayStat');if(el)el.textContent=S.dayStat;}),3500);}}
