@@ -211,7 +211,8 @@ export async function onRequestGet({ request, env, waitUntil }) {
     if (!r || r.hid) return json({ error: 'not-found' }, 404);
     const m = pub(r); if (!m.d) return json({ error: 'not-found' }, 404);
     if (hasSeen) afterView(db, id, r.seen, waitUntil);
-    return json({ ok: true, m }, 200, { 'Cache-Control': 'public, max-age=15' });
+    // X-Seen: last-view stamp before this request (-1 = no seen column), so the cleanup can be checked from outside
+    return json({ ok: true, m }, 200, { 'Cache-Control': 'public, max-age=15', 'X-Seen': String(hasSeen ? r.seen | 0 : -1) });
   } catch (e) { return dbErr(e); }
 }
 
