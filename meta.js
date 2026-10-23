@@ -29,7 +29,7 @@ function recordRun(R){if(!R||!R.h)return;const P=load();P.runs++;
   P.statues.push({name:R.h.name,cls:((C().CLASSES||[])[R.h.cls]||{}).id||'',sec:(R.sec&&R.sec.res)||'',t:Date.now()});if(P.statues.length>30)P.statues.shift();}
  const add=[snapHero(R)];if(R.won&&Array.isArray(R.comps))R.comps.slice(0,2).forEach(c=>{if(c&&c.n)add.push(snapComp(R,c));});
  P.wait=(Array.isArray(P.wait)?P.wait:[]);add.forEach(m=>{if(P.roster.length<P.slots.m)P.roster.push(m);else P.wait.unshift(m);});P.wait=P.wait.slice(0,6);
- if(R.won&&Array.isArray(R.pets))R.pets.forEach(k=>{if(P.pets.length<P.slots.p&&!P.pets.some(p=>p.k===k&&p.from===R.h.name))P.pets.push({id:uid(),k,from:R.h.name,t:Date.now()});});
+ if(R.won&&Array.isArray(R.pets))R.pets.forEach(k=>{if(P.pets.length<P.slots.p&&!P.pets.some(p=>p.k===k&&p.from===R.h.name))P.pets.push({id:uid(),k,from:R.h.name,t:Date.now(),legend:['drk','drs','drg','unicorn','fairy','phoenix','griffin'].includes(k)||undefined});});
  save(P);H.forEach(f=>{try{f(R,P);}catch(e){}});}
 // ---------- หน้าต่าง "ตระกูลและเมือง" ----------
 const TABS={},H=[];let dlg=null,cur='';

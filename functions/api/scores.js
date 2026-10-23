@@ -24,7 +24,7 @@ const DRG = ['', 'n', 'f', 's', 'x'];   // secret dragon floor result (v2.1) —
 const CLAN = ['', 'f', 's', 'd'];       // family dragon mark (v2.1) — not part of canon()
 const FORMS = ['slime', 'human', ''];
 // hall of fame (v0.2.8): pet ids that may appear in lk.p (append new pets here and in leaderboard.js) and gear ids
-const PETS = ['slime', 'fox', 'owl', 'wolf', 'drk', 'drs', 'drg'];
+const PETS = ['slime', 'fox', 'owl', 'wolf', 'drk', 'drs', 'drg', 'unicorn', 'fairy', 'phoenix', 'griffin'];
 const GEAR = ['excal'];   // excal = Excalibur carried across lives
 const SALT = 'tof-v1';
 // anti-cheat for 'top' (v2.2, tightened with the D1 cut). Each check is lenient on purpose: a real run must never fail it.

@@ -121,6 +121,12 @@ const DPAL={k:{o:'#0a0610',m:'#3a2e52',l:'#6a5890',b:'#6e5a84',d:'#18101e',e:'#f
  s:{o:'#2a3448',m:'#a8b8ca',l:'#eef4fa',b:'#dce6f0',d:'#6e7e94',e:'#20d8f0',k:'#2a3448',h:'#4a5a72',W:'#8ea2c4',V:'#5a6a84'},
  g:{o:'#4a1c06',m:'#e08a26',l:'#ffd070',b:'#ffe6a8',d:'#a04a12',e:'#ff3a10',k:'#4a1c06',h:'#fff0d0',W:'#e0602a',V:'#8a2a10'}};
 for(const v of 'ksg'){const p=mk(DPET_ROWS,DPAL[v]);p.shade=true;p.sh=true;PSPR['dr'+v]=p;PROPS['degg_'+v]=mk(DEGG_ROWS,DPAL[v]);}
+// v0.3 legendary pets (10x9, face left like the others)
+Object.assign(PSPR,{unicorn:mk(["y.........",".yw.......",".www.p....","wkwwpp....","wwwwwwwwp.","..wwwwwww.","..wwwwwwwp","..w.w.w.w.","..g.g.g.g."],{y:'#f0d060',w:'#f4f0ff',k:'#1a0a2a',p:'#c080f0',g:'#8a8aa0'}),
+ fairy:mk(["....y.....","...hhh....","lw.hsk.wl.","lww.ss.wwl",".lwgggwl..","..l.gg.l..","....gg....","....s.s...",".y.....y.."],{y:'#fff4a0',h:'#f0c040',s:'#ffd8c0',k:'#1a0a2a',w:'#c8f0ff',l:'#7ac8e8',g:'#5ad07a'}),
+ phoenix:mk(["..y.......",".yoy......",".orro.....","bkrrr...y.",".rrrro.yoy","..rrrroooy","..orrrroy.","...rr..y..","...y.y...."],{r:'#e8402a',o:'#ff8a2a',y:'#ffd84a',b:'#f0c040',k:'#1a0a0a'}),
+ griffin:mk(["..........",".ww.......","wwkw...ff.","bwww..fff.","..wwfff...","..ttttttt.","..tttttttt","..t.t.t.t.","..b.b.t.t."],{w:'#f0ece0',k:'#1a0a0a',b:'#f0b030',f:'#8a5a2a',t:'#d8a860'})});
+for(const k of ['unicorn','fairy','phoenix','griffin']){PSPR[k].shade=true;PSPR[k].sh=true;}
 const COIN=mk(["..yyyy..",".ywwyyy.","ywyyyyyd","ywyddyyd","yyyddyyd","yyyyyyyd",".yyyyyd.","..dddd.."],{y:'#f4c040',w:'#fff4b0',d:'#b07a10'});
 const ICONS={heart:mk([".rr..rr.","rwrrrrrr","rrrrrrrr","rrrrrrrr",".rrrrrr.","..rrrr..","...rr...","........"],{r:'#e0574b',w:'#ffc0b0'}),
 sword:mk([".......w","......ww",".....ww.","y...ww..",".yyww...","..yy....",".b.y....","b......."],{w:'#e8eef4',y:'#f0b040',b:'#6a4a2a'}),
