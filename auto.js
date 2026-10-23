@@ -2104,7 +2104,7 @@ const SPEEDS=[1,2,4,8,16];
 const DTK='tof-dtime2';let dTime=(()=>{try{return +localStorage.getItem(DTK)===30?30:0;}catch(e){return 0;}})();
 const decMs=()=>dTime*1000;
 function setDTime(v){v=v===30?30:0;dTime=v;try{localStorage.setItem(DTK,String(v));}catch(e){}
- if(S&&S.phase==='decide'){S.decMs=v*1000;S.left=S.decMs;S.cdLast=performance.now();updCd();const fh=$('fkHint');if(fh)fh.textContent=fkText();}renderCtl();}
+ if(S&&S.phase==='decide'){S.decMs=v*1000;S.left=S.decMs;S.cdLast=performance.now();updCd();const fh=$('fkHint');if(fh){fh.textContent=fkText();fh.title=fkText();}}renderCtl();}
 let S=null;
 const VIS={hf:0,ef:0,nums:[],coins:[],shake:0,edead:false,walk0:0,show:null,dieAt:0};
 const THF='600 9px '+((getComputedStyle(document.documentElement).getPropertyValue('--fT')||'sans-serif').trim());
@@ -2554,8 +2554,8 @@ function renderStance(){const box=$('stanceBox');if(!box)return;const on=!!S.R&&
  // the active stance's effect sits in the tooltip of the 🧭 label (tap it on a phone)
  const st=STANCES[S.R.st],lb=$('stLbl');if(lb){lb.dataset.tipn=`ท่าทีตอนนี้: ${st.n}`;lb.dataset.tipd=st.d;}}
 // card layout per phase: birth/decide/end split into a scrolling part (.cs) and a pinned part (.cpin)
-function cardMode(ph){document.body.dataset.ph=ph;const sp=ph==='birth'||ph==='decide'||ph==='end';
- card.classList.toggle('split',sp);['birth','decide','end'].forEach(k=>card.classList.toggle('ph-'+k,ph===k));if(ph!=='decide')card.classList.remove('fk');}
+function cardMode(ph){document.body.dataset.ph=ph;const sp=ph==='birth'||ph==='decide'||ph==='end'||ph==='secret';
+ card.classList.toggle('split',sp);['birth','decide','end','secret'].forEach(k=>card.classList.toggle('ph-'+k,ph===k));if(ph!=='decide')card.classList.remove('fk');}
 function setStance(k){const R=S.R;if(!R||!STANCES[k]||R.st===k||!R.alive)return;R.st=k;R.stCh=(R.stCh||0)+1;R.log.unshift({f:R.floor,t:`เปลี่ยนท่าทีเป็น "${STANCES[k].n}"`,c:'info'});
  renderStance();renderHUD();renderLog();saveRun();}
 // look rarity: slime colour bands are uneven (gold is rarest), eyes x mouths are 8 x 7 equally likely
@@ -2766,7 +2766,7 @@ function renderDecide(){const K=S.K,R=S.R;
  const rt=K.rar==='l'?'<span class="rar l">★ ระดับตำนาน</span>':K.rar==='r'?'<span class="rar r">◆ หายาก</span>':'';
  const fk=fkOn();
  card.innerHTML=`<div class="cs"><div class="tag keytag">⚑ จุดเปลี่ยนชะตา · ${esc(K.tag)} ${rt}</div><h3>${esc(K.title)}</h3><p>${esc(K.text)}</p>${vs}</div>
- <div class="cpin">${fk?`<div class="fkhint" id="fkHint" role="note">${esc(fkText())}</div>`:''}<div class="cd" role="timer" aria-label="เวลาตัดสินใจ"><i id="cdBar"></i></div><div class="cdl" id="cdTxt"></div>
+ <div class="cpin">${fk?`<div class="fkhint" id="fkHint" role="note" title="${esc(fkText())}">${esc(fkText())}</div>`:''}<div class="cd" role="timer" aria-label="เวลาตัดสินใจ"><i id="cdBar"></i></div><div class="cdl" id="cdTxt"></div>
  <div class="chs">${K.ch.map((c,i)=>c.hide?'':`<button class="ch${i===K.pick?' ai':''}${c.cl?' cl':''}" data-i="${i}" data-k="${K.ch.slice(0,i+1).filter(x=>!x.hide).length}" ${c.dis?'disabled':''}><span class="k">${K.ch.slice(0,i+1).filter(x=>!x.hide).length}</span><span><span class="t">${esc(c.t)}</span><span class="s">${partsHTML(c.dis?c.P.filter((p,j)=>j!==disWhy(R,c).j):c.P)}</span>${c.dis?`<span class="lock">🔒 ${esc(disWhy(R,c).w)}</span>`:''}${i===K.pick?`<span class="aitag">ถ้าหมดเวลา ${esc(R.h.name)} (${esc(PERS[R.h.pers].n)}) จะเลือกข้อนี้</span>`:''}</span></button>`).join('')}</div></div>`;
  card.querySelectorAll('button.ch').forEach(b=>b.addEventListener('click',()=>choose(+b.dataset.i,false)));card.classList.toggle('legend',K.rar==='l');card.classList.toggle('fk',fk);updCd();}
 // first fate turn of a player's first life: pulse the card and say plainly that the game waits for a pick (or how long the timer runs)
@@ -2812,19 +2812,19 @@ function secGo(way){const R=S.R;if(R.sec.st!=='choose')return;const out=secFight
  S.cb={en:c.en,ev:c.ev,i:0,hp:c.startHp,mhp:c.mhp,ehp:c.en.mhp,lines:[],win:c.win,spare:way===0,tag:'ชั้นลับ'};VIS.show={t:'en',en:c.en};VIS.edead=false;S.phase='combat';render();playCombat();}
 function renderSecret(){const R=S.R,X=R.sec,D=DRG[X.c],h=R.h,EGN='ไข่สัตว์ตำนาน SS';
  if(X.st==='talk'||X.st==='choose'||(X.st==='res'&&X.res==='f'))VIS.show={t:'en',en:secEn(R)};else if(X.st==='ask')VIS.show=null;
- const tag=`<div class="tag keytag">✦ ชั้นลับ · ไม่มีในแผนที่</div>`,btn=(k,t,s,pri)=>`<button class="ch${pri?' ai':''}" data-k="${k}"><span class="k">${k}</span><span><span class="t">${esc(t)}</span>${s?`<span class="s">${s}</span>`:''}</span></button>`,chip=(t,c)=>`<span class="${c||''}">${esc(t)}</span>`;
+ const pin=h=>`</div><div class="cpin">${h}</div>`,tag=`<div class="cs"><div class="tag keytag">✦ ชั้นลับ · ไม่มีในแผนที่</div>`,btn=(k,t,s,pri)=>`<button class="ch${pri?' ai':''}" data-k="${k}"><span class="k">${k}</span><span><span class="t">${esc(t)}</span>${s?`<span class="s">${s}</span>`:''}</span></button>`,chip=(t,c)=>`<span class="${c||''}">${esc(t)}</span>`;
  if(X.st==='ask'){card.innerHTML=`${tag}<h3>คุณค้นพบชั้นใหม่</h3><p>ผู้กลืนดาราล้มลงแล้ว แต่หลังบัลลังก์ของมันมีบันไดแคบๆ ทอดขึ้นไปอีก บันไดนี้ไม่มีในแผนที่ของใครเลย ลมร้อนที่พัดลงมามีกลิ่นเหมือนทองเก่า</p><p><b>ต้องการเข้าท้าทายหรือไม่</b></p>
-  <div class="chs">${btn(1,'ขึ้นไปท้าทาย',chip('ยังไม่รู้ว่าข้างบนมีอะไร','b'),1)}${btn(2,'ไม่ขึ้น จบการเดินทางที่นี่',chip('จบแบบผู้พิชิตยอดหอ','g'))}</div>`;
+  ${pin(`<div class="chs">${btn(1,'ขึ้นไปท้าทาย',chip('ยังไม่รู้ว่าข้างบนมีอะไร','b'),1)}${btn(2,'ไม่ขึ้น จบการเดินทางที่นี่',chip('จบแบบผู้พิชิตยอดหอ','g'))}</div>`)}`;
   const b=card.querySelectorAll('button.ch');b[0].onclick=secEnter;b[1].onclick=secLeave;return;}
  if(X.st==='talk'){const L=secLines(R),i=clamp(X.i|0,0,L.length-1),last=i>=L.length-1;
   card.innerHTML=`${tag}<h3>${esc(D.n)}แห่งกองสมบัติ</h3><div class="sectalk">${L.slice(0,i+1).map(l=>l.n?`<p class="dim">${esc(l.t)}</p>`:`<p class="say">「${esc(l.t)}」</p>`).join('')}</div>
-  <p class="dim" style="font-size:12px">ช่วงนี้ไม่มีเวลานับถอยหลัง อ่านได้ตามสบาย</p><div class="acts"><button class="btn" id="secSkip" data-k="2">ข้ามบทพูด<span class="kb">[2]</span></button><button class="btn pri" id="secNext" data-enter>${last?'พร้อมแล้ว ▸':'ถัดไป ▸'}<span class="kb">[Enter]</span></button></div>`;
+  <p class="dim" style="font-size:12px">ช่วงนี้ไม่มีเวลานับถอยหลัง อ่านได้ตามสบาย</p>${pin(`<div class="acts"><button class="btn" id="secSkip" data-k="2">ข้ามบทพูด<span class="kb">[2]</span></button><button class="btn pri" id="secNext" data-enter>${last?'พร้อมแล้ว ▸':'ถัดไป ▸'}<span class="kb">[Enter]</span></button></div>`)}`;
   $('secNext').onclick=()=>{if(last)X.st='choose';else X.i=i+1;render();};$('secSkip').onclick=()=>{X.st='choose';render();};return;}
  if(X.st==='choose'){const e=X.e||[.5,.3],cur=X.m0==='s',pc=v=>`โอกาสชนะ ~${Math.round(v*100)}%`;
   card.innerHTML=`${tag}<h3>${esc(D.n)}ลุกขึ้นยืนบนกองทอง</h3><p>เหรียญไหลลงจากเกล็ดเป็นสาย มันกางปีกจนเต็มโถง แล้วรอให้คุณเลือกว่าจะสู้แบบไหน</p>
-  <div class="chs">${btn(1,'สู้จนมันยอมแพ้ แล้วไว้ชีวิต',[chip(pc(e[0]),e[0]>=.6?'g':'b'),chip(cur?'นับเป็นมังกรที่ล้มได้ แต่มันจะไม่ยอมเป็นสหาย':'ตระกูลได้ฉายา สหายมังกร','g'),chip(`ได้${EGN}`,'g'),chip('แพ้ = ตาย','b')].join(''),1)}
+  ${pin(`<div class="chs">${btn(1,'สู้จนมันยอมแพ้ แล้วไว้ชีวิต',[chip(pc(e[0]),e[0]>=.6?'g':'b'),chip(cur?'นับเป็นมังกรที่ล้มได้ แต่มันจะไม่ยอมเป็นสหาย':'ตระกูลได้ฉายา สหายมังกร','g'),chip(`ได้${EGN}`,'g'),chip('แพ้ = ตาย','b')].join(''),1)}
   ${btn(2,'สู้จนมันตาย',[chip(pc(e[1]),e[1]>=.6?'g':'b'),chip(`ขนสมบัติทั้งกอง + ${EGN}`,'g'),chip(cur?'นับเป็นมังกรที่ล้มได้':'ตระกูลจะติดคำสาปนักล่ามังกร','b'),chip('แพ้ = ตาย','b')].join(''))}
-  ${btn(3,'ก้มหัวให้ แล้วเดินลงบันไดไป',chip('จบแบบผู้พิชิตยอดหอ','g'))}</div>`;
+  ${btn(3,'ก้มหัวให้ แล้วเดินลงบันไดไป',chip('จบแบบผู้พิชิตยอดหอ','g'))}</div>`)}`;
   const b=card.querySelectorAll('button.ch');b[0].onclick=()=>secGo(0);b[1].onclick=()=>secGo(1);b[2].onclick=secLeave;return;}
  // result
  const res=X.res,cur=X.m0==='s';let t,p,gain=[];
@@ -2835,7 +2835,7 @@ function renderSecret(){const R=S.R,X=R.sec,D=DRG[X.c],h=R.h,EGN='ไข่ส�
  else{t='ชั้นลับกลายเป็นหลุมศพ';p=`คุณล้มลงข้างกองทอง ${D.n}ใช้กรงเล็บดันร่างของ${h.name}ไปกองรวมกับกระดูกของคนอื่นๆ ที่เคยขึ้นมาถึงตรงนี้`;}
  const ms=(X.msgs||[]).filter(m=>m.c==='lv');
  card.innerHTML=`${tag}<h3>${esc(t)}</h3><p>${esc(p)}</p>${gain.length?`<ul class="msgs">${gain.map(g=>`<li class="good">${esc(g)}</li>`).join('')}${ms.map(m=>`<li class="lv">${esc(m.t)}</li>`).join('')}</ul>`:''}
- <div class="acts"><button class="btn pri" id="secEnd" data-enter>ไปที่แผ่นจารึก<span class="kb">[Enter]</span></button></div>`;
+ ${pin(`<div class="acts"><button class="btn pri" id="secEnd" data-enter>ไปที่แผ่นจารึก<span class="kb">[Enter]</span></button></div>`)}`;
  $('secEnd').onclick=secLeave;}
 const secSum=R=>{const X=R.sec||{},D=DRG[X.c];if(!D)return'';return X.res==='n'?'พบบันไดขึ้นไปแต่เลือกไม่ขึ้น':X.res==='f'?`ล้ม${D.n}แล้วไว้ชีวิต ได้ไข่สัตว์ตำนานกลับมา`:X.res==='s'?`ฆ่า${D.n}แล้วขนสมบัติกลับมา`:X.res==='x'?`ตายในกรงเล็บของ${D.n}`:'';};
 let cbTimer=null;
