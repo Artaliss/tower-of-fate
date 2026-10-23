@@ -114,10 +114,15 @@ function statueCv(s,mat){const k=s.id+'|'+s.rows.join('').length+'|'+s.rows[0]+'
  if(stC.size>80)stC.clear();stC.set(k,cv);return cv;}
 const PED=[['#5a6068','#8a929a','#3a3e44'],['#8a5a14','#e8b440','#5a3a0a'],['#8a94a8','#eef2fa','#5a6070']];
 // รูปปั้น: ฐาน + ตัวสไปรต์ย้อมเป็นหิน/ทอง/รุ้ง (s=null = แท่นว่าง)
-function drawStatue(c,s,x,yb,sc,mat,t,seed){const pc=PED[mat]||PED[0],pw=sc>1?24:16,ph=sc>1?9:5;
+function drawStatue(c,s,x,yb,sc,mat,t,seed,rg){const pc=PED[mat]||PED[0],pw=sc>1?24:16,ph=sc>1?9:5;
  R(c,x-pw/2,yb-ph,pw,ph,pc[0]);R(c,x-pw/2,yb-ph,pw,1,pc[1]);R(c,x-pw/2-1,yb-1,pw+2,1,pc[2]);if(sc>1)R(c,x-pw/2+3,yb-ph+3,pw-6,2,pc[2]);
  const top=yb-ph;if(!s){const g=c.globalAlpha;c.globalAlpha=g*(.18+.08*Math.sin(t/500));R(c,x-5,top-16*sc/2,10,16*sc/2,'#e8f0ff');R(c,x-3,top-16*sc/2-6,6,6,'#e8f0ff');c.globalAlpha=g;return;}
  const cv=statueCv(s,mat),dw=s.w*sc,dh=s.h*sc,sm=c.imageSmoothingEnabled;c.imageSmoothingEnabled=false;c.drawImage(cv,Math.round(x-dw/2),Math.round(top-dh),dw,dh);c.imageSmoothingEnabled=sm;
+ if(rg){const u=sc,hx=Math.round(x),hy=Math.round(top-dh+(topRow(s)+1.5)*sc),cg=mat===2?`hsl(${Math.floor(t/20)%360},80%,62%)`:'#f4bb4a',cd=mat===2?'#b04ad0':'#a8741a';
+  // crown: band + three points with a gem; sword: blade raised at the right hand
+  R(c,hx-4*u,hy-2*u,8*u,2*u,cg);R(c,hx-4*u,hy-4*u,u,2*u,cg);R(c,hx-u/2,hy-5*u,u,3*u,cg);R(c,hx+3*u,hy-4*u,u,2*u,cg);R(c,hx-4*u,hy-u,8*u,u,cd);R(c,hx-u/2,hy-2*u,u,u,'#ff5a7a');
+  const sx=Math.round(x+dw/2-2*u),sy=Math.round(top-dh*.55),bl=mat===1?'#ffe9a8':mat===2?'#eef2fa':'#c8d0d8';
+  R(c,sx,sy-12*u,u,12*u,bl);R(c,sx+u,sy-11*u,u/2,10*u,'rgba(255,255,255,.6)');R(c,sx-2*u,sy,5*u,u,cd);R(c,sx,sy+u,u,3*u,'#5a3a1a');R(c,sx,sy+4*u,u,u,cg);}
  if(mat&&!RMQ){const k=Math.floor(t/280)+seed;if(hsh(k)<.6){const lx=Math.floor(x-dw/2+hsh(k*3+1)*dw),ly=Math.floor(top-dh+hsh(k*5+2)*dh);R(c,lx,ly,1,1,'#ffffff');R(c,lx-1,ly,1,1,'rgba(255,255,255,.5)');R(c,lx+1,ly,1,1,'rgba(255,255,255,.5)');}}}
 // ---------- ข้อมูลฉาก ----------
 const ST_SLOT=[[52,68],[140,68],[42,110],[150,110],[10,114],[182,114]];
@@ -137,7 +142,7 @@ function pick(e){let tx,ty;if(e.pen){e.q=[{x:rnd(PEN.x0+8,PEN.x1-8),y:rnd(PEN.y0
  // ข้ามฝั่งน้ำพุ: อ้อมใต้น้ำพุก่อน
  e.q=(e.x<FX)!==(tx<FX)?[{x:FX+rnd(-12,12),y:rnd(108,113)},{x:tx,y:ty}]:[{x:tx,y:ty}];}
 function build(P){const hd=P.roster.find(m=>m.id===P.head),mt=mat(P),ents=[],stat=[],J=jobsOf(P);
- stat.push({s:hd?spOf(hd):null,x:FX,y:FY,sc:2,info:hd?`<b>👑 ${esc(hd.name)}</b><br><span class="mt-dim">รูปปั้นหัวหน้าตระกูลกลางน้ำพุ${mt===1?' (ทอง)':mt===2?' (รุ้ง)':''}</span>`:`<b>แท่นกลางน้ำพุยังว่างอยู่</b><br><span class="mt-dim">${P.wins?'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูลได้ที่ป้อมทหารรับจ้าง':'ไต่หอให้ถึงชั้น 100 เพื่อหาลูกรักมาเป็นหัวหน้าตระกูล'}</span>`});
+ stat.push({s:hd?spOf(hd):null,x:FX,y:FY,sc:2,rg:1,info:hd?`<b>👑 ${esc(hd.name)}</b><br><span class="mt-dim">รูปปั้นหัวหน้าตระกูลกลางน้ำพุ${mt===1?' (ทอง)':mt===2?' (รุ้ง)':''}</span>`:`<b>แท่นกลางน้ำพุยังว่างอยู่</b><br><span class="mt-dim">${P.wins?'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูลได้ที่ป้อมทหารรับจ้าง':'ไต่หอให้ถึงชั้น 100 เพื่อหาลูกรักมาเป็นหัวหน้าตระกูล'}</span>`});
  P.statues.filter(s=>!hd||s.name!==hd.name).slice(-ST_SLOT.length).reverse().forEach((s,i)=>{let sp=null;try{sp=A().heroSpr(s.cls||'war',{form:'human',seed:s.name});}catch(e){}
   stat.push({s:sp,x:ST_SLOT[i][0],y:ST_SLOT[i][1],sc:1,info:`<b>🗿 ${esc(s.name)}</b><br><span class="mt-dim">${esc(M.clsN(s.cls))} · ผู้พิชิตยอดหอ${s.sec==='f'||s.sec==='s'?' และชั้นลับ':''}</span>`});});
  const spawn=e=>{if(e.pen){e.x=rnd(PEN.x0+8,PEN.x1-8);e.y=rnd(PEN.y0+8,PEN.y1-4);}else{for(let i=0;i<12;i++){e.x=rnd(10,182);e.y=rnd(64,112);if(okPlaza(e.x,e.y))break;}}pick(e);ents.push(e);};
@@ -150,7 +155,7 @@ function step(D,dt){D.ents.forEach(e=>{if(e.pause>0){e.pause-=dt;return;}const g
 function draw(c,D,t){c.imageSmoothingEnabled=false;c.drawImage(bg(),0,0);bldAnim(c,t);const L=[],a=A();
  L.push({y:FY-14,f:()=>fountainBack(c,t)},{y:FY+.5,f:()=>fountainJets(c,t)},{y:PEN.y1+1,f:()=>penFront(c)});
  BLD.forEach(b=>{if(b.y)L.push({y:b.y,f:()=>bldDraw(c,b.id,b.x,b.y)});});
- D.stat.forEach((s,i)=>L.push({y:s.y,f:()=>drawStatue(c,s.s,s.x,s.y,s.sc,D.mt,t,i*97)}));
+ D.stat.forEach((s,i)=>L.push({y:s.y,f:()=>drawStatue(c,s.s,s.x,s.y,s.sc,D.mt,t,i*97,s.rg)}));
  D.dec.forEach(d=>L.push({y:d.y,f:()=>decorDraw(c,d.k,d.x,d.y,t)}));
  D.ents.forEach(e=>L.push({y:e.y,f:()=>{const s=e.s,bob=e.pause>0||RMQ?0:fl(t,180,2),x=Math.round(e.x-s.w/2),y=Math.round(e.y-s.h)-bob;
   try{a.blit(c,s,x,y,{flip:!!e.flip,key:'tw'});}catch(er){R(c,x,y,s.w,s.h,'#888');}
