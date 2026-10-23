@@ -1,6 +1,6 @@
 // city.js — กระดานเควส (เควสรายวัน + เควสถาวรหลายขั้น), บริหารเมือง (อาคาร 9 หลัง + ส่งสมาชิกไปทำงาน + ความสุขสัตว์), ร้านของตกแต่ง
-// API: window.CITY = { bonus(k), lv(id), busy(memberId), petMood(petId) 0-100, petMul(petId) 1.1/1/0.8 }  bonus: 'train' ตัวคูณค่าฝึก (<1), 'gold' ตัวคูณเหรียญดันเจี้ยน, 'hp' ตัวคูณ HP ตี้, 'exp' ตัวคูณ EXP เควส, 'egg' โอกาสไข่
-// ข้อมูลอยู่ใน META P.mod.city = {b:{id:lv}, decor:[key], c:{runs,wins,sec,hard,train,kills}, best:{f,b}, wc:[cls], q:{day,L:[...]}, perm:{id:ขั้นที่ส่งแล้ว}, n:ส่งเควสแล้ว, pick:id สมาชิกรับ EXP, sl:{m,p}, jobs:{bldId:[memberId]}, mood:{petId:0-100 ณ เวลา mt}, mt, tr:{petId:เวลาให้ขนม}, fg:ผลผลิตคอกสัตว์}
+// API: window.CITY = { bonus(k), lv(id), busy(memberId), petMood(petId) 0-100, petMul(petId) 1.1/1/0.8, focus(bldId) }  bonus: 'train' ตัวคูณค่าฝึก (<1), 'gold' ตัวคูณเหรียญดันเจี้ยน, 'hp' ตัวคูณ HP ตี้, 'exp' ตัวคูณ EXP เควส, 'egg' โอกาสไข่
+// ข้อมูลอยู่ใน META P.mod.city = {b:{id:lv}, decor:[key], c:{runs,wins,sec,hard,train,kills}, best:{f,b}, wc:[cls], q:{day,L:[...]}, perm:{id:ขั้นที่ส่งแล้ว}, n:ส่งเควสแล้ว, pick:id สมาชิกรับ EXP, sl:{m,p}, jobs:{bldId:[memberId]}, mood:{petId:0-100 ณ เวลา mt}, mt, tr:{petId:เวลาให้ขนม}, fg:ผลผลิตลานฝึกสัตว์เลี้ยง}
 // ฟัง: META.onRun, 'tof:hard-clear' (hard.js ชนะด่าน), 'tof:train' (hard.js ฝึกสมาชิก)
 (function(){
 'use strict';
@@ -16,7 +16,7 @@ const BLD=[
  {id:'hatch',ic:'🥚',n:'โรงฟักไข่',c:450,d:l=>`เควสหายากให้ไข่ ${Math.round(eggP(l,1)*100)}% · เควสทั่วไป ${Math.round(eggP(l,0)*100)}%`},
  {id:'lib',ic:'📚',n:'หอสมุด',c:300,d:l=>`EXP จากเควส +${l*12}%`},
  {id:'inn',ic:'🏨',n:'บ้านพัก',c:350,d:l=>`เพิ่มช่องในตระกูลแล้วได้เหรียญคืน ${l*8}%`},
- {id:'farm',ic:'🐄',n:'คอกสัตว์',c:300,d:l=>`สัตว์เลี้ยงเครียดช้าลง ${l*10}% · คนประจำคอกเก็บผลผลิตได้วันละ 🪙 ${20+10*l} ต่อหัว`},
+ {id:'pen',ic:'🐾',n:'ลานฝึกสัตว์เลี้ยง',c:300,d:l=>`สัตว์เลี้ยงเครียดช้าลง ${l*10}% · คนประจำลานเก็บผลผลิตได้วันละ 🪙 ${20+10*l} ต่อหัว`},
  {id:'scout',ic:'🏹',n:'หน่วยลาดตระเวน',c:350,d:l=>`ส่งเควสแล้วมีโอกาส ${l*6}% ได้ของตกแต่งแถม`},
  {id:'gate',ic:'🏯',n:'ประตูเมือง',c:400,d:l=>`HP ของตี้ในดันเจี้ยน +${l*2}%`}];
 const BMAX=5,BMUL=[1,2.5,5,9,15];
@@ -24,7 +24,7 @@ const BMAX=5,BMUL=[1,2.5,5,9,15];
 const GATE_T={dra:'HP ตี้ +4%',dsl:'เหรียญจากดันเจี้ยน +4%',nec:'EXP เควส +6%',ang:'สัตว์เลี้ยงเครียดช้าลง 15%'};
 const JOB={train:{c:['war'],t:u=>`ค่าฝึกถูกลงอีก ${Math.round(u*4)}%`},market:{c:['rog'],t:u=>`เหรียญเพิ่มอีก ${Math.round(u*5)}%`},
  hosp:{c:['pri'],t:u=>`HP ตี้เพิ่มอีก ${Math.round(u*4)}%`},lib:{c:['mag'],t:u=>`EXP เควสเพิ่มอีก ${Math.round(u*8)}%`},
- farm:{c:['far'],t:u=>`สัตว์อารมณ์ดีขึ้นวันละ ${Math.round(u*14)} · ผลผลิตเหรียญ`},scout:{c:['arc'],t:u=>`โอกาสได้ไข่และของแถมจากเควส +${Math.round(u*4)}%`},
+ pen:{c:['far'],t:u=>`สัตว์อารมณ์ดีขึ้นวันละ ${Math.round(u*14)} · ผลผลิตเหรียญ`},scout:{c:['arc'],t:u=>`โอกาสได้ไข่และของแถมจากเควส +${Math.round(u*4)}%`},
  gate:{c:Object.keys(GATE_T),t:()=>'บัฟตามอาชีพของยาม'}};
 const JK=Object.keys(JOB);
 const jSlots=l=>l>=3?2:l>=1?1:0;
@@ -62,13 +62,13 @@ function bonus(k){return bon(M.load(),k);}
 const busy=id=>{const s=st(M.load());return JK.some(b=>(s.jobs[b]||[]).includes(id));};
 // ---------- ความสุขสัตว์: ค่า mood เก็บพร้อมเวลา s.mt แล้วคิดต่อตามเวลาจริง ----------
 const MOOD0=70;
-function moodRate(P){const s=st(P),l=lvOf(P,'farm');return units(P,'farm')*14-15*(1-.1*l)*(gateN(P,'ang')?.85:1);} // ต่อวัน
+function moodRate(P){const s=st(P),l=lvOf(P,'pen');return units(P,'pen')*14-15*(1-.1*l)*(gateN(P,'ang')?.85:1);} // ต่อวัน
 function moodAt(P,id){const s=st(P),v=s.mood[id]==null?MOOD0:+s.mood[id];return Math.max(0,Math.min(100,v+moodRate(P)*(Date.now()-s.mt)/864e5));}
-// บันทึกค่าปัจจุบันลงเซฟ เรียกก่อนเปลี่ยนคนประจำคอกหรือแก้ค่า mood
-function tick(P){const s=st(P),now=Date.now(),dt=Math.max(0,(now-s.mt)/864e5),l=lvOf(P,'farm'),u=units(P,'farm');
+// บันทึกค่าปัจจุบันลงเซฟ เรียกก่อนเปลี่ยนคนประจำลานหรือแก้ค่า mood
+function tick(P){const s=st(P),now=Date.now(),dt=Math.max(0,(now-s.mt)/864e5),l=lvOf(P,'pen'),u=units(P,'pen');
  P.pets.forEach(p=>{s.mood[p.id]=Math.round(moodAt(P,p.id)*10)/10;});Object.keys(s.mood).forEach(k=>{if(!P.pets.some(p=>p.id===k))delete s.mood[k];});
  if(u)s.fg=Math.min(s.fg+u*(20+10*l)*dt,u*(20+10*l)*3);s.mt=now;
- if(P.pets.length&&workers(P,'farm').some(m=>m.cls==='far')&&P.pets.every(p=>s.mood[p.id]>=70))ach('city_farm');}
+ if(P.pets.length&&workers(P,'pen').some(m=>m.cls==='far')&&P.pets.every(p=>s.mood[p.id]>=70))ach('city_farm');}
 const petMood=id=>Math.round(moodAt(M.load(),id));
 const petMul=id=>{const v=petMood(id);return v>=70?1.1:v<35?.8:1;};
 const face=v=>v>=80?'😄':v>=55?'🙂':v>=35?'😐':'😣';
@@ -167,6 +167,7 @@ let flash='';
 .cq-pick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}.cq-pick select{max-width:100%;font:inherit;padding:3px;background:var(--bg,#0e1513);color:inherit;border:1px solid var(--line,#2c3a36);border-radius:5px}
 .cq-job{border-top:1px dashed var(--line,#2c3a36);margin-top:6px;padding-top:5px}.cq-w{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px;font-size:12.5px}
 .cq-w select{flex:1 1 120px;min-width:0;font:inherit;font-size:12.5px;padding:3px;background:var(--bg,#0e1513);color:inherit;border:1px solid var(--line,#2c3a36);border-radius:5px}
+.mt-card.cq-hi{border-color:var(--gold,#f4bb4a);box-shadow:0 0 0 2px var(--gold,#f4bb4a)}
 .cq-lv{display:inline-flex;gap:2px;margin-left:4px}.cq-lv i{width:8px;height:8px;border-radius:2px;background:var(--line,#2c3a36)}.cq-lv i.on{background:var(--gold,#f4bb4a)}`;document.head.appendChild(el);})();
 function rwTxt(rw,P){const a=[];if(rw.g)a.push(`🪙 ${rw.g}`);if(rw.x)a.push(`EXP ${Math.round(rw.x*bon(P,'exp'))}`);if(rw.d)a.push(`${(DEC[rw.d]||{}).ic||'🎁'} ${dName(rw.d)}`);if(rw.egg===2)a.push('🥚 ไข่สัตว์พิเศษ');return a.join(' · ');}
 const tilt=i=>`--r:${[-1.5,1,-.5,1.5,-1,.5][i%6]}deg`;
@@ -201,7 +202,7 @@ function jobHTML(b,P,s){const J=JOB[b.id];if(!J)return'';const l=lvOf(P,b.id),n=
  else if(n<2)h+='<div class="mt-dim">ขยายถึงเลเวล 3 รับเพิ่มได้อีกคน</div>';
  return h+'</div>';}
 function petHTML(P,s){const ok=Date.now();if(!P.pets.length)return'<p class="mt-dim">ยังไม่มีสัตว์เลี้ยงในตระกูล</p>';
- const r=moodRate(P);return`<p class="mt-dim">สัตว์เลี้ยงเครียดลงเรื่อยๆ ทุกวัน และเหนื่อยทุกครั้งที่ลงดันเจี้ยน ตัวที่อารมณ์ดีจะสู้เก่งขึ้น 10% ตัวที่เครียดจะอ่อนลง 20% ${r>=0?'ตอนนี้คนในคอกดูแลทัน อารมณ์สัตว์ดีขึ้นทุกวัน':'ส่งคนไปประจำคอกสัตว์ช่วยได้ ชาวไร่ดูแลเก่งที่สุด'}</p>
+ const r=moodRate(P);return`<p class="mt-dim">สัตว์เลี้ยงเครียดลงเรื่อยๆ ทุกวัน และเหนื่อยทุกครั้งที่ลงดันเจี้ยน ตัวที่อารมณ์ดีจะสู้เก่งขึ้น 10% ตัวที่เครียดจะอ่อนลง 20% ${r>=0?'ตอนนี้คนในลานดูแลทัน อารมณ์สัตว์ดีขึ้นทุกวัน':'ส่งคนไปประจำลานฝึกสัตว์เลี้ยงช่วยได้ ชาวไร่ดูแลเก่งที่สุด'}</p>
  <div class="mt-grid">${P.pets.map(p=>{const v=Math.round(moodAt(P,p.id)),cd=(s.tr[p.id]||0)+TREAT_CD-ok;return`<div class="mt-card"><b>${face(v)} ${p.legend?'✨ ':''}${esc(petN(p.k))}</b>
   <div class="cq-bar"><i style="width:${v}%;background:${v>=70?'#4f8a3a':v>=35?'#c9a23a':'#b8452f'}"></i></div><div class="mt-dim">อารมณ์ ${v}/100${v>=70?' · ร่าเริง สู้เก่งขึ้น':v<35?' · เครียด สู้แย่ลง':''}</div>
   <button class="mt-btn" data-pet="${p.id}" ${cd>0||P.gold<TREAT_G?'disabled':''}>${cd>0?`อิ่มแล้ว อีก ${Math.ceil(cd/36e5)} ชม.`:`เล่นด้วยและให้ขนม (🪙 ${TREAT_G})`}</button></div>`;}).join('')}</div>`;}
@@ -209,10 +210,10 @@ const TREAT_G=30,TREAT_CD=4*36e5,TREAT_UP=20;
 M.tab('city',{n:'🏗 บริหารเมือง',o:30,lock:P=>P.unlock.city?'':'ผ่านชั้น 100 ก่อน เมืองถึงจะเปิด',render(el,P){const s=st(P),cnt=k=>s.decor.filter(x=>x===k).length,full=s.decor.length>=DECOR_MAX;
  tick(P);M.save(P);const fg=Math.floor(s.fg);
  el.innerHTML=`${flash?`<div class="cq-flash">${esc(flash)}</div>`:''}<p class="mt-dim">ใช้เหรียญเมืองสร้างและขยายอาคาร หลังละไม่เกินเลเวล ${BMAX} ส่งสมาชิกไปประจำอาคารได้ คนที่อาชีพตรงงาน (⭐) ได้บัฟเต็ม คนอื่นได้ครึ่งเดียว คนที่ทำงานอยู่ลงดันเจี้ยนไม่ได้</p>
- <div class="mt-grid">${BLD.map(b=>{const l=lvOf(P,b.id),mx=l>=BMAX,c=mx?0:bCost(b,l);return`<div class="mt-card"><b>${b.ic} ${esc(b.n)}</b><span class="cq-lv">${[1,2,3,4,5].map(i=>`<i class="${i<=l?'on':''}"></i>`).join('')}</span>
+ <div class="mt-grid">${BLD.map(b=>{const l=lvOf(P,b.id),mx=l>=BMAX,c=mx?0:bCost(b,l);return`<div class="mt-card" data-bld="${b.id}"><b>${b.ic} ${esc(b.n)}</b><span class="cq-lv">${[1,2,3,4,5].map(i=>`<i class="${i<=l?'on':''}"></i>`).join('')}</span>
   <div class="mt-dim">${l?esc(b.d(l)):'ยังไม่ได้สร้าง'}</div>${mx?'<div class="mt-dim">เลเวลสูงสุดแล้ว</div>':`<div class="mt-dim">เลเวลถัดไป: ${esc(b.d(l+1))}</div><button class="mt-btn pri" data-up="${b.id}" ${P.gold<c?'disabled':''}>${l?'ขยาย':'สร้าง'} (🪙 ${c})</button>`}
-  ${b.id==='farm'&&fg>0?`<button class="mt-btn" data-fg="1">เก็บผลผลิต (🪙 ${fg})</button>`:''}${jobHTML(b,P,s)}</div>`;}).join('')}</div>
- <h3>🐾 สัตว์เลี้ยงในคอก</h3>${petHTML(P,s)}
+  ${b.id==='pen'&&fg>0?`<button class="mt-btn" data-fg="1">เก็บผลผลิต (🪙 ${fg})</button>`:''}${jobHTML(b,P,s)}</div>`;}).join('')}</div>
+ <h3>🐾 สัตว์เลี้ยงในลาน</h3>${petHTML(P,s)}
  <h3>🛒 ร้านของตกแต่ง <span class="mt-dim">ในเมือง ${s.decor.length}/${DECOR_MAX} ชิ้น</span></h3><p class="mt-dim">ซื้อซ้ำได้ ของจะไปตั้งอยู่ในลานเมือง เก็บออกแล้วได้เหรียญคืนครึ่งราคา</p>
  <div class="mt-grid">${DK.map(k=>{const D=DEC[k],n=cnt(k);return`<div class="mt-card"><b>${D.ic} ${esc(dName(k))}</b><div class="mt-dim">มีอยู่ ${n} ชิ้น</div>
   <button class="mt-btn pri" data-buy="${k}" ${full||P.gold<D.g?'disabled':''}>ซื้อ (🪙 ${D.g})</button>${n?`<button class="mt-btn" data-rm="${k}">เก็บออก</button>`:''}</div>`;}).join('')}</div>`;
@@ -223,7 +224,7 @@ M.tab('city',{n:'🏗 บริหารเมือง',o:30,lock:P=>P.unlock.c
   if(!m||JK.some(x=>(s.jobs[x]||[]).includes(id))||(s.jobs[k]||[]).length>=jSlots(lvOf(Q,k)))return;tick(Q);s.jobs[k].push(id);ach('city_job1');
   flash=`${m.name} ไปประจำ${BLD.find(x=>x.id===k).n}แล้ว${fits(k,m)?' งานนี้ถนัดพอดี':''}`;if(JK.every(x=>(s.jobs[x]||[]).length))ach('city_jobs');tick(Q);});});
  el.querySelectorAll('[data-off]').forEach(b=>b.onclick=()=>upd((Q,s)=>{const[k,id]=b.dataset.off.split('|');tick(Q);s.jobs[k]=(s.jobs[k]||[]).filter(x=>x!==id);}));
- el.querySelectorAll('[data-fg]').forEach(b=>b.onclick=()=>upd((Q,s)=>{tick(Q);const g=Math.floor(s.fg);if(g<1)return;s.fg-=g;Q.gold+=g;Q.goldAll+=g;flash=`เก็บผลผลิตจากคอกสัตว์ได้ 🪙 ${g}`;}));
+ el.querySelectorAll('[data-fg]').forEach(b=>b.onclick=()=>upd((Q,s)=>{tick(Q);const g=Math.floor(s.fg);if(g<1)return;s.fg-=g;Q.gold+=g;Q.goldAll+=g;flash=`เก็บผลผลิตจากลานฝึกสัตว์เลี้ยงได้ 🪙 ${g}`;}));
  el.querySelectorAll('[data-pet]').forEach(b=>b.onclick=()=>upd((Q,s)=>{const id=b.dataset.pet;if(Q.gold<TREAT_G||(s.tr[id]||0)+TREAT_CD>Date.now())return;tick(Q);
   Q.gold-=TREAT_G;s.tr[id]=Date.now();s.mood[id]=Math.min(100,(s.mood[id]||0)+TREAT_UP);tick(Q);}));
  el.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>upd((Q,s)=>{const k=b.dataset.buy;if(s.decor.length>=DECOR_MAX||Q.gold<DEC[k].g)return;Q.gold-=DEC[k].g;s.decor.push(k);decorAch(s);}));
@@ -237,7 +238,9 @@ try{window.ACH&&window.ACH.add&&window.ACH.add([
  {id:'city_decor8',n:'เมืองนี้น่าอยู่',d:'มีของตกแต่งครบทั้ง 8 แบบในเมือง',icon:'⛲',tier:'silver'},
  {id:'city_egg',n:'ไข่ใบนี้ไม่ธรรมดา',d:'ได้สัตว์พิเศษจากการทำเควส',icon:'🥚',tier:'legend'},
  {id:'city_job1',n:'มีงานมีการทำ',d:'ส่งสมาชิกตระกูลไปประจำอาคารในเมืองครั้งแรก',icon:'👷',tier:'bronze'},
- {id:'city_farm',n:'คอกนี้มีแต่รอยยิ้ม',d:'ให้ชาวไร่ดูแลคอกสัตว์จนสัตว์เลี้ยงทุกตัวอารมณ์ดี',icon:'🐄',tier:'silver'},
+ {id:'city_farm',n:'ลานนี้มีแต่รอยยิ้ม',d:'ให้ชาวไร่ประจำลานฝึกสัตว์เลี้ยงจนสัตว์ทุกตัวอารมณ์ดี',icon:'🐄',tier:'silver'},
  {id:'city_jobs',n:'เมืองที่ไม่เคยหลับ',d:'มีคนประจำครบทุกอาคารที่รับคนทำงาน',icon:'🌃',tier:'gold'}]);}catch(e){}
-window.CITY={bonus,lv:id=>lvOf(M.load(),id),busy,petMood,petMul};
+// เปิดแท็บเมืองแล้วเลื่อนไปที่การ์ดอาคาร (town.js เรียกตอนแตะอาคารในล็อบบี้)
+function focus(id){M.open('city');setTimeout(()=>{const c=document.querySelector(`#metaDlg [data-bld="${id}"]`);if(!c)return;c.scrollIntoView({block:'center',behavior:'smooth'});c.classList.add('cq-hi');setTimeout(()=>c.classList.remove('cq-hi'),1600);},60);}
+window.CITY={bonus,lv:id=>lvOf(M.load(),id),busy,petMood,petMul,focus};
 })();
