@@ -116,15 +116,17 @@ const PERM=[
  {id:'hard',ic:'⚔',n:'นักบุกดันเจี้ยน',hard:1,m:s=>s.c.hard,st:[1,5,15],d:a=>`ชนะด่านโหมดยาก ${a} ครั้ง`,rw:[{g:200,x:100},{g:500,x:250},{g:1200,x:500,egg:2}]},
  {id:'train',ic:'🏋',n:'สำนักฝึกตน',hard:1,m:s=>s.c.train,st:[3,10,30],d:a=>`ฝึกสมาชิก ${a} ครั้ง`,rw:[{g:100,x:60},{g:300,x:120,d:'bench'},{g:700,x:250,d:'garden'}]}];
 // ---------- รางวัล ----------
-function giveXp(m,x){m.xp=(m.xp|0)+x;let up=0;while(m.xp>=100){m.xp-=100;m.lv=(m.lv|0)+1;up++;
+// EXP ก้อนเดียวกับลานฝึก/ดันเจี้ยน (P.mod.hard.xp, เลเวลละ lv×10) จะได้ไม่มีหลอด EXP สองหลอด
+const xpOf=(P,m)=>{const h=P.mod.hard=isObj(P.mod.hard)?P.mod.hard:{};if(!isObj(h.xp))h.xp={};if(m.xp){h.xp[m.id]=(h.xp[m.id]|0)+(m.xp|0);delete m.xp;}return h.xp;};
+function giveXp(P,m,x){const X=xpOf(P,m);X[m.id]=(X[m.id]|0)+x;let up=0;while(X[m.id]>=Math.max(10,(m.lv|0)*10)){X[m.id]-=Math.max(10,(m.lv|0)*10);m.lv=(m.lv|0)+1;up++;
  m.hp=Math.round(m.hp*1.08);m.atk=Math.round(m.atk*1.06);m.def=Math.round(m.def*1.06);}return up;}
 function giveEgg(P){if(P.pets.length>=P.slots.p)return'';const own=k=>P.pets.some(p=>p.k===k);
  const ks=Object.keys(EGG).filter(k=>!own(k)),k=(ks.length?ks:Object.keys(EGG))[Math.floor(Math.random()*(ks.length||2))];
- P.pets.push({id:M.uid(),k,from:'เควส',legend:true,t:Date.now()});ach('city_egg');return k;}
+ P.pets.push({id:M.uid(),k,from:'เควส',legend:true,t:Date.now()});ach('city_egg');if(['unicorn','fairy','phoenix','griffin'].every(x=>own(x)))ach('leg_all');return k;}
 // รับรางวัล rw = {g,x,d,egg} egg 1 = ลุ้นตามโรงฟักไข่, 2 = ได้แน่
 function pay(P,s,rw){const out=[];if(rw.g){P.gold+=rw.g;P.goldAll+=rw.g;out.push(`🪙 ${rw.g}`);}
  if(rw.x){const m=P.roster.find(m=>m.id===s.pick)||P.roster.find(m=>m.id===P.head)||P.roster[0];
-  if(m){const x=Math.round(rw.x*bon(P,'exp')),up=giveXp(m,x);out.push(`${m.name} ได้ EXP ${x}${up?` เลเวลขึ้นเป็น ${m.lv}`:''}`);}}
+  if(m){const x=Math.round(rw.x*bon(P,'exp')),up=giveXp(P,m,x);out.push(`${m.name} ได้ EXP ${x}${up?` เลเวลขึ้นเป็น ${m.lv}`:''}`);}}
  if(rw.d){if(s.decor.length<DECOR_MAX){s.decor.push(rw.d);out.push(`ได้${dName(rw.d)}ไปตั้งในเมือง`);decorAch(s);}else{P.gold+=150;P.goldAll+=150;out.push(`ที่ในเมืองเต็ม เลยได้ 🪙 150 แทน${dName(rw.d)}`);}}
  // หน่วยลาดตระเวน: ของตกแต่งแถม
  const us=units(P,'scout'),sc=lvOf(P,'scout')*.06+us*.04;if(sc>0&&Math.random()<sc&&s.decor.length<DECOR_MAX){const k=DK[Math.floor(Math.random()*DK.length)];s.decor.push(k);out.push(`🏹 หน่วยลาดตระเวนเก็บ${dName(k)}กลับมาด้วย`);decorAch(s);}
@@ -137,12 +139,15 @@ function syncSlots(){const P=M.load(),s=st(P),l=lvOf(P,'inn');let ref=0;
  for(let i=s.sl.m;i<P.slots.m;i++)ref+=600+(i-10)*300;for(let i=s.sl.p;i<P.slots.p;i++)ref+=800+(i-5)*800;
  const ch=s.sl.m!==P.slots.m||s.sl.p!==P.slots.p;if(!ch)return;s.sl={m:P.slots.m,p:P.slots.p};ref=Math.round(ref*.08*l);
  if(ref>0){P.gold+=ref;P.goldAll+=ref;flash=`🏨 บ้านพักคืนเหรียญให้ ${ref}`;}M.save(P);M.refresh();}
-document.addEventListener('click',e=>{if(e.target&&e.target.closest&&e.target.closest('#metaDlg [data-slot]'))setTimeout(syncSlots,0);});
+// capture: ปุ่มถูกวาดใหม่ทันทีที่กด ถ้ารอ bubble ปุ่มจะหลุดจาก #metaDlg ไปแล้ว
+document.addEventListener('click',e=>{if(e.target&&e.target.closest&&e.target.closest('#metaDlg [data-slot]'))setTimeout(syncSlots,0);},true);
 // ---------- ติดตามผล ----------
 function upd(f){const P=M.load(),s=st(P);f(P,s);M.save(P);M.refresh();}
 M.onRun(R=>upd((P,s)=>{const fl=R.won?100:(R.floor|0),bo=R.bosses|0,ki=R.kills|0,sec=!!(R.won&&R.sec&&(R.sec.res==='f'||R.sec.res==='s'));
  const cid=((C().CLASSES||[])[R.h.cls]||{}).id||'';
- s.c.runs++;s.c.kills+=ki;if(R.won){s.c.wins++;if(cid&&!s.wc.includes(cid))s.wc.push(cid);}if(sec)s.c.sec++;
+ // upd สร้าง s.c ครั้งแรกจาก P.runs/ทะเบียนที่นับรอบนี้ไปแล้ว ไม่ต้องบวกซ้ำ
+ const fresh=(s.c.runs|0)>=(P.runs|0);
+ if(!fresh){s.c.runs++;if(R.won)s.c.wins++;if(sec)s.c.sec++;}s.c.kills+=ki;if(R.won&&cid&&!s.wc.includes(cid))s.wc.push(cid);
  s.best.f=Math.max(s.best.f,fl);s.best.b=Math.max(s.best.b,bo);
  daily(P,s).forEach(q=>{if(q.k==='floor')q.p=Math.max(q.p|0,fl);else if(q.k==='boss')q.p=Math.max(q.p|0,bo);else if(q.k==='kills')q.p=Math.max(q.p|0,ki);else if(q.k==='wincls'&&R.won&&cid===q.cls)q.p=1;});
  // ตลาด: เหรียญเมืองตอนจบรอบเพิ่มตามเลเวล
@@ -183,7 +188,7 @@ M.tab('quest',{n:'📜 กระดานเควส',o:20,render(el,P){const s
  const perms=PERM.filter(Q=>!Q.hard||P.unlock.hard);
  el.innerHTML=`<p class="mt-dim">ใบประกาศเปลี่ยนทุกเที่ยงคืน ผลจากรอบที่ไต่จบหลังติดประกาศถึงจะนับ ทำเสร็จแล้วกดส่งเพื่อรับรางวัล</p>
  ${flash?`<div class="cq-flash">${esc(flash)}</div>`:''}
- <div class="cq-pick">EXP จากเควสเข้าตัว: ${ros.length?`<select id="cqPick">${ros.map(m=>`<option value="${m.id}" ${m.id===pick?'selected':''}>${esc(m.name)} Lv.${m.lv} (${m.xp|0}/100)</option>`).join('')}</select>`:'<span class="mt-dim">ยังไม่มีสมาชิก EXP จะหายไปเปล่าๆ</span>'}</div>
+ <div class="cq-pick">EXP จากเควสเข้าตัว: ${ros.length?`<select id="cqPick">${ros.map(m=>`<option value="${m.id}" ${m.id===pick?'selected':''}>${esc(m.name)} Lv.${m.lv} (EXP ${xpOf(P,m)[m.id]|0}/${Math.max(10,(m.lv|0)*10)})</option>`).join('')}</select>`:'<span class="mt-dim">ยังไม่มีสมาชิก EXP จะหายไปเปล่าๆ</span>'}</div>
  <div class="cq-board"><h4>📌 ประกาศวันนี้</h4><div class="cq-notes">${L.map(q=>noteHTML(q,s,P)).join('')}</div></div>
  <div class="cq-board"><h4>📜 งานใหญ่ของตระกูล</h4><div class="cq-notes">${perms.map(Q=>permHTML(Q,s,P)).join('')}</div></div>`;
  flash='';

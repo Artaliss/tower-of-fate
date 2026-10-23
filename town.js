@@ -33,7 +33,18 @@ ghostlamp:{n:'โคมผี',draw(c,x,y,t){const b=fl(t,400,2);R(c,x,y-14,1,14
 cauldron:{n:'หม้อแม่มด',draw(c,x,y,t){const f=fl(t,220,3);R(c,x-6,y-7,12,6,'#22222a');R(c,x-7,y-8,14,2,'#3a3a44');R(c,x-5,y-1,2,1,'#22222a');R(c,x+3,y-1,2,1,'#22222a');
  R(c,x-5,y-8,10,1,'#6af04a');R(c,x-2+f,y-10-f,2,2,'#9aff7a');R(c,x-3,y-1,6,1,f?'#ff7a2a':'#ffb040');}},
 batflag:{n:'ธงค้างคาว',draw(c,x,y,t){const w=fl(t,260,2);R(c,x,y-20,1,20,'#8a8a9a');R(c,x+1,y-20,9,6,'#1a1424');R(c,x+10,y-19+w,2,4,'#1a1424');
- R(c,x+3,y-18,5,1,'#a060e0');R(c,x+5,y-19,1,3,'#a060e0');R(c,x+2,y-17,1,1,'#a060e0');R(c,x+8,y-17,1,1,'#a060e0');}}};
+ R(c,x+3,y-18,5,1,'#a060e0');R(c,x+5,y-19,1,3,'#a060e0');R(c,x+2,y-17,1,1,'#a060e0');R(c,x+8,y-17,1,1,'#a060e0');}},
+// ของตกแต่งเทศกาลอื่นใน fest.js (ลอยกระทง คริสต์มาส สงกรานต์)
+krathong:{n:'กระทงใบตอง',draw(c,x,y,t){const f=fl(t,300,2);R(c,x-8,y-1,16,1,'#4aa0e0');R(c,x-6,y-4,12,3,'#3e7a3a');R(c,x-5,y-5,10,1,'#4f9a46');R(c,x-3,y-8,6,3,'#ffd0e0');R(c,x-1,y-9,2,1,'#ffffff');
+ R(c,x+2,y-12,1,4,'#f0e0a0');R(c,x+2,y-13-f,1,1,'#ffb030');}},
+skylantern:{n:'โคมลอย',draw(c,x,y,t){const b=fl(t,600,2);R(c,x,y-14,1,14,'#c8c0a8');R(c,x-3,y-23-b,6,8,'#e0702a');R(c,x-2,y-22-b,4,6,'#ffd070');R(c,x-1,y-16-b,2,1,'#ff9a3a');
+ const g=c.globalAlpha;c.globalAlpha=g*.15;R(c,x-6,y-26-b,12,13,'#ffd060');c.globalAlpha=g;}},
+xmastree:{n:'ต้นคริสต์มาส',draw(c,x,y,t){const f=fl(t,400,2);R(c,x-1,y-3,3,3,'#6a4a2a');R(c,x-7,y-8,15,5,'#2f6e3a');R(c,x-5,y-13,11,5,'#3e7a3a');R(c,x-3,y-17,7,4,'#4f9a46');R(c,x,y-19,1,2,'#ffe060');
+ R(c,x-4,y-7,1,1,f?'#ff4a4a':'#ffe060');R(c,x+3,y-11,1,1,f?'#4ab0ff':'#ff4a4a');R(c,x-2,y-14,1,1,f?'#ffe060':'#4ab0ff');}},
+snowman:{n:'ตุ๊กตาหิมะ',draw(c,x,y){R(c,x-5,y-7,10,7,'#eef2fa');R(c,x-4,y-8,8,1,'#eef2fa');R(c,x-3,y-13,6,5,'#f4f8ff');R(c,x-3,y-15,6,2,'#22222a');R(c,x-4,y-13,8,1,'#22222a');
+ R(c,x-2,y-11,1,1,'#22222a');R(c,x+1,y-11,1,1,'#22222a');R(c,x,y-10,2,1,'#ff8a2a');R(c,x-4,y-8,8,1,'#d0403a');}},
+waterbowl:{n:'ขันน้ำพานรอง',draw(c,x,y,t){R(c,x-7,y-2,14,2,'#c8a040');R(c,x-5,y-3,10,1,'#e8c060');R(c,x-5,y-7,10,4,'#c8ccd6');R(c,x-5,y-7,10,1,'#eef2fa');R(c,x-4,y-6,8,1,fl(t,400,2)?'#4aa0e0':'#6ab8f0');
+ R(c,x+2,y-9,2,2,'#ff9ab0');}}};
 function decorDraw(c,k,x,y,t){const d=DECOR[k];if(d)return d.draw(c,x,y,t);R(c,x-5,y-8,10,8,'#8a6a4a');R(c,x-5,y-8,10,1,'#b08a5a');R(c,x-1,y-8,2,8,'#6a4a2a');}
 // ---------- แฟชั่นทับหัว (fest.js อ้างชื่อไทยจากที่นี่ได้) ----------
 const WEAR={
@@ -43,7 +54,14 @@ pumpkinhead:{n:'หัวฟักทอง',draw(c,x,y,t){R(c,x-5,y-1,10,9,'#e0
  R(c,x-3,y+2,2,2,g);R(c,x+1,y+2,2,2,g);R(c,x-2,y+5,4,1,g);}},
 catears:{n:'หูแมว',draw(c,x,y){[x-5,x+2].forEach(e=>{R(c,e,y-2,3,2,'#2a2a33');R(c,e+1,y-3,1,1,'#2a2a33');R(c,e+1,y-2,1,1,'#ff9ab0');});}},
 batwings:{n:'ปีกค้างคาว',draw(c,x,y,t){const f=fl(t||0,300,2);[[-1,x-7],[1,x+6]].forEach(([s,e])=>{R(c,e+(s<0?-3:0),y+5-f,4,3,'#2a1a3a');R(c,e+(s<0?-5:3),y+4-f,3,2,'#2a1a3a');R(c,e+(s<0?-4:2),y+8-f,2,1,'#2a1a3a');});}},
-crown:{n:'มงกุฎ',draw(c,x,y){R(c,x-4,y-2,8,2,'#f4bb4a');R(c,x-4,y-4,1,2,'#f4bb4a');R(c,x-1,y-4,2,2,'#f4bb4a');R(c,x+3,y-4,1,2,'#f4bb4a');R(c,x-1,y-2,1,1,'#e0302a');}}};
+crown:{n:'มงกุฎ',draw(c,x,y){R(c,x-4,y-2,8,2,'#f4bb4a');R(c,x-4,y-4,1,2,'#f4bb4a');R(c,x-1,y-4,2,2,'#f4bb4a');R(c,x+3,y-4,1,2,'#f4bb4a');R(c,x-1,y-2,1,1,'#e0302a');}},
+// แฟชั่นเทศกาลอื่น: มาลัย/สไบ (ลอยกระทง) หมวกซานต้า/เขากวาง (คริสต์มาส) เสื้อลายดอก/แว่นกันแดด (สงกรานต์)
+jasmine:{n:'มาลัยดอกมะลิ',draw(c,x,y){R(c,x-5,y+7,10,1,'#f4f4ec');R(c,x-4,y+8,8,1,'#f4f4ec');[-4,-1,2].forEach(d=>R(c,x+d,y+8,1,1,'#ffd040'));R(c,x-1,y+9,2,2,'#d0405a');}},
+sabai:{n:'ผ้าสไบทอง',draw(c,x,y){for(let i=0;i<6;i++)R(c,x-4+i*1.5,y+7+i,2,1,'#e8b440');R(c,x+4,y+12,2,2,'#c8901a');}},
+santahat:{n:'หมวกซานต้า',draw(c,x,y){R(c,x-5,y-1,10,2,'#f4f4f4');R(c,x-4,y-4,8,3,'#d0302a');R(c,x-2,y-6,5,2,'#d0302a');R(c,x+2,y-7,2,1,'#d0302a');R(c,x+4,y-8,2,2,'#f4f4f4');}},
+antlers:{n:'เขากวางเรนเดียร์',draw(c,x,y){[[-1,x-4],[1,x+3]].forEach(([s,e])=>{R(c,e,y-5,1,5,'#8a5a32');R(c,e+s,y-4,1,1,'#8a5a32');R(c,e+2*s,y-5,1,2,'#8a5a32');R(c,e,y-6,1,1,'#a06a3a');});}},
+flowershirt:{n:'เสื้อลายดอก',draw(c,x,y){R(c,x-5,y+9,10,4,'#3aa0c8');[[-4,9],[0,10],[3,9],[-2,12],[2,12]].forEach(([dx,dy])=>R(c,x+dx,y+dy,1,1,dy%2?'#ffd040':'#ff6a8a'));}},
+sunglasses:{n:'แว่นกันแดด',draw(c,x,y){R(c,x-4,y+3,3,2,'#14141a');R(c,x+1,y+3,3,2,'#14141a');R(c,x-1,y+3,2,1,'#14141a');R(c,x-3,y+3,1,1,'#6a7a8a');R(c,x+2,y+3,1,1,'#6a7a8a');}}};
 // ---------- ผังลาน ----------
 // แถวบน: ป้อม/ประตูดันเจี้ยน/ร้านเทศกาล · กลาง: น้ำพุ + รูปปั้นหัวหน้าตระกูล · ซ้าย: กระดานเควส · ขวา: ลานฝึก · ล่าง: คอกสัตว์เลี้ยง
 const BY=46,FX=96,FY=88,PEN={x0:50,y0:120,x1:142,y1:156};
@@ -130,14 +148,14 @@ function drawStatue(c,s,x,yb,sc,mat,t,seed,rg){const pc=PED[mat]||PED[0],pw=sc>1
  if(mat&&!RMQ){const k=Math.floor(t/280)+seed;if(hsh(k)<.6){const lx=Math.floor(x-dw/2+hsh(k*3+1)*dw),ly=Math.floor(top-dh+hsh(k*5+2)*dh);R(c,lx,ly,1,1,'#ffffff');R(c,lx-1,ly,1,1,'rgba(255,255,255,.5)');R(c,lx+1,ly,1,1,'rgba(255,255,255,.5)');}}}
 // ---------- ข้อมูลฉาก ----------
 const ST_SLOT=[[52,68],[140,68],[42,110],[150,110],[10,114],[182,114]];
-const DE_SLOT=[[8,62],[184,62],[42,60],[150,60],[70,60],[122,60],[6,100],[186,100],[24,130],[168,130],[12,154],[180,154],[34,150],[158,150]];
+const DE_SLOT=[[8,62],[184,62],[42,60],[150,60],[70,60],[122,60],[6,100],[186,100],[24,130],[168,130],[12,154],[180,154],[34,150],[158,150],[4,82],[188,82]]; // ครบ DECOR_MAX 16 ของ city.js
 function mat(P){const v=((P.mod||{}).hard||{}).statue;return v===1||v===2?v:0;}
 function wearOf(P,id){const w=((P.mod||{}).fest||{}).wear;return w&&typeof w==='object'?w[id]:'';}
 function decorOf(P){const d=((P.mod||{}).city||{}).decor;return Array.isArray(d)?d.filter(k=>typeof k==='string'):[];}
 // งานจาก city.js: P.mod.city.jobs = {bldId:[memberId]} · คอกสัตว์ = 'pen' ยืนในคอก · งานอื่นไม่อยู่ในลาน
 function jobsOf(P){const j=((P.mod||{}).city||{}).jobs,pen=new Set(),busy=new Set();if(j&&typeof j==='object')for(const k in j)if(Array.isArray(j[k]))j[k].forEach(id=>(k==='pen'?pen:busy).add(id));
  pen.forEach(id=>busy.delete(id));return{pen,busy};}
-function petMood(id){try{const m=window.CITY&&window.CITY.petMood&&window.CITY.petMood(id);if(!m)return null;if(typeof m==='string')return{e:m,n:''};return{e:m.e||m.emoji||m.icon||'',n:m.n||m.t||m.text||''};}catch(e){return null;}}
+function petMood(id){try{const m=window.CITY&&window.CITY.petMood&&window.CITY.petMood(id);if(typeof m==='number')return{e:m>=80?'😄':m>=55?'🙂':m>=35?'😐':'😣',n:`อารมณ์ ${m}/100`};if(!m)return null;if(typeof m==='string')return{e:m,n:''};return{e:m.e||m.emoji||m.icon||'',n:m.n||m.t||m.text||''};}catch(e){return null;}}
 const rnd=(a,b)=>a+Math.random()*(b-a);
 // พื้นที่เดินในลาน: เว้นน้ำพุ กระดานเควส ลานฝึก และไม่ลงไปแถวคอก
 function okPlaza(x,y){return((x-FX)/40)**2+((y-FY+2)/19)**2>=1&&!(x<40&&y<94)&&!(x>150&&y<94);}
