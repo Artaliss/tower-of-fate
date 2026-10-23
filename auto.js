@@ -2535,7 +2535,7 @@ function partsHTML(P){return P.map(p=>{const k=chipKey(p);return`<span class="${
 const actQ=sel=>card.querySelector(sel)||(S&&S.phase==='end'&&!$('sceneActs').hidden?$('sceneActs').querySelector(sel):null);
 const inActs=el=>card.contains(el)||$('sceneActs').contains(el);
 function focusPrimary(){const b=actQ('[data-enter]')||card.querySelector('button:not(:disabled)');if(b&&document.activeElement&&document.activeElement!==document.body&&!inActs(document.activeElement))return;if(b)try{b.focus({preventScroll:true});}catch(e){}}
-function render(){if(S.phase!=='decide')card.classList.remove('legend');if(S.phase!=='birth')document.querySelectorAll('.chips.onscene .nmset').forEach(x=>x.remove());cardMode(S.phase);$('formBox').hidden=S.phase!=='birth';if(S.phase!=='end')$('sceneActs').hidden=true;renderHUD();renderParty();renderLog();renderCtl();renderLineage();saveRun();
+function render(){if(S.phase!=='decide')card.classList.remove('legend');if(S.phase!=='birth')document.querySelectorAll('.nmset.onsc').forEach(x=>x.remove());cardMode(S.phase);$('formBox').hidden=S.phase!=='birth';if(S.phase!=='end')$('sceneActs').hidden=true;renderHUD();renderParty();renderLog();renderCtl();renderLineage();saveRun();
  const ph=S.phase;
  if(ph==='birth')renderBirth();else if(ph==='flow'){renderFlow();revealArm();}else if(ph==='decide')renderDecide();else if(ph==='combat')renderCombat();else if(ph==='dying')renderDying();else if(ph==='end')renderEnd();else if(ph==='secret')renderSecret();
  if(ph!=='end')endBar(false);try{window.SHARE&&window.SHARE.onPhase&&window.SHARE.onPhase(ph);}catch(e){}
@@ -2565,6 +2565,12 @@ function lookInfo(h){let L=null;try{L=window.ART.lookOf(look(h));}catch(e){}if(!
  if(L.form==='slime'){const hue=((L.hue%360)+360)%360;let lo=0;for(const [hi,nm] of HUEB){if(hue<hi)return{n:'สไลม์'+nm,p:(nm==='สีแดง'?35:hi-lo)/360*fe};lo=hi;}}
  return{n:'คน'+SKINN[(L.skin||0)%6],p:fe/6};}
 const combOdds=h=>Math.max(1,Math.round(h.odds/lookInfo(h).p));
+// name box under the gold and fate chips: inside the chip row on phones (chips sit on top of the scene),
+// just below the scene on wide screens (chips sit at the bottom there and one more row would cover the hero)
+const NM_WIDE=window.matchMedia?matchMedia('(min-width:600px) and (min-height:521px)'):null;
+function nmPlace(){const ns=document.querySelector('.nmset.onsc'),ch=document.querySelector('.chips.onscene'),w=ch&&ch.closest('.scnwrap');if(!ns||!ch||!w)return;
+ if(NM_WIDE&&NM_WIDE.matches){ns.classList.add('below');if(ns.previousElementSibling!==w)w.after(ns);}else{ns.classList.remove('below');if(ns.parentNode!==ch)ch.appendChild(ns);}}
+if(NM_WIDE){try{NM_WIDE.addEventListener('change',nmPlace);}catch(e){}addEventListener('resize',nmPlace);}
 function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf(h),DT=dayOf(h),LI=lookInfo(h),mx=30,an=!S.rvDone&&!RM;
  if(!S.themeId||S.themeHero!==h){S.themeHero=h;S.themeId=heroTheme(h);}
  const D=i=>an?` style="--d:${i*350}ms"`:'';
@@ -2595,8 +2601,8 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  <div class="omenbox ${O.k==='พร'?'bless':O.k==='คำสาป'?'curse':'mix'}"><span class="ok">${O.k==='ผสม'?'พรปนคำสาป':O.k}ประจำชาตินี้</span> <b>${esc(O.n)}</b><br>${esc(O.d)}</div>${DT?`<div class="daybox" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${esc(DT.d)}</div>`:''}</details></div>
  <div class="livebox" id="liveBox"${S.liveHTML?'':' hidden'}>${S.liveHTML||''}</div>
  <div class="nmset"><label for="inName">✏️ ตั้งชื่อ</label><input id="inName" type="text" maxlength="${NAME_MAX}" autocomplete="off" spellcheck="false" placeholder="${esc(h.name0||h.name)}" value="${h.cname?esc(h.name):''}" title="ปล่อยว่างไว้ก็ใช้ชื่อที่สุ่มมา" aria-describedby="nmHint"><span class="hint" id="nmHint">ปล่อยว่างไว้ก็ใช้ชื่อที่สุ่มมา</span></div>
- <p class="lookn">สุ่มหน้าตาได้ไม่จำกัด แรงค์ อาชีพ และนิสัยยังเหมือนเดิม</p>${window.META?`<div class="acts">${window.META.button()}</div>`:''}${birthExtras(h)}</div>
- <div class="cpin"><div class="bpin"><button class="btn" id="btnReroll" data-k="1" title="สุ่มแรงค์และอาชีพใหม่ได้ครั้งเดียว" ${S.rerolled?'disabled':''}>🔄 สุ่มแรงค์ใหม่ ${S.rerolled?'(ใช้แล้ว)':'(1)'}<span class="kb">[1]</span></button>
+ ${window.META?`<div class="acts">${window.META.button()}</div>`:''}${birthExtras(h)}</div>
+ <div class="cpin"><p class="lookn">สุ่มหน้าตาได้ไม่จำกัด แรงค์ อาชีพ และนิสัยยังเหมือนเดิม</p><div class="bpin"><button class="btn" id="btnReroll" data-k="1" title="สุ่มแรงค์และอาชีพใหม่ได้ครั้งเดียว" ${S.rerolled?'disabled':''}>🔄 สุ่มแรงค์ใหม่ ${S.rerolled?'(ใช้แล้ว)':'(1)'}<span class="kb">[1]</span></button>
  <button class="btn" id="btnLook" data-k="3" type="button" title="สุ่มหน้าตาได้ไม่จำกัด แรงค์ อาชีพ และนิสัยยังเหมือนเดิม">🎲 สุ่มหน้าตา<span class="kb">[3]</span></button>
  ${window.META&&window.META.open?`<button class="btn town" id="btnTownPin" type="button" title="ตระกูลและเมือง" aria-label="ตระกูลและเมือง">🏰<span class="tl"> เมือง</span></button>`:''}<button class="btn pri" id="btnEnter" data-k="2" data-enter>เข้าหอ ▲<span class="kb">[Enter]</span></button></div></div>`;
  {const t=$('btnTownPin');if(t)t.onclick=()=>{try{window.META.open();}catch(e){}};}
@@ -2609,7 +2615,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  $('btnReroll').onclick=()=>{if(S.rerolled)return;S.rerolled=true;const old=S.hero;unlivedAdd(old);S.hero=rollBirth(S.bo);if(old.cname)setName(S.hero,old.name);if(old.petHome)S.hero.petHome=1;S.rvDone=false;VIS.star=0;render();};
  // appearance only, unlimited: new look seed in the same form; rank/class/personality/omen stay
  $('btnLook').onclick=()=>{const h2=S.hero;h2.look=window.ART.rollLook(look(h2).form);S.themeId=heroTheme(h2);render();};
- {const ch=document.querySelector('.chips.onscene'),ns=card.querySelector('.nmset');if(ch&&ns){ch.querySelectorAll('.nmset').forEach(x=>x.remove());ns.classList.add('onsc');ch.appendChild(ns);}}
+ {const ns=card.querySelector('.nmset');if(ns){document.querySelectorAll('.nmset.onsc').forEach(x=>x.remove());ns.classList.add('onsc');nmPlace();}}
  const inp=$('inName');inp.addEventListener('input',()=>{setName(S.hero,inp.value);const nm=card.querySelector('.cert .nm');if(nm)nm.textContent=S.hero.name;renderHUD();renderParty();saveRun();});
  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
  inp.addEventListener('change',()=>{if(cleanName(inp.value)!==inp.value)inp.value=S.hero.cname?S.hero.name:'';});
