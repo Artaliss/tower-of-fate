@@ -45,7 +45,7 @@ const BY={};FESTS.forEach(F=>BY[F.id]=F);
 const QUESTS=[{id:'runs',n:'ไต่หอ 3 รอบ',v:e=>e.runs,max:3,r:20},{id:'boss',n:'ล้มบอส 10 ตัว',v:e=>e.bosses,max:10,r:40},
  {id:'fl50',n:'ขึ้นถึงชั้น 50 ในรอบเดียว',v:e=>e.maxFl,max:50,r:40},{id:'got',n:'เก็บ{it}ได้ 300',v:e=>e.got,max:300,r:50},
  {id:'hard',n:'ชนะด่านโหมดยาก 3 ด่าน',v:e=>e.hard,max:3,r:60},{id:'buy',n:'แลกของในร้าน 2 ชิ้น',v:e=>e.buy,max:2,r:30}];
-const Q_COIN=4;
+const Q_COIN=4,DMAX=16; // DMAX = DECOR_MAX ของ city.js (town.js วาดได้ 16 ช่อง)
 const qs=F=>F&&Array.isArray(F.q)?QUESTS.concat(F.q):QUESTS;
 
 // ---------- วันที่ ----------
@@ -62,7 +62,7 @@ function upcoming(){const d=new Date(),A=active();return FESTS.map(F=>{let s=new
 
 // ---------- ข้อมูล ----------
 const isObj=o=>!!o&&typeof o==='object'&&!Array.isArray(o);
-function st(P){if(!isObj(P.mod))P.mod={};const m=P.mod.fest=isObj(P.mod.fest)?P.mod.fest:{};['ev','own','wear'].forEach(k=>{if(!isObj(m[k]))m[k]={};});if(!Array.isArray(m.coins))m.coins=[];return m;}
+function st(P){if(!isObj(P.mod))P.mod={};const m=P.mod.fest=isObj(P.mod.fest)?P.mod.fest:{};['ev','own','wear'].forEach(k=>{if(!isObj(m[k]))m[k]={};});['coins','stash'].forEach(k=>{if(!Array.isArray(m[k]))m[k]=[];});return m;}
 function ev(m,inst){const e=m.ev[inst]=Object.assign({item:0,got:0,runs:0,bosses:0,maxFl:0,hard:0,buy:0,kills:0,wins:0,good:0,petRuns:0,compRuns:0,potRuns:0,clanRuns:0,bonus:0},isObj(m.ev[inst])?m.ev[inst]:{});if(!isObj(e.q))e.q={};return e;}
 const joined=m=>Object.keys(m.ev).filter(k=>(m.ev[k].got|0)>0);
 const allItems=()=>FESTS.reduce((a,F)=>a.concat(F.shop.map(s=>Object.assign({f:F.id},s))),[]);
@@ -89,7 +89,7 @@ M.onRun((R,P)=>{const A=active();if(!A)return;const fl=R.won?100:(R.floor|0),b=R
  const cp=Array.isArray(R.comps)?R.comps:[];
  gain(fl/2+b*5+(R.won?30:0)+bx,e=>{e.runs++;e.bosses+=b;e.maxFl=Math.max(e.maxFl,fl);e.kills+=R.kills|0;if(R.won)e.wins++;
   if((R.karma|0)>=10)e.good++;if(Array.isArray(R.pets)&&R.pets.length)e.petRuns++;if(cp.length)e.compRuns++;if((R.potions|0)>0)e.potRuns++;
-  if(cp.some(c=>c&&c.clan))e.clanRuns++;e.bonus+=bx;},{P,bx});
+  if(R.clanGo||cp.some(c=>c&&c.clan))e.clanRuns++;e.bonus+=bx;},{P,bx});
  if(bx)M.grantAch('fest_bonus');});
 // ชนะด่านโหมดยาก (hard.js): +15 ด่านที่ผ่านครั้งแรกได้ 25
 window.addEventListener('tof:hard-clear',ev=>{const d=(ev&&ev.detail)||{};gain(d.first?25:15,e=>{e.hard++;});});
@@ -113,10 +113,17 @@ body.fest-loy .cert{box-shadow:0 0 0 1px rgba(255,211,106,.25),0 0 18px rgba(255
 body.fest-xmas .cert{box-shadow:0 0 0 1px rgba(159,216,255,.25),0 0 18px rgba(159,216,255,.1)}
 body.fest-songkran .cert{box-shadow:0 0 0 1px rgba(106,208,255,.25),0 0 18px rgba(106,208,255,.1)}
 #card.fest-fxon{position:relative;isolation:isolate}
-#card>.fest-fx{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;image-rendering:pixelated;opacity:.55;border-radius:inherit}`;document.head.appendChild(s);}
-function shopCard(s,e,m,P,F){const own=s.t==='w'&&m.own[s.k],dec=s.t==='d'?((P.mod.city&&Array.isArray(P.mod.city.decor))?P.mod.city.decor.filter(k=>k===s.k).length:0):0;
+#card>.fest-fx{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;image-rendering:pixelated;opacity:.55;border-radius:inherit}
+#card>.fest-fx.fest-fxt{z-index:2;opacity:.5}`;document.head.appendChild(s);}
+const decs=P=>(P.mod.city&&Array.isArray(P.mod.city.decor))?P.mod.city.decor:[];
+function shopCard(s,e,m,P,F){const own=s.t==='w'&&m.own[s.k],dec=s.t==='d'?decs(P).filter(k=>k===s.k).length:0,full=s.t==='d'&&decs(P).length>=DMAX;
  return`<div class="mt-card fs-it"><div><span class="ic">${s.ic}</span> <b>${esc(nm(s.k))}</b></div><div class="mt-dim">${s.t==='w'?'แฟชั่น':'ของตกแต่งเมือง'}${dec?` · ตั้งไว้ในเมือง ${dec} ชิ้น`:''}</div>
- ${own?'<div class="mt-dim">✔ มีแล้ว</div>':`<button class="mt-btn pri" data-buy="${s.k}" data-pay="i" ${e.item<s.c?'disabled':''}>${F.it} ${s.c}</button><button class="mt-btn" data-buy="${s.k}" data-pay="g" ${P.gold<s.g?'disabled':''}>🪙 ${s.g.toLocaleString()}</button>`}</div>`;}
+ ${own?'<div class="mt-dim">✔ มีแล้ว</div>':`${full?`<div class="mt-dim">ในเมืองเต็มแล้ว (${DMAX}/${DMAX}) เก็บบางชิ้นเข้าคลังก่อน</div>`:''}<button class="mt-btn pri" data-buy="${s.k}" data-pay="i" ${full||e.item<s.c?'disabled':''}>${F.it} ${s.c}</button><button class="mt-btn" data-buy="${s.k}" data-pay="g" ${full||P.gold<s.g?'disabled':''}>🪙 ${s.g.toLocaleString()}</button>`}</div>`;}
+// ของตกแต่งเทศกาลที่ตั้งในเมือง: ร้านของ city.js เก็บออกได้เฉพาะของตัวเอง ที่นี่จึงเก็บเข้าคลัง (m.stash) แล้วเอากลับไปตั้งได้ แม้หมดเทศกาลแล้ว
+function decorHTML(P,m){const d=decs(P),full=d.length>=DMAX,K=[...new Set(d.concat(m.stash))].filter(k=>{const s=item(k);return s&&s.t==='d';});if(!K.length)return'';
+ return`<h3>ของตกแต่งเทศกาล <span class="mt-dim">ในเมือง ${d.length}/${DMAX} ชิ้น</span></h3><p class="mt-dim">ของที่เก็บเข้าคลังไม่หายไปไหน เอากลับไปตั้งได้ทุกเมื่อที่ในเมืองยังมีที่ว่าง</p>
+ ${K.map(k=>{const on=d.filter(x=>x===k).length,st=m.stash.filter(x=>x===k).length;return`<div class="fs-row"><b>${ic(k)} ${esc(nm(k))}</b><span class="mt-dim">${on?`ตั้งในเมือง ${on} ชิ้น`:''}${on&&st?' · ':''}${st?`อยู่ในคลัง ${st} ชิ้น`:''}</span>
+ ${on?`<button class="mt-btn" data-dst="${k}">เก็บเข้าคลัง</button>`:''}${st?`<button class="mt-btn" data-dpl="${k}" ${full?'disabled':''}>เอาไปตั้ง</button>`:''}</div>`;}).join('')}`;}
 function dressHTML(P,m){const W=Object.keys(m.own).filter(k=>m.own[k]&&item(k));
  if(!W.length)return'<p class="mt-dim">ยังไม่มีแฟชั่น แลกจากร้านช่วงเทศกาลได้ ของที่แลกแล้วเป็นของตระกูลตลอดไป</p>';
  if(!P.roster.length)return'<p class="mt-dim">ยังไม่มีสมาชิกในตระกูลให้แต่งตัว ไต่หอให้จบสักรอบก่อน</p>';
@@ -135,20 +142,23 @@ function render(el,P){const m=st(P),A=active();let h='';
   ${QL.map(q=>{const v=Math.min(q.max,q.v(e)|0),ok=v>=q.max,got=e.q[q.id];return`<div class="fs-q" style="--fc:${F.col}"><span class="qn">${esc(q.n.replace('{it}',F.itn))}<br><span class="mt-dim">${v}/${q.max} · รางวัล ${F.it} ${q.r}</span></span><span class="pb"><i style="width:${v/q.max*100}%"></i></span>${got?'<span class="mt-dim">✔ รับแล้ว</span>':`<button class="mt-btn${ok?' pri':''}" data-q="${q.id}" ${ok?'':'disabled'}>รับ</button>`}</div>`;}).join('')}
   <h3>ร้านเทศกาล</h3><p class="mt-dim">จ่ายด้วย${esc(F.itn)}หรือเหรียญเมืองก็ได้ ของตกแต่งไปตั้งอยู่ในเมืองทันที</p><div class="mt-grid">${F.shop.map(s=>shopCard(s,e,m,P,F)).join('')}</div>`;}
  else h+=`<div class="fs-hd"><b class="big">🎪 ตอนนี้ยังไม่มีเทศกาล</b><p class="mt-dim" style="margin:6px 0 0">พอถึงช่วงเทศกาล จบรอบไต่หอหรือชนะโหมดยากจะได้ของเทศกาลไว้แลกแฟชั่นกับของตกแต่งเมือง</p></div>`;
- h+=`<h3>แต่งตัวให้คนในตระกูล</h3>${dressHTML(P,m)}<h3>คอลเลกชัน</h3>${collHTML(m)}<h3>ตารางเทศกาล</h3>${schHTML()}`;
+ h+=`<h3>แต่งตัวให้คนในตระกูล</h3>${dressHTML(P,m)}${decorHTML(P,m)}<h3>คอลเลกชัน</h3>${collHTML(m)}<h3>ตารางเทศกาล</h3>${schHTML()}`;
  el.innerHTML=h;
  el.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>upd((P,m)=>{const A=active();if(!A)return;const e=ev(m,A.inst),QL=qs(A.F),q=QL.find(x=>x.id===b.dataset.q);
   if(!q||e.q[q.id]||(q.v(e)|0)<q.max)return;e.q[q.id]=1;e.item+=q.r;if(QL.filter(x=>e.q[x.id]).length>=Q_COIN&&!m.coins.includes(A.inst))m.coins.push(A.inst);}));
  el.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>upd((P,m)=>{const A=active();if(!A)return;const e=ev(m,A.inst),s=A.F.shop.find(x=>x.k===b.dataset.buy),g=b.dataset.pay==='g';
-  if(!s||(s.t==='w'&&m.own[s.k]))return;if(g?P.gold<s.g:e.item<s.c)return;if(g)P.gold-=s.g;else e.item-=s.c;e.buy++;
-  if(s.t==='w')m.own[s.k]=1;else{if(!isObj(P.mod.city))P.mod.city={};if(!Array.isArray(P.mod.city.decor))P.mod.city.decor=[];P.mod.city.decor.push(s.k);M.grantAch('fest_decor');}
+  if(!s||(s.t==='w'&&m.own[s.k])||(s.t==='d'&&decs(P).length>=DMAX))return;if(g?P.gold<s.g:e.item<s.c)return;if(g)P.gold-=s.g;else e.item-=s.c;e.buy++;
+  if(s.t==='w')m.own[s.k]=1;else{if(!isObj(P.mod.city))P.mod.city={};if(!Array.isArray(P.mod.city.decor))P.mod.city.decor=[];if(P.mod.city.decor.length>=DMAX)return;P.mod.city.decor.push(s.k);M.grantAch('fest_decor');}
   try{window.dispatchEvent(new CustomEvent('tof:fest-buy',{detail:{k:s.k,t:s.t}}));}catch(x){}}));
  el.querySelectorAll('[data-wear]').forEach(sl=>sl.onchange=()=>upd((P,m)=>{const id=sl.dataset.wear,k=sl.value;if(!k)delete m.wear[id];else if(m.own[k]){m.wear[id]=k;M.grantAch('fest_wear');}
-  try{window.dispatchEvent(new CustomEvent('tof:fest-wear',{detail:{id,k}}));}catch(x){}}));}
+  try{window.dispatchEvent(new CustomEvent('tof:fest-wear',{detail:{id,k}}));}catch(x){}}));
+ el.querySelectorAll('[data-dst]').forEach(b=>b.onclick=()=>upd((P,m)=>{const d=decs(P),i=d.lastIndexOf(b.dataset.dst);if(i<0)return;d.splice(i,1);m.stash.push(b.dataset.dst);}));
+ el.querySelectorAll('[data-dpl]').forEach(b=>b.onclick=()=>upd((P,m)=>{const i=m.stash.indexOf(b.dataset.dpl);if(i<0||!isObj(P.mod.city)||!Array.isArray(P.mod.city.decor)||P.mod.city.decor.length>=DMAX)return;m.stash.splice(i,1);P.mod.city.decor.push(b.dataset.dpl);}));}
 function regTab(){const A=active();M.tab('fest',{n:A?`${A.F.ic} ${A.F.n}`:'🎪 เทศกาล',o:35,render});}
 
 // ---------- บรรยากาศบนหน้าเกิด: แบนเนอร์เล็กบนการ์ด กดแล้วเปิดแท็บเทศกาล ----------
 // เอฟเฟกต์พิกเซลจางๆ หลังเนื้อหาการ์ด (canvas z-index:-1 ใน #card ที่ isolate ไว้) ไม่รับการแตะ
+// ใบประกาศบังเกือบทั้งการ์ด (จอมือถือเห็นแทบไม่ได้) จึงมี canvas ชั้นบน .fest-fxt จางกว่า วาดอนุภาคทุกตัวที่สาม ลอยผ่านหน้าใบประกาศ ไม่รับการแตะ
 // ฮาโลวีน = ค้างคาว+ประกายไฟ · ลอยกระทง = กระทงบนน้ำ+โคมลอย+จันทร์เพ็ญ · คริสต์มาส = หิมะ+ดาว · สงกรานต์ = ละอองน้ำ+กลีบดอก
 // หยุดเองเมื่อสลับแท็บหรือ canvas หลุดจากหน้า · prefers-reduced-motion วาดภาพนิ่งเฟรมเดียว
 const RMQ=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -161,7 +171,7 @@ const FXK={
    if(f){px(c,p.x-2,p.y-1,2,1,'#9a6ad0');px(c,p.x+2,p.y-1,2,1,'#9a6ad0');px(c,p.x-3,p.y-2,1,1,'#9a6ad0');px(c,p.x+4,p.y-2,1,1,'#9a6ad0');}
    else{px(c,p.x-2,p.y+1,2,1,'#9a6ad0');px(c,p.x+2,p.y+1,2,1,'#9a6ad0');px(c,p.x-3,p.y+2,1,1,'#9a6ad0');px(c,p.x+4,p.y+2,1,1,'#9a6ad0');}}},
  loy:{n:(w,h)=>3+Math.min(14,2+Math.round(w*h/2500)),
-  bg(c,w,h,t){const mx=w-14,my=10,g=c.globalAlpha;c.globalAlpha=g*.45;for(let y=-5;y<=5;y++){const hw=Math.round(Math.sqrt(25-y*y));px(c,mx-hw,my+y,hw*2,1,'#fff2c0');}c.globalAlpha=g;
+  bg(c,w,h,t){const mx=w-6,my=6,g=c.globalAlpha;c.globalAlpha=g*.8;for(let y=-4;y<=4;y++){const hw=Math.round(Math.sqrt(16-y*y));px(c,mx-hw,my+y,hw*2,1,'#ffeaa0');}c.globalAlpha=g; // จันทร์เพ็ญโผล่มุมขวาบนของการ์ด ไม่ไปจมอยู่ใต้แบนเนอร์
    px(c,0,h-5,w,5,'#1e4a78');const k=Math.floor(t/400);for(let i=0;i<Math.round(w/12);i++)px(c,(i*37+k*7)%w,h-4+(i%3),3,1,'#4a8ac8');},
   mk(i,w,h,init){if(i<3)return{k:'k',x:init?rr(0,w):-8,y:h-4-(i%2),vx:rr(2,4),ph:rr(0,6)};return{k:'l',x:rr(4,w-4),y:init?rr(0,h):h+4,vy:-rr(3,6),ph:rr(0,6)};},
   step(p,dt,w,h,t){if(p.k==='k'){p.x+=p.vx*dt;return p.x<w+8;}p.y+=p.vy*dt;p.x+=Math.sin(t/900+p.ph)*.12;return p.y>-8;},
@@ -170,8 +180,8 @@ const FXK={
  xmas:{n:(w,h)=>Math.min(50,10+Math.round(w*h/260)),
   mk(i,w,h,init){if(i<3)return{k:'s',x:rr(3,w-3),y:rr(2,h*.4),ph:rr(0,6)};return{k:'f',x:rr(0,w),y:init?rr(0,h):-2,vy:rr(4,9),sz:Math.random()<.2?2:1,ph:rr(0,6)};},
   step(p,dt,w,h,t){if(p.k==='s')return true;p.y+=p.vy*dt;p.x+=Math.sin(t/800+p.ph)*.15;return p.y<h+2;},
-  draw(c,p,t){if(p.k==='s'){const b=(t/400+p.ph|0)%4;if(b<2){px(c,p.x,p.y,1,1,'#ffe060');if(!b){px(c,p.x-1,p.y,1,1,'#ffe060');px(c,p.x+1,p.y,1,1,'#ffe060');px(c,p.x,p.y-1,1,1,'#ffe060');px(c,p.x,p.y+1,1,1,'#ffe060');}}return;}
-   px(c,p.x,p.y,p.sz,p.sz,'#eef6ff');}},
+  draw(c,p,t,top){if(p.k==='s'){const b=(t/400+p.ph|0)%4;if(b<2){px(c,p.x,p.y,1,1,'#ffe060');if(!b){px(c,p.x-1,p.y,1,1,'#ffe060');px(c,p.x+1,p.y,1,1,'#ffe060');px(c,p.x,p.y-1,1,1,'#ffe060');px(c,p.x,p.y+1,1,1,'#ffe060');}}return;}
+   px(c,p.x,p.y,p.sz,p.sz,top?'#8ab8e0':'#eef6ff');}}, // ชั้นบนอยู่บนกระดาษสีอ่อน หิมะขาวจะมองไม่เห็น
  songkran:{n:(w,h)=>Math.min(40,10+Math.round(w*h/900)),
   mk(i,w,h,init){if(i<8)return{k:'p',x:rr(0,w),y:init?rr(0,h):-2,vy:rr(3,6),ph:rr(0,6),col:i%2?'#ff9ac0':'#ffd040'};
    const y0=rr(h*.1,h);return{k:'d',x:rr(0,w),y:y0,y0,vx:rr(-9,9),vy:-rr(16,30),wait:init?rr(0,3):rr(0,1.5)};},
@@ -180,17 +190,18 @@ const FXK={
   draw(c,p){if(p.k==='p'){px(c,p.x,p.y,2,1,p.col);return;}if(p.wait>0)return;px(c,p.x,p.y,1,2,'#9ad8ff');}}};
 let FX=null;
 function fxSize(){const cv=FX.cv,w=Math.max(1,Math.ceil(cv.clientWidth/FXS)),h=Math.max(1,Math.ceil(cv.clientHeight/FXS));if(w===FX.w&&h===FX.h)return;
- FX.w=cv.width=w;FX.h=cv.height=h;const K=FXK[FX.id],n=K.n(w,h);FX.P=[];for(let i=0;i<n;i++)FX.P.push(K.mk(i,w,h,true));}
-function fxDraw(t,dt){const c=FX.cv.getContext('2d'),K=FXK[FX.id],w=FX.w,h=FX.h;c.clearRect(0,0,w,h);if(K.bg)K.bg(c,w,h,t);
- FX.P.forEach((p,i)=>{if(dt&&!K.step(p,dt,w,h,t))FX.P[i]=p=K.mk(i,w,h,false);K.draw(c,p,t);});}
+ FX.w=cv.width=FX.top.width=w;FX.h=cv.height=FX.top.height=h;const K=FXK[FX.id],n=K.n(w,h);FX.P=[];for(let i=0;i<n;i++)FX.P.push(K.mk(i,w,h,true));}
+function fxDraw(t,dt){const c=FX.cv.getContext('2d'),c2=FX.top.getContext('2d'),K=FXK[FX.id],w=FX.w,h=FX.h;c.clearRect(0,0,w,h);c2.clearRect(0,0,w,h);if(K.bg)K.bg(c,w,h,t);
+ FX.P.forEach((p,i)=>{if(dt&&!K.step(p,dt,w,h,t))FX.P[i]=p=K.mk(i,w,h,false);K.draw(i%3===1?c2:c,p,t,i%3===1);});}
 function fxFrame(now){if(!FX||!FX.run)return;if(!FX.cv.isConnected||document.hidden){FX.run=false;return;}
  if(now-FX.last>=40){const dt=FX.last?Math.min(.1,(now-FX.last)/1000):0;FX.last=now;if(now-FX.chk>1000){FX.chk=now;fxSize();}fxDraw(now,dt);}
  requestAnimationFrame(fxFrame);}
 function fxGo(){if(!FX)return;fxSize();if(RMQ){fxDraw(performance.now(),0);return;}if(FX.run)return;FX.run=true;FX.last=0;requestAnimationFrame(fxFrame);}
-function fxSync(c,A,on){let cv=c.querySelector(':scope>canvas.fest-fx');
- if(!on||!FXK[A&&A.F.id]){if(cv)cv.remove();c.classList.remove('fest-fxon');if(FX)FX.run=false;return;}
- if(!cv){cv=document.createElement('canvas');cv.className='fest-fx';cv.setAttribute('aria-hidden','true');c.insertBefore(cv,c.firstChild);}
- c.classList.add('fest-fxon');if(!FX||FX.cv!==cv||FX.id!==A.F.id){if(FX)FX.run=false;FX={cv,id:A.F.id,w:0,h:0,P:[],run:false,last:0,chk:0};}fxGo();}
+function fxSync(c,A,on){let cv=c.querySelector(':scope>canvas.fest-fx:not(.fest-fxt)'),top=c.querySelector(':scope>canvas.fest-fxt');
+ if(!on||!FXK[A&&A.F.id]){if(cv)cv.remove();if(top)top.remove();c.classList.remove('fest-fxon');if(FX)FX.run=false;return;}
+ const mk=k=>{const x=document.createElement('canvas');x.className=k;x.setAttribute('aria-hidden','true');c.insertBefore(x,c.firstChild);return x;};
+ if(!cv)cv=mk('fest-fx');if(!top)top=mk('fest-fx fest-fxt');
+ c.classList.add('fest-fxon');if(!FX||FX.cv!==cv||FX.top!==top||FX.id!==A.F.id){if(FX)FX.run=false;FX={cv,top,id:A.F.id,w:0,h:0,P:[],run:false,last:0,chk:0};}fxGo();}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&FX&&FX.cv.isConnected)fxGo();});
 
 function banner(){const A=active();document.body.className=document.body.className.replace(/\bfest-\w+/g,'').trim();if(A)document.body.classList.add('fest-'+A.F.id);

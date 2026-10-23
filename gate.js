@@ -33,7 +33,7 @@ function take(R,o){const P=M.load(),h=st(P),c=h.cur;if(!c)return null;h.cur=null
  if(o.nec)return back(`${c.n}เห็นโครงกระดูกรอบตัวคุณแล้วถอยกรูด ไม่ยอมมาด้วย`);
  if(c.mid){const m=P.roster.find(x=>x.id===c.mid);if(!m||why(P,m))return back(`${c.n}ติดธุระ มาด้วยไม่ได้`);}
  M.save(P);const T=trOf(c.tr)||{};
- const cp={n:c.n,cls:c.cls,pw:(4+FL*.6)*(o.cp||1)*(T.pw||1)*(c.k||1),tr:c.tr,line:(T.lines||[''])[0],cm:T.cost||1,hired:1};if(c.mid)cp.clan=c.mid;
+ const cp={n:c.n,cls:c.cls,pw:(4+FL*.6)*(o.cp||1)*(T.pw||1)*(c.k||1),tr:c.tr,line:(T.lines||[''])[0],cm:T.cost||1,hired:1};if(c.mid){cp.clan=c.mid;if(R)R.clanGo=c.mid;} // fest.js นับภารกิจสงกรานต์จาก R.clanGo แม้คนในตระกูลจะล้มกลางทาง
  o.say(c.mid?`${c.n}จากตระกูลเดินตามเข้าหอมาด้วย`:`${c.n} ทหารรับจ้างจากป้อม เดินตามเข้าหอมาด้วย`,'good');return cp;}
 M.onRun(R=>{if(R&&R.won&&Array.isArray(R.comps)&&R.comps.some(c=>c&&c.clan))M.grantAch('hire_clanwin');});
 // ---------- สไปรต์เล็กในการ์ด ----------

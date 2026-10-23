@@ -167,6 +167,15 @@ function petSp(k){const P=A().PSPR||{};return P[k]||P.slime||null;}
 function headRow(s){if(s._hr!=null)return s._hr;let i=0;while(i<s.h-1&&!/[a-z]/.test(s.rows[i]))i++;return s._hr=i;}
 // the clan head's statue wears the crown instead of a class hat
 function noHat(s){if(!s)return s;const hr=headRow(s);if(!hr)return s;return Object.assign({},s,{id:(s.id||'')+'~nh',rows:s.rows.map((r,i)=>i<hr?'.'.repeat(r.length):r),_hr:hr,_tw:hr});}
+// แฟชั่นบนหัว: ถอดหมวกอาชีพ (ตัวพิมพ์ใหญ่ถึงแถวใต้ขอบหัว เฉพาะช่วงกว้างของหัว) ก่อนใส่ หมวกจะได้ไม่ซ้อนหมวก อาวุธข้างตัวยังอยู่
+const HAT=new Set(['wizhat','witchhat','pumpkinhead','catears','crown','chada','krathonghat','santahat','antlers','earmuffs','elfhat','partyhat','strawhat','phakhaoma']);
+// แฟชั่นที่ลำตัว: สไลม์หัวอยู่ต่ำ ยึดตำแหน่งไม่ให้หลุดใต้ตัว
+const BODY=new Set(['jasmine','sabai','scarf','flowershirt','watergun','batwings','fireflies']);
+function bare(s){if(!s||s._bare)return s&&s._bare;const hr=headRow(s),r1=s.rows[Math.min(s.h-1,hr+1)]||'';let lo=r1.search(/[a-z]/),hi=r1.length-1;while(hi>=0&&!/[a-z]/.test(r1[hi]))hi--;
+ if(lo<0)return s._bare=s;lo=Math.max(0,lo-2);
+ const rows=s.rows.map((r,i)=>i>hr+1?r:r.replace(/[A-Z]/g,(ch,j)=>j>=lo&&j<=hi?'.':ch));
+ return s._bare=Object.assign({},s,{id:(s.id||'')+'~bh',rows,_hr:hr,_tw:null,_bare:null});}
+function wearY(s,k){const hr=headRow(s);return BODY.has(k)?Math.min(hr,s.h-13):hr;}
 function topRow(s){if(s._tw!=null)return s._tw;let i=0;while(i<s.h-1&&!/[^.]/.test(s.rows[i]))i++;return s._tw=i;}
 function lum(col){if(typeof col!=='string')return .5;if(col[0]==='#'&&col.length===7){const n=parseInt(col.slice(1),16);return((n>>16)*.3+(n>>8&255)*.59+(n&255)*.11)/255;}
  const m=/hsl\([^,]+,[^,]+,\s*([\d.]+)%/.exec(col);return m?(+m[1])/100:.5;}
@@ -189,7 +198,8 @@ function drawStatue(c,s,x,yb,sc,mat,t,seed,rg){const pc=PED[mat]||PED[0],pw=sc>1
  if(mat&&!RMQ){const k=Math.floor(t/280)+seed;if(hsh(k)<.6){const lx=Math.floor(x-dw/2+hsh(k*3+1)*dw),ly=Math.floor(top-dh+hsh(k*5+2)*dh);R(c,lx,ly,1,1,'#ffffff');R(c,lx-1,ly,1,1,'rgba(255,255,255,.5)');R(c,lx+1,ly,1,1,'rgba(255,255,255,.5)');}}}
 // ---------- ข้อมูลฉาก ----------
 const ST_SLOT=[[52,68],[140,68],[42,110],[150,110],[10,114],[182,114]];
-const DE_SLOT=[[8,62],[184,62],[42,60],[150,60],[70,60],[122,60],[6,100],[186,100],[24,130],[168,130],[12,154],[180,154],[34,150],[158,150],[4,82],[188,82]]; // ครบ DECOR_MAX 16 ของ city.js
+// ครบ DECOR_MAX 16 ของ city.js · เว้นมุมล่างที่ปุ่ม HUD บัง (จอมือถือปุ่มกินพื้นที่มากกว่า) หลังกระดานเควส/ลานฝึก ร้านเทศกาล และแท่นรูปปั้น ST_SLOT
+const DE_SLOT=[[8,62],[184,62],[42,60],[136,60],[70,60],[122,60],[6,100],[186,100],[24,130],[156,132],[36,152],[152,152],[64,104],[128,104],[58,92],[134,92]];
 function mat(P){const v=((P.mod||{}).hard||{}).statue;return v===1||v===2?v:0;}
 function wearOf(P,id){const w=((P.mod||{}).fest||{}).wear;return w&&typeof w==='object'?w[id]:'';}
 function decorOf(P){const d=((P.mod||{}).city||{}).decor;return Array.isArray(d)?d.filter(k=>typeof k==='string'):[];}
@@ -228,8 +238,9 @@ function draw(c,D,t){c.imageSmoothingEnabled=false;c.drawImage(bg(),0,0);bldAnim
  D.stat.forEach((s,i)=>L.push({y:s.y,f:()=>drawStatue(c,s.s,s.x,s.y,s.sc,D.mt,t,i*97,s.rg)}));
  D.dec.forEach(d=>L.push({y:d.y,f:()=>decorDraw(c,d.k,d.x,d.y,t)}));
  D.ents.forEach(e=>L.push({y:e.y,f:()=>{const s=e.s,bob=e.pause>0||RMQ?0:fl(t,180,2),x=Math.round(e.x-s.w/2),y=Math.round(e.y-s.h)-bob;
-  try{a.blit(c,s,x,y,{flip:!!e.flip,key:'tw'});}catch(er){R(c,x,y,s.w,s.h,'#888');}
-  if(e.w){const wr=WEAR[e.w];if(wr)wr.draw(c,x+Math.floor(s.w/2),y+topRow(s),t);}
+  const wr=e.w&&WEAR[e.w],sb=wr&&HAT.has(e.w)?bare(s):s;
+  try{a.blit(c,sb,x,y,{flip:!!e.flip,key:'tw'});}catch(er){R(c,x,y,s.w,s.h,'#888');}
+  if(wr){if(e.flip){c.save();c.translate(2*x+s.w,0);c.scale(-1,1);}wr.draw(c,x+Math.floor(s.w/2),y+wearY(s,e.w),t);if(e.flip)c.restore();}
   if(e.k==='p'&&e.p.legend&&!RMQ&&hsh(Math.floor(t/200)+e.x|0)<.4)R(c,x+Math.floor(hsh(Math.floor(t/200))*s.w),y-1,1,1,'#fff6a0');
   if(e.mood&&t<e.mood.until){c.font='9px sans-serif';c.textAlign='center';c.textBaseline='bottom';c.fillText(e.mood.e,x+s.w/2,y+topRow(s)-1);}}}));
  L.sort((p,q)=>p.y-q.y).forEach(o=>o.f());}
