@@ -125,6 +125,10 @@ function css(){const st=document.createElement('style');st.textContent=`
 .hd-log div{animation:hdIn .25s ease-out}@keyframes hdIn{from{opacity:0;transform:translateY(3px)}}
 .hd-res{margin-top:6px;padding:8px 10px;border-radius:8px;font-size:13.5px}.hd-res.w{background:rgba(134,214,127,.15)}.hd-res.l{background:rgba(239,107,94,.15)}
 .hd-pw{font-size:12.5px}.hd-pw.g{color:var(--good,#86d67f)}.hd-pw.m{color:var(--warn,#f2c14e)}.hd-pw.b{color:var(--bad,#ef6b5e)}
+/* การ์ดบอส + ปุ่มลุยติดขอบล่างของหน้าต่าง เลือกตี้ยาวแค่ไหนก็กดสู้ได้โดยไม่ต้องเลื่อนลงไปหา */
+#metaBody .hd-boss{position:sticky;bottom:-12px;padding-bottom:12px;z-index:2;margin:8px 0 0;background:var(--bg,#0e1513);background-image:linear-gradient(rgba(255,255,255,.04),rgba(255,255,255,.04));box-shadow:0 -8px 14px rgba(0,0,0,.55)}
+@media (max-width:640px),(max-height:520px){#metaBody .hd-boss{bottom:calc(-14px - env(safe-area-inset-bottom,0px));padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}}
+#metaBody .hd-boss #hdGo{min-height:38px;padding:6px 18px;font-size:14px}
 .hd-sel{max-width:100%;padding:5px;border-radius:6px;background:var(--panel2,#1c2e36);color:inherit;border:1px solid var(--line,#2c3a36);font:inherit;font-size:13px}`;document.head.appendChild(st);}
 css();
 const bfHTML=m=>{const b=BUFF[m.cls];return b?`<div class="hd-bf">✦ <b>${esc(b.n)}</b>${m.master?' (Master)':''}: ${esc(b.d)}</div>`:'<div class="hd-bf" style="color:var(--dim,#8aa39a)">ไม่มีบัพประจำอาชีพ</div>';};
@@ -190,7 +194,7 @@ M.tab('hard',{n:'🔥 ดันเจี้ยนโหมดยาก',o:40,loc
  <h3>สัตว์เลี้ยงคู่ตี้</h3><select class="hd-sel" id="hdPet"><option value="">ไม่พาไป</option>${P.pets.map(p=>{const d=(C().PETS||{})[p.k]||{n:p.k},b=petB(p);return`<option value="${p.id}" ${h.pet===p.id?'selected':''}>${p.legend?'✨ ':''}${esc(d.n)}: ${esc(b.d)}</option>`;}).join('')}</select>
  <h3>เลือกด่าน</h3><div class="hd-st">${STAGES.map((s,i)=>`<button type="button" data-sg="${i+1}" class="${i+1<=h.best?'ok':''} ${sel===i+1?'sel':''}" ${i+1>nx?'disabled':''}>${i+1<=h.best?'✓':''}${i+1}</button>`).join('')}
  ${h.best>=20?`<button type="button" data-sg="${21+h.ch}" class="${sel>20?'sel':''}" style="grid-column:span 2">🗼 ท้าทาย ${h.ch+1}</button>`:''}</div>
- <div class="mt-card"><b>${sel>20?'🗼':'🔥'} ด่าน ${sel>20?'ท้าทาย '+(sel-20):sel}: ${esc(F.n)}</b><div class="mt-dim">${esc(F.x)}</div><div class="mt-dim">HP ${F.hp.toLocaleString()} ATK ${F.atk} DEF ${F.def} · ท่าไม้ตาย "${esc(F.sk)}" · ลูกสมุน ${esc(F.mn)} ×2</div>
+ <div class="mt-card hd-boss"><b>${sel>20?'🗼':'🔥'} ด่าน ${sel>20?'ท้าทาย '+(sel-20):sel}: ${esc(F.n)}</b><div class="mt-dim">${esc(F.x)}</div><div class="mt-dim">HP ${F.hp.toLocaleString()} ATK ${F.atk} DEF ${F.def} · ท่าไม้ตาย "${esc(F.sk)}" · ลูกสมุน ${esc(F.mn)} ×2</div>
  <div class="hd-pw ${rt>=1.15?'g':rt>=.85?'m':'b'}">พลังตี้เทียบบอส: ${rt>=1.15?'ได้เปรียบ':rt>=.85?'สูสี':'ยังอ่อนกว่ามาก ฝึกก่อนดีกว่า'} (${Math.round(rt*100)}%)</div>
  <button class="mt-btn pri" id="hdGo" ${going||hurt.length||!hd?'disabled':''}>${going?'กำลังสู้...':hurt.length?'มีคนในตี้ยังเจ็บอยู่':'⚔️ ลุย!'}</button></div>
  ${bt?`<div class="hd-log" id="hdLog" aria-live="polite">${bt.log.slice(0,bt.n).map(s=>`<div>${esc(s)}</div>`).join('')}</div>${going?'<button class="mt-btn" id="hdSkip">ข้ามไปดูผล</button>':resHTML(bt.res)}`:''}`;

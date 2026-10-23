@@ -36,16 +36,24 @@ const TABS={},H=[];let dlg=null,cur='';
 function tab(id,def){TABS[id]=Object.assign({o:50},def);if(dlg)drawTabs();}
 function onRun(f){H.push(f);}
 function css(){const st=document.createElement('style');st.textContent=`
-#metaDlg{max-width:min(680px,calc(100vw - 16px));width:100%;max-height:calc(100dvh - 24px);padding:0;border:2px solid var(--line,#2c3a36);background:var(--bg,#0e1513);color:var(--ink,#e8f1ec);border-radius:10px;overflow:hidden}
+#metaDlg{box-sizing:border-box;width:min(680px,calc(100vw - 16px));max-width:none;height:min(880px,90vh);height:min(880px,90dvh);max-height:none;margin:auto;padding:0;border:2px solid var(--line,#2c3a36);background:var(--bg,#0e1513);color:var(--ink,#e8f1ec);border-radius:10px;overflow:hidden}
+#metaDlg[open]{display:flex;flex-direction:column}
 #metaDlg::backdrop{background:rgba(0,0,0,.6)}
-#metaDlg .mt-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line,#2c3a36)}
-#metaDlg .mt-hd h2{margin:0;font-size:17px}#metaDlg .mt-g{font-family:var(--fP,'DotGothic16',monospace);color:var(--gold,#f4bb4a)}
-#metaDlg .mt-x{background:none;border:0;color:inherit;font-size:18px;cursor:pointer}
-#metaDlg .mt-tabs{display:flex;gap:4px;overflow-x:auto;padding:8px 10px;border-bottom:1px solid var(--line,#2c3a36)}
-#metaDlg .mt-tabs button{flex:none;padding:6px 10px;border-radius:6px;border:1px solid var(--line,#2c3a36);background:transparent;color:inherit;font:inherit;font-size:13px;cursor:pointer}
+#metaDlg .mt-hd{flex:none;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-bottom:1px solid var(--line,#2c3a36);min-width:0}
+#metaDlg .mt-hd h2{flex:1 1 auto;min-width:0;margin:0;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#metaDlg .mt-g{flex:none;font-family:var(--fP,'DotGothic16',monospace);color:var(--gold,#f4bb4a);white-space:nowrap}
+#metaDlg .mt-x{flex:none;width:40px;height:40px;background:none;border:0;color:inherit;font-size:18px;cursor:pointer}
+#metaDlg .mt-tabs{flex:none;display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;padding:7px 10px 8px;scroll-padding:0 10px;border-bottom:1px solid var(--line,#2c3a36);scrollbar-width:thin;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+#metaDlg .mt-tabs::after{content:'';flex:0 0 6px}
+#metaDlg .mt-tabs button{flex:none;padding:6px 10px;border-radius:6px;border:1px solid var(--line,#2c3a36);background:transparent;color:inherit;font:inherit;font-size:13px;white-space:nowrap;cursor:pointer}
 #metaDlg .mt-tabs button[aria-selected=true]{background:var(--gold,#f4bb4a);color:#1a1206;border-color:transparent}
 #metaDlg .mt-tabs button.lk{opacity:.55}
-#metaDlg .mt-body{padding:12px 14px;overflow-y:auto;max-height:calc(100dvh - 150px);font-size:14px}
+#metaDlg .mt-body{flex:1 1 auto;min-height:0;padding:12px 14px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;font-size:14px}
+#metaDlg .mt-body>:first-child{margin-top:0}
+@media (max-width:640px),(max-height:520px){
+#metaDlg{width:100vw;height:100vh;height:100dvh;margin:0;border:0;border-radius:0;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) 0 env(safe-area-inset-left,0)}
+#metaDlg .mt-hd{padding:4px 4px 4px 12px}#metaDlg .mt-hd h2{font-size:15.5px}#metaDlg .mt-g{font-size:13px}
+#metaDlg .mt-body{padding:10px 12px calc(14px + env(safe-area-inset-bottom,0px))}}
+@media (max-width:380px){#metaDlg .mt-g .w{display:none}}
 .mt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .mt-card{border:1px solid var(--line,#2c3a36);border-radius:8px;padding:8px;background:rgba(255,255,255,.03)}
 .mt-card .rk{display:inline-block;padding:0 5px;border-radius:4px;color:#111;font-size:11px;margin-right:4px}
@@ -61,8 +69,9 @@ function build(){css();dlg=document.createElement('dialog');dlg.id='metaDlg';dlg
 const order=()=>Object.keys(TABS).sort((a,b)=>TABS[a].o-TABS[b].o);
 function drawTabs(){const P=load(),el=dlg.querySelector('.mt-tabs');el.innerHTML=order().map(k=>{const T=TABS[k],lk=T.lock&&T.lock(P);return`<button type="button" role="tab" data-t="${k}" class="${lk?'lk':''}" aria-selected="${k===cur}">${lk?'🔒 ':''}${esc(T.n)}</button>`;}).join('');
  el.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>show(b.dataset.t));}
-function show(k){if(!TABS[k])k=order()[0];cur=k;drawTabs();refresh();}
-function refresh(){if(!dlg||!dlg.open)return;const P=load(),T=TABS[cur],b=$b();const g=dlg.querySelector('#metaGold');if(g)g.textContent=`🪙 ${P.gold.toLocaleString()} เหรียญเมือง`;
+function show(k){if(!TABS[k])k=order()[0];const nw=k!==cur;cur=k;drawTabs();refresh();
+ if(nw){const b=$b();if(b)b.scrollTop=0;}try{const t=dlg.querySelector(`.mt-tabs [data-t="${k}"]`);if(t)t.scrollIntoView({block:'nearest',inline:'nearest'});}catch(e){}}
+function refresh(){if(!dlg||!dlg.open)return;const P=load(),T=TABS[cur],b=$b();const g=dlg.querySelector('#metaGold');if(g)g.innerHTML=`🪙 ${P.gold.toLocaleString()}<span class="w"> เหรียญเมือง</span>`;
  if(!T){b.innerHTML='';return;}const lk=T.lock&&T.lock(P);if(lk){b.innerHTML=`<div class="mt-lock">🔒 ${esc(lk)}</div>`;return;}
  try{T.render(b,P,API);}catch(e){b.innerHTML=`<div class="mt-lock">หน้านี้เปิดไม่ขึ้น</div>`;console.error(e);}}
 const $b=()=>dlg.querySelector('#metaBody');

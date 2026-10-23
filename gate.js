@@ -45,20 +45,35 @@ function css(){if(document.getElementById('hireCss'))return;const s=document.cre
 .hr-card .hr-t{min-width:0;flex:1}.hr-cur{border-color:var(--gold,#f4bb4a)}
 .hire-strip{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 10px;padding:6px 10px;border:1px dashed var(--gold,#f4bb4a);border-radius:8px;font-size:13.5px}
 .hire-strip .btn{padding:4px 10px;font-size:12.5px}
-#townGate{position:fixed;inset:0;z-index:60;overflow-y:auto;background:var(--bg,#0b1215);color:var(--ink,#f1e7d0)}
-#townGate .tg-in{max-width:620px;margin:0 auto;padding:12px 16px 24px}
+#townGate{position:fixed;inset:0;z-index:60;height:100vh;height:100dvh;overflow:hidden;background:var(--bg,#0b1215);color:var(--ink,#f1e7d0)}
+#townGate .tg-in{box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:8px;height:100%;max-width:620px;margin:0 auto;padding:max(8px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) max(10px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
 #townGate .tg-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #townGate .tg-sub{margin:0;font-size:12.5px;color:var(--muted,#a3b5ad);text-align:center}
-#townGate .tw-wrap{max-width:min(100%,calc((100dvh - 150px)*1.2));min-width:min(100%,300px);margin-top:6px}
+#townGate .tg-stage{flex:none;min-width:0;display:flex;align-items:center;justify-content:center}
+#townGate .tw-wrap{flex:none;box-sizing:border-box;width:100%;max-width:none;min-width:0;margin:0}
+#townGate .tw-wrap .tw-cv{height:100%}
+#townGate .tg-side{flex:none;display:flex;flex-direction:column;gap:8px;min-height:0}
+#townGate .tg-hire{display:flex;justify-content:center}#townGate .tg-hire:empty{display:none}
+#townGate .tg-go{display:block;width:100%;margin:0;padding:12px;border-radius:10px;border:0;background:var(--gold,#f4bb4a);color:#1a1206;font:inherit;font-size:18px;font-weight:700;cursor:pointer}
+#townGate .tg-go:focus-visible{outline:3px solid #fff;outline-offset:2px}
+#townGate .tw-bld{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));margin:0}
+#townGate .tw-bld .mt-btn{display:flex;flex-direction:column;justify-content:center;min-height:40px;padding:5px 9px;font-size:13px}
+#townGate .tw-bld .mt-btn>span,#townGate .tw-bld small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#townGate .hire-strip{padding:4px 8px;font-size:12.5px;gap:4px 8px}
+#townGate .tg-hire>.btn,#townGate .tg-hire .btn{padding:6px 10px;font-size:13px}
+@media (max-height:720px){#townGate .tw-bld small{display:none}#townGate .tw-bld .mt-btn{min-height:38px}}
+@media (max-height:620px){#townGate .tg-sub{display:none}#townGate .tg-hire>.btn[data-hgo]{display:none}#townGate .tg-go{padding:9px;font-size:16px}}
+@media (min-width:720px) and (min-aspect-ratio:5/4){
+#townGate .tg-in{flex-direction:row;align-items:stretch;justify-content:center;max-width:none;gap:16px}
+#townGate .tg-side{order:2;width:clamp(260px,26vw,360px);justify-content:center;overflow-y:auto}
+#townGate .tg-stage{order:1;align-self:center}
+#townGate .tg-sub{text-align:left}}
 .tp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
 .tp-it{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:8px;border:1px solid var(--line,#2c3a36);background:rgba(255,255,255,.03)}
 .tp-it .ic{font-size:20px;flex:none}.tp-it b{display:block;font-size:13px}.tp-it small{display:block;font-size:11.5px;color:var(--dim,#8aa39a)}
 .tp-it.gold{border-color:#f4bb4a}.tp-it.legend{border-color:#ff7a5a}.tp-it.silver{border-color:#c8d0d8}.tp-it.bronze{border-color:#c0804a}.tp-it.off{opacity:.45;border-color:var(--line,#2c3a36)}
 .tp-row{display:flex;flex-wrap:wrap;gap:6px}.tp-coin{padding:4px 9px;border-radius:999px;border:1px solid var(--gold,#f4bb4a);font-size:12.5px}
-#townGate .tg-go{display:block;width:100%;margin:12px 0 0;padding:14px;border-radius:10px;border:0;background:var(--gold,#f4bb4a);color:#1a1206;font:inherit;font-size:18px;font-weight:700;cursor:pointer}
-#townGate .tg-go:focus-visible{outline:3px solid #fff;outline-offset:2px}
-#townGate .tw-bld{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
-#townGate .hire-strip{margin-top:10px}`;document.head.appendChild(s);}
+`;document.head.appendChild(s);}
 function card(o,P,btn,cur){const T=trOf(o.tr),m=o.mid&&P.roster.find(x=>x.id===o.mid);
  return`<div class="mt-card hr-card${cur?' hr-cur':''}"><canvas data-spr="${esc(o.id)}" width="1" height="1" aria-hidden="true"></canvas><div class="hr-t">
  <div>${m&&m.rank?`<span class="rk" style="background:${M.rkCol(m.master?'Master':m.rank)}">${m.master?'Master':esc(m.rank)}</span>`:''}<b>${esc(o.n)}</b>${P.head===o.mid?' 👑':''}</div>
@@ -97,25 +112,33 @@ M.bind=function(){obd.apply(this,arguments);try{bindStrip();}catch(e){}};
 function syncAll(){const P=M.load();const hb=document.getElementById('hireBirth');if(hb){hb.innerHTML=stripHTML(P);bindStrip(hb);}if(gate)gateSync();}
 window.addEventListener('tof:meta-close',()=>{try{syncAll();}catch(e){}});
 // ---------- เมืองแรกตอนเปิดเกม ----------
-let gate=null,keyH=null;
+let gate=null,keyH=null,ro=null;
+// ขยายลานให้พอดีที่ว่างที่เหลือ: ถ้าย่อเป็นเท่าตัวพอดีแล้วเสียที่ไม่เกิน 20% ใช้เท่าตัว พิกเซลจะคมเท่ากันทุกจุด
+function fitGate(){if(!gate)return;const T=TW(),inn=gate.querySelector('.tg-in'),st=gate.querySelector('.tg-stage'),sd=gate.querySelector('.tg-side'),wr=gate.querySelector('.tw-wrap');if(!inn||!st||!sd||!wr)return;
+ const cs=getComputedStyle(inn),px=k=>parseFloat(cs[k])||0,row=cs.flexDirection==='row',gap=px(row?'columnGap':'rowGap');
+ const iw=inn.clientWidth-px('paddingLeft')-px('paddingRight'),ih=inn.clientHeight-px('paddingTop')-px('paddingBottom');
+ const aw=(row?iw-sd.offsetWidth-gap:iw)-2,ah=(row?ih:ih-sd.offsetHeight-gap)-2;if(aw<=0||ah<=0)return;
+ let k=Math.max(.6,Math.min(aw/T.W,ah/T.H));const ki=Math.floor(k);if(ki>=2&&ki/k>=.8)k=ki;
+ const w=Math.floor(T.W*k+2),h=Math.floor(T.H*k+2);wr.style.width=w+'px';wr.style.height=h+'px';st.style.width=row?w+'px':'';st.style.height=h+'px';}
 function gateOk(){try{const S=window.__auto&&window.__auto.S;if(!S||S.phase!=='birth'||S.R)return false;if(!(M.load().runs>0))return false;
  const L=location;if(L.search||/\/(s|m)\//.test(L.pathname))return false;if(window.SHARE&&window.SHARE.friend)return false;return!!(window.TOWN&&window.TOWN.scene);}catch(e){return false;}}
 function gateSync(){if(!gate)return;const P=M.load();try{TW().hudSync();}catch(e){}
  const hs=gate.querySelector('.tg-hire');if(hs){hs.innerHTML=stripHTML(P);bindStrip(hs);}
- const T=TW();gate.querySelectorAll('[data-tgo]').forEach(b=>{const d=T.BLD.find(x=>x.id===b.dataset.tgo),tb=d&&T.tabOf(d.tab),lk=tb&&T.tabLk(d.tab);b.disabled=!tb;const s=b.querySelector('small');if(s)s.textContent=!tb?'เร็วๆ นี้':lk?'🔒 ยังเข้าไม่ได้':d.id==='clan'?'จ้างคนตามเข้าหอ':'แตะเพื่อเข้าไป';});}
-function gateClose(){if(!gate)return;gate.remove();gate=null;document.body.style.overflow='';if(keyH)window.removeEventListener('keydown',keyH,true);keyH=null;
+ const T=TW();gate.querySelectorAll('[data-tgo]').forEach(b=>{const d=T.BLD.find(x=>x.id===b.dataset.tgo),tb=d&&T.tabOf(d.tab),lk=tb&&T.tabLk(d.tab);b.disabled=!tb;const s=b.querySelector('small'),tx=!tb?'เร็วๆ นี้':lk?'🔒 ยังเข้าไม่ได้':d.id==='clan'?'จ้างคนตามเข้าหอ':'แตะเพื่อเข้าไป';if(s)s.textContent=tx;b.title=d.n+' · '+tx;});}
+function gateClose(){if(!gate)return;try{if(ro)ro.disconnect();else window.removeEventListener('resize',fitGate);}catch(e){}ro=null;gate.remove();gate=null;document.body.style.overflow='';if(keyH)window.removeEventListener('keydown',keyH,true);keyH=null;
  try{window.scrollTo(0,0);const b=document.getElementById('btnEnter');if(b)b.focus({preventScroll:true});}catch(e){}}
 function gateOpen(){const T=TW(),P=M.load();T.css();css();
  gate=document.createElement('div');gate.id='townGate';gate.setAttribute('role','dialog');gate.setAttribute('aria-modal','true');gate.setAttribute('aria-labelledby','tgT');
  gate.innerHTML=`<div class="tg-in"><h2 id="tgT" class="tg-sr">เมืองของ${esc(T.clanName(P).n)}</h2>
- <p class="tg-sub">แวะจ้างคนที่ป้อมก่อนก็ได้ หรือจะตรงไปหอคอยเลยก็ได้</p>
- <div class="tw-wrap"><canvas class="tw-cv" width="${T.W}" height="${T.H}" role="img" aria-label="ลานกลางเมืองของตระกูล มีน้ำพุ รูปปั้นหัวหน้าตระกูล และคนในตระกูลเดินเล่น"></canvas><div class="tw-pop" hidden></div></div>
+ <div class="tg-stage"><div class="tw-wrap"><canvas class="tw-cv" width="${T.W}" height="${T.H}" role="img" aria-label="ลานกลางเมืองของตระกูล มีน้ำพุ รูปปั้นหัวหน้าตระกูล และคนในตระกูลเดินเล่น"></canvas><div class="tw-pop" hidden></div></div></div>
+ <div class="tg-side"><p class="tg-sub">แวะจ้างคนที่ป้อมก่อนก็ได้ หรือจะตรงไปหอคอยเลยก็ได้</p>
  <div class="tg-hire"></div>
  <button class="tg-go" type="button" id="tgGo">ไปหอคอย ▲</button>
- <div class="tw-bld">${T.BLD.filter(b=>b.tab).map(b=>`<button class="mt-btn" type="button" data-tgo="${b.id}">${b.ic} ${esc(b.n)}<small></small></button>`).join('')}</div></div>`;
+ <div class="tw-bld">${T.BLD.filter(b=>b.tab).map(b=>`<button class="mt-btn" type="button" data-tgo="${b.id}"><span>${b.ic} ${esc(b.n)}</span><small></small></button>`).join('')}</div></div></div>`;
  document.body.appendChild(gate);document.body.style.overflow='hidden';
  gate.querySelector('#tgGo').onclick=gateClose;
  gate.querySelectorAll('[data-tgo]').forEach(b=>b.onclick=()=>{const d=T.BLD.find(x=>x.id===b.dataset.tgo);if(d)T.go(d);});
+ fitGate();try{if(window.ResizeObserver){ro=new ResizeObserver(fitGate);ro.observe(gate.querySelector('.tg-in'));}else window.addEventListener('resize',fitGate);}catch(e){}
  const cv=gate.querySelector('.tw-cv');T.tapper(cv,gate.querySelector('.tw-pop'),T.scene(cv,P),P,T.hud(gate.querySelector('.tw-wrap'),P,{portal:gateClose}));gateSync();
  // auto.js กด Enter/1-4 แล้วเข้าหอทันที: กันไว้ตอนหน้าเมืองเปิดอยู่ ปุ่มที่โฟกัสยังกดได้ตามปกติ
  keyH=e=>{if(!gate)return;const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return;const dl=document.getElementById('metaDlg');

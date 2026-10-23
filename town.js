@@ -279,7 +279,23 @@ function css(){if(document.getElementById('twCss'))return;const st=document.crea
 .tw-panel{position:absolute;left:5%;right:5%;top:7%;max-height:86%;overflow-y:auto;z-index:3;padding:10px 12px;border-radius:8px;border:1px solid var(--gold,#f4bb4a);background:rgba(14,21,19,.97);font-size:13px;line-height:1.5}
 .tw-ph{display:flex;justify-content:space-between;align-items:center;gap:8px}.tw-x{background:none;border:0;color:inherit;font-size:16px;cursor:pointer;padding:2px 6px}
 .tw-pets{list-style:none;margin:6px 0;padding:0}.tw-pets li{display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)}.tw-pets .e{font-size:20px;flex:none}
-.tw-in{width:100%;box-sizing:border-box;margin:6px 0;padding:6px 8px;border-radius:6px;border:1px solid var(--line,#2c3a36);background:#0b1215;color:inherit;font:inherit;font-size:16px}`;document.head.appendChild(st);}
+.tw-in{width:100%;box-sizing:border-box;margin:6px 0;padding:6px 8px;border-radius:6px;border:1px solid var(--line,#2c3a36);background:#0b1215;color:inherit;font:inherit;font-size:16px}
+#metaDlg .tw-wrap{min-width:min(100%,220px)}
+/* ปุ่มบนลานย่อตามขนาดลาน (กว้างราว 10% ของลาน) จะได้ไม่บังรูปปั้นและของตกแต่งตอนลานเล็ก */
+.tw-wrap{container-type:inline-size}
+.tw-gold{font-size:clamp(13px,6cqw,24px);right:2.5cqw}
+.tw-sign{font-size:clamp(10px,3.6cqw,15px)}
+.tw-gatebtn{font-size:clamp(10px,3.1cqw,12.5px);padding:.15em .6em}
+.tw-bot{bottom:1.5cqw}
+.tw-ic{width:clamp(28px,10cqw,44px);height:clamp(28px,10cqw,44px);font-size:clamp(15px,5cqw,22px);border-radius:clamp(7px,2.4cqw,10px)}
+.tw-bl{left:1.5cqw;bottom:1.5cqw}
+@container (max-width:330px){.tw-gatebtn span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.tw-gatebtn{font-size:14px;padding:2px 7px}}.tw-br{right:1.5cqw;bottom:1.5cqw;gap:1.5cqw}
+#metaDlg .tw-bld .mt-btn small,#metaDlg .tw-bld .mt-btn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-height:760px){#metaDlg .tw-bld .mt-btn small{display:none}#metaDlg .tw-bld .mt-btn{min-height:36px}#metaDlg .tw-bld{margin-top:8px}}
+@media (max-height:600px){#metaDlg .tw-lead{display:none}}
+/* จอแนวนอนเตี้ยๆ: ลานซ้าย ปุ่มอาคารขวา */
+@media (max-height:520px) and (min-width:600px){#metaDlg .tw-tab{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;align-items:start}
+#metaDlg .tw-tab>*{grid-column:2}#metaDlg .tw-tab>.tw-wrap{grid-column:1;grid-row:1/span 5;margin:0;min-width:0}#metaDlg .tw-tab .tw-bld{margin-top:0;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}#metaDlg .tw-tab .tw-note{margin-top:0}}`;document.head.appendChild(st);}
 // ถามจาก META ตรงๆ เพราะหน้าเมืองตอนเปิดเกมยังไม่มีหน้าต่าง #metaDlg
 const tabOf=id=>M.hasTab?M.hasTab(id):!!document.querySelector(`#metaDlg .mt-tabs [data-t="${id}"]`);
 const tabLk=id=>{try{return M.tabLock?!!M.tabLock(id):false;}catch(e){return false;}};
@@ -331,7 +347,7 @@ function shop(){try{if(window.FEST&&window.FEST.active()&&tabOf('fest')&&!tabLk(
 function hud(wrap,P,o){o=o||{};css();const dv=document.createElement('div');dv.className='tw-hud';const hardOk=P.unlock&&P.unlock.hard&&tabOf('hard');
  dv.innerHTML=`<div class="tw-gold" aria-label="เหรียญเมือง ${P.gold}"><span aria-hidden="true">🪙</span> <b>${P.gold.toLocaleString()}</b></div>
  <button type="button" class="tw-sign" data-h="sign" title="แตะเพื่อตั้งชื่อตระกูล">${signHTML(P)}</button>
- <div class="tw-bot"><button type="button" class="tw-gatebtn" data-h="gate">✨ กลับไปลงดันเจี้ยน</button>${hardOk?'<button type="button" class="tw-gatebtn" data-h="hard">🌀 โหมดยาก</button>':''}</div>
+ <div class="tw-bot"><button type="button" class="tw-gatebtn" data-h="gate" title="กลับไปลงดันเจี้ยน">✨<span> กลับไปลงดันเจี้ยน</span></button>${hardOk?'<button type="button" class="tw-gatebtn" data-h="hard" title="โหมดยาก">🌀<span> โหมดยาก</span></button>':''}</div>
  <button type="button" class="tw-ic tw-bl" data-h="trophy" title="ห้องรางวัล" aria-label="ห้องรางวัล: ความสำเร็จ เหรียญตรา โล่รางวัลเควส">🏠</button>
  <div class="tw-br"><button type="button" class="tw-ic" data-h="clan" title="คนในตระกูล" aria-label="คนในตระกูล">🧑</button><button type="button" class="tw-ic" data-h="shop" title="ร้านของตกแต่ง" aria-label="ร้านของตกแต่งเมือง">🛒</button></div>
  <div class="tw-panel" hidden role="dialog" aria-label="รายละเอียด"></div>`;
@@ -342,14 +358,21 @@ function hud(wrap,P,o){o=o||{};css();const dv=document.createElement('div');dv.c
 // ปุ่มกลับไปลงดันเจี้ยนในแท็บล็อบบี้: ปิดหน้าต่าง (และหน้าเมืองตอนเปิดเกมถ้ายังเปิดอยู่) กลับไปหน้าเกิด/รอบที่เล่นอยู่
 function leave(){const d=document.getElementById('metaDlg');if(d&&d.open)d.close();try{window.HIRE&&window.HIRE.closeGate&&window.HIRE.closeGate();}catch(e){}}
 function render(el,P){css();const hd=P.roster.find(m=>m.id===P.head),dec=decorOf(P),J=jobsOf(P),inPen=P.roster.filter(m=>J.pen.has(m.id)).length,away=P.roster.filter(m=>J.busy.has(m.id)).length,walk=P.roster.length-inPen-away;
- el.innerHTML=`<p class="mt-dim" style="margin:0">ลานหน้าบ้านของตระกูล แตะใครก็ได้เพื่อดูว่าเป็นใคร แตะอาคารหรือคอกสัตว์เพื่อไปทำธุระ แตะป้ายชื่อด้านบนเพื่อตั้งชื่อตระกูล</p>
+ el.innerHTML=`<div class="tw-tab"><p class="mt-dim tw-lead" style="margin:0">ลานหน้าบ้านของตระกูล แตะใครก็ได้เพื่อดูว่าเป็นใคร แตะอาคารหรือคอกสัตว์เพื่อไปทำธุระ แตะป้ายชื่อด้านบนเพื่อตั้งชื่อตระกูล</p>
  <div class="tw-wrap"><canvas class="tw-cv" width="${W}" height="${H}" role="img" aria-label="ลานหน้าบ้านตระกูล มีน้ำพุกลางลาน คนเดินเล่น ${walk} คน สัตว์เลี้ยงในคอก ${P.pets.length} ตัว"></canvas><div class="tw-pop" hidden></div></div>
  ${hd?'':`<p class="tw-note">🗿 ${P.wins?'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูลได้ที่ปุ่มคนในตระกูล 🧑 แล้วรูปปั้นจะขึ้นกลางน้ำพุ':'ไต่หอให้ถึงชั้น 100 เพื่อหาลูกรักมาเป็นหัวหน้าตระกูล'}</p>`}
- <div class="tw-bld">${BLD.filter(b=>b.tab).map(b=>{const tb=tabOf(b.tab),lk=tb&&tabLk(b.tab);return`<button class="mt-btn" type="button" data-go="${b.id}" ${tb?'':'disabled'}>${b.ic} ${esc(b.n)}<small>${!tb?'เร็วๆ นี้':lk?'🔒 ยังเข้าไม่ได้':'แตะเพื่อเข้าไป'}</small></button>`;}).join('')}</div>
- <p class="mt-dim" style="margin:8px 0 0">เดินเล่นอยู่ ${walk} คน${inPen?` · ดูแลคอกสัตว์ ${inPen} คน`:''}${away?` · ไปทำงาน ${away} คน`:''} · สัตว์เลี้ยง ${P.pets.length} ตัว · รูปปั้น ${Math.min(P.statues.filter(s=>!hd||s.name!==hd.name).length,ST_SLOT.length)+(hd?1:0)} รูป${dec.length?` · ของตกแต่ง ${Math.min(dec.length,DE_SLOT.length)} ชิ้น`:''}</p>`;
+ <div class="tw-bld">${BLD.filter(b=>b.tab).map(b=>{const tb=tabOf(b.tab),lk=tb&&tabLk(b.tab);return`<button class="mt-btn" type="button" data-go="${b.id}" ${tb?'':'disabled'}>${b.ic} ${esc(b.n)}<small>${!tb?'เร็วๆ นี้':lk?'🔒 ยังเข้าไม่ได้':'แตะเพื่อเข้าไป'}</small></button>`.replace('<button ',`<button title="${esc(b.n)}${!tb?' · เร็วๆ นี้':lk?' · ยังเข้าไม่ได้':''}" `);}).join('')}</div>
+ <p class="mt-dim" style="margin:8px 0 0">เดินเล่นอยู่ ${walk} คน${inPen?` · ดูแลคอกสัตว์ ${inPen} คน`:''}${away?` · ไปทำงาน ${away} คน`:''} · สัตว์เลี้ยง ${P.pets.length} ตัว · รูปปั้น ${Math.min(P.statues.filter(s=>!hd||s.name!==hd.name).length,ST_SLOT.length)+(hd?1:0)} รูป${dec.length?` · ของตกแต่ง ${Math.min(dec.length,DE_SLOT.length)} ชิ้น`:''}</p></div>`;
  el.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{const d=BLD.find(x=>x.id===b.dataset.go);if(d)go(d);});
  const cv=el.querySelector('.tw-cv');tapper(cv,el.querySelector('.tw-pop'),scene(cv,P),P,hud(el.querySelector('.tw-wrap'),P,{portal:leave}));
- grants(P);}
+ fitTab(el);grants(P);}
+// ย่อลานให้ปุ่มอาคารใต้ลานอยู่ในจอเดียวกัน ไม่ต้องเลื่อนลงไปหา (หน้าต่างเตี้ยแค่ไหนก็ยังกว้างอย่างน้อย 220px)
+function fitTab(el){const wr=el&&el.querySelector('.tw-wrap'),tb=el&&el.querySelector('.tw-tab');if(!wr||!tb||!wr.isConnected)return;wr.style.maxWidth='';wr.style.width='';
+ if(getComputedStyle(tb).display==='grid'){const cs=getComputedStyle(el),ih=el.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-2;
+  wr.style.width=Math.max(160,Math.min(576,Math.floor(ih*W/H),Math.floor(el.clientWidth*.62)))+'px';return;}
+ const over=el.scrollHeight-el.clientHeight;
+ if(over>0){const h=wr.getBoundingClientRect().height-over-2;wr.style.maxWidth=Math.max(220,Math.floor(h*W/H))+'px';}}
+let fitT=0;window.addEventListener('resize',()=>{clearTimeout(fitT);fitT=setTimeout(()=>{const b=document.querySelector('#metaDlg[open] #metaBody');if(b&&b.querySelector('.tw-tab'))fitTab(b);},120);});
 function grants(P){const g=M.grantAch;g('town_open');if(P.roster.length>=10)g('town_10');if(P.statues.length>=3)g('town_st3');if(decorOf(P).length>=6)g('town_decor');if(P.pets.length>=5)g('town_pets');}
 M.tab('town',{n:'🏘 ล็อบบี้ตระกูล',o:5,render});
 try{window.ACH&&window.ACH.add&&window.ACH.add([
