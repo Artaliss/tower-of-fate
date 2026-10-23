@@ -26,23 +26,40 @@ const CLS_HUE={nec:280,ang:50,war:4,mag:220,arc:105,pri:48,rog:270,far:30,dra:34
 HP_.dsl={h:'#3a2218',a:'#6a3a24',b:'#3a1e12',c:'#a01e1e',w:'#d8e0ea'};
 ACC.dsl={r:['..............SL','.H..........H.SL','.HH........HH.SL','..HKKKKKKKKH..SL','...KBBKKBBK...SL','...KBEKKBEK...SL','....KKKKKK....SL','....T.T..T.T..SL','..............SL','..............SL','.............GGG','..............W.','..............W.','..............P.'],p:{H:'#a08868',K:'#e8dcc0',B:'#2a1a14',E:'#ff4a2a',T:'#fff8e8',S:'#b8c2d0',L:'#f4f8ff',G:'#b02a22',W:'#4a2a1a',P:'#e0b040'}};
 CLS_HUE.dsl=18;
+// v3.5.4 more variety. slime body shapes (top = first body row; hats drop down by top-5 when the body sits lower), patterns on 'b' cells
+const SL_SHAPES=[{t:5,r:SL_BODY},
+{t:2,r:["................","................",".......oo.......","......obbo......",".....olbbbo.....","....ollbbbbo....","...ollbbbbbbo...","..olbbbbbbbbbo..","..obbbbbbbbbbo..",".obbbbbbbbbbbbo.",".obbbbbbbbbbbbo.",".obbbbbbbbbbbbo.",".obbbbbbbbbbbbo.",".odbbbbbbbbbbdo.","..oddbbbbbbddo..","...oooooooooo..."]},
+{t:7,r:["................","................","................","................","................","................","................","....oooooooo....","..oollbbbbbboo..",".ollbbbbbbbbbbo.","obbbbbbbbbbbbbbo","obbbbbbbbbbbbbbo","obbbbbbbbbbbbbbo","odbbbbbbbbbbbbdo","oddbbbbbbbbbbddo",".oooooooooooooo."]},
+{t:3,r:["................","................","................","......oooo......","....oollbboo....","...ollbbbbbbo...","..ollbbbbbbbbo..","..obbbbbbbbbbo..","..obbbbbbbbbbo..","..obbbbbbbbbbo..","..obbbbbbbbbbo..","..obbbbbbbbbbo..","..obbbbbbbbbbo..","..odbbbbbbbbdo..","..oddbbbbbbddo..","...oooooooooo..."]},
+{t:5,r:["................","................","................","...o........o...","...oo......oo...","...obo....obo...","...obboooobbo...","..olbbbbbbbbbo..","..olbbbbbbbbbo..",".obbbbbbbbbbbbo.",".obbbbbbbbbbbbo.",".obbbbbbbbbbbbo.",".obbbbbbbbbbbbo.",".odbbbbbbbbbbdo.",".oddbbbbbbbbddo.","..oooooooooooo.."]}];
+const SL_PATS=[[],[[8,9,'d'],[9,5,'d'],[13,12,'d'],[14,7,'d'],[7,7,'d'],[9,12,'d']],[[13,6,'l'],[13,7,'l'],[13,8,'l'],[13,9,'l'],[13,10,'l'],[14,7,'l'],[14,8,'l'],[14,9,'l']],[[7,5,'w'],[8,4,'w'],[8,5,'l']],[[8,2,'d'],[8,3,'d'],[8,4,'d'],[8,5,'d'],[8,6,'d'],[8,7,'d'],[8,8,'d'],[8,9,'d'],[8,10,'d'],[8,11,'d'],[8,12,'d'],[8,13,'d']]];
+// human hair styles: [row,col,ch] overlays on HERO_ROWS (face looks right, back of head at col 4). Only for classes whose 'h' is hair.
+const HSTY=[[],[[0,5,'h'],[0,7,'h'],[0,9,'h'],[1,4,'h']],[[4,3,'h'],[5,3,'h'],[6,3,'h'],[6,4,'h']],[[2,3,'h'],[3,2,'h'],[3,3,'h'],[4,2,'h'],[5,2,'h']],[[3,6,'h'],[3,7,'h']],[[1,5,'.'],[1,6,'s'],[1,7,'s'],[1,8,'s'],[1,9,'.'],[2,6,'s'],[2,7,'s'],[2,8,'s'],[2,9,'s'],[2,10,'s']],[[0,4,'h'],[0,5,'h'],[0,6,'h'],[0,7,'h'],[0,8,'h'],[0,9,'h'],[1,4,'h'],[1,10,'h'],[2,3,'h'],[3,3,'h']]];
+const BEARDS=[[],[[6,5,'h'],[6,6,'h'],[6,7,'h'],[6,8,'h'],[5,9,'h']],[[5,7,'h'],[5,8,'h'],[5,9,'h']]];
+const HCOLS=['#2a1a14','#5a3a22','#8a5a2a','#c88a3a','#e8c860','#a0a0a8','#7a2a1a','#1a1a2a','#d86a9a','#4a7ad0','#e8e8f0','#3a8a5a'];
+const ECOLS=['#1a1010','#1a1010','#2a4a8a','#2a6a3a','#5a3a1a','#7a2a6a'];
+const HAIR_CLS={war:1,arc:1,pri:1,dra:1,dsl:1,npc:1};
+function humanRows(k,L){const G=HERO_ROWS.map(r=>r.split(''));if(!L||!HAIR_CLS[k])return HERO_ROWS;
+ for(const [y,x,ch] of HSTY[L.hair%HSTY.length].concat(BEARDS[L.beard%BEARDS.length]))G[y][x]=ch;return G.map(r=>r.join(''));}
 function seedOf(v){if(typeof v==='number')return v>>>0;const s=String(v);let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
 const SKINS=['#f1c49a','#e8b48a','#c88a5e','#a0663e','#f6d6b8','#7a4a2e'];
 // look -> normalized {form,hue,sat,lit,eye,mouth,blush,skin}. Accepts seed number/string or {form,seed,...overrides}.
 function lookOf(v){const o=v&&typeof v==='object'?v:{seed:v};const s=seedOf(o.seed??0),r=i=>hash(s+i*7919);
- return Object.assign({form:'slime',hue:Math.floor(r(1)*360),sat:58+Math.floor(r(2)*22),lit:52+Math.floor(r(3)*12),eye:Math.floor(r(4)*EYES.length),mouth:Math.floor(r(5)*MOUTHS.length),blush:r(6)<.55,skin:Math.floor(r(7)*SKINS.length)},o);}
+ return Object.assign({form:'slime',hue:Math.floor(r(1)*360),sat:58+Math.floor(r(2)*22),lit:52+Math.floor(r(3)*12),eye:Math.floor(r(4)*EYES.length),mouth:Math.floor(r(5)*MOUTHS.length),blush:r(6)<.55,skin:Math.floor(r(7)*SKINS.length),
+  shape:r(8)<.4?0:1+Math.floor(r(9)*(SL_SHAPES.length-1)),pat:r(10)<.45?0:1+Math.floor(r(16)*(SL_PATS.length-1)),hair:Math.floor(r(11)*HSTY.length),beard:r(12)<.7?0:r(12)<.86?1:2,hcol:r(13)<.45?-1:Math.floor(r(15)*HCOLS.length),ecol:Math.floor(r(14)*ECOLS.length)},o);}
 const rollLook=form=>({form:form==='human'?'human':'slime',seed:Math.floor(Math.random()*4294967295)});
 // hero object -> look (old saves without look: human, seeded from name)
 const heroLook=h=>h&&h.look?h.look:{form:'human',seed:h?h.name:0};
 const hsl=(h,s,l)=>`hsl(${((h%360)+360)%360},${Math.max(0,Math.min(100,s))}%,${Math.max(0,Math.min(100,l))}%)`;
-function slimeRows(k,L){const G=SL_BODY.map(r=>r.split(''));const put=(y,x,c)=>{if(y>=0&&y<16&&x>=0&&x<16)G[y][x]=c;};
+function slimeRows(k,L){const SH=SL_SHAPES[(L.shape||0)%SL_SHAPES.length],G=SH.r.map(r=>r.split(''));const put=(y,x,c)=>{if(y>=0&&y<16&&x>=0&&x<16)G[y][x]=c;},onB=(y,x,c)=>{if(G[y]&&(G[y][x]==='b'||G[y][x]==='l'))G[y][x]=c;};
+ for(const [y,x,ch] of SL_PATS[(L.pat||0)%SL_PATS.length])onB(y,x,ch);
  if(k==='ghost'){G[14]=SL_GHOST_TAIL[0].split('');G[15]=SL_GHOST_TAIL[1].split('');}
  const E=EYES[L.eye%EYES.length];
  if(E==='wink'){put(10,7,'k');put(11,7,'k');put(11,11,'k');put(11,12,'k');}
  else for(let e=0;e<2;e++)for(const [dr,dc,ch] of E)put(10+dr,(e?11:7)+(e&&E===EYES[5]?-dc:dc),ch);
  for(const [y,x,ch] of MOUTHS[L.mouth%MOUTHS.length])put(y,x,ch);
- if(L.blush){put(12,4,'p');put(12,13,'p');}
- const A=ACC[k];if(A)A.r.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]!=='.')G[y][x]=row[x];});
+ if(L.blush){onB(12,4,'p');onB(12,13,'p');if(G[12][4]!=='p')onB(12,5,'p');if(G[12][13]!=='p')onB(12,12,'p');}
+ const A=ACC[k],dy=Math.max(0,SH.t-5);if(A)A.r.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]!=='.')put(y+dy,x,row[x]);});
  return G.map(r=>r.join(''));}
 const heroCache=new Map();
 // v2.5 karma classes keep their own body whatever the look: a hooded skeleton, or a winged human with a halo
@@ -54,10 +71,10 @@ const ANG_PAL={h:'#f4e2a0',a:'#f6f4ee',b:'#d8d0b8',c:'#e8c060',w:'#fff3a0',f:'#f
 function heroSpr(k,look){
  if(k==='nec'||k==='ang'){const L=look==null?null:lookOf(look),sk=L?SKINS[L.skin%SKINS.length]:'#f1c49a',id='kc:'+k+':'+(k==='ang'?sk:'');let s=heroCache.get(id);if(s)return s;
   s=k==='nec'?mk(NEC_ROWS,NEC_PAL):mk(ANG_ROWS,Object.assign({s:sk,e:'#1a1010',l:'#c8c0a8'},ANG_PAL));s.id=id;s.sh=true;heroCache.set(id,s);return s;}
- if(look==null||lookOf(look).form==='human'){const L=look==null?null:lookOf(look),sk=L?SKINS[L.skin%SKINS.length]:'#f1c49a',id='hu:'+k+':'+sk;let s=heroCache.get(id);if(s)return s;
-  const pal=Object.assign({s:sk,e:'#1a1010',l:'#3a2e24'},HP_[k]||HP_.npc);s=mk(HERO_ROWS,pal);s.id=id;s.sh=k!=='ghost';heroCache.set(id,s);return s;}
+ if(look==null||lookOf(look).form==='human'){const L=look==null?null:lookOf(look),sk=L?SKINS[L.skin%SKINS.length]:'#f1c49a',id='hu:'+k+':'+sk+(L&&HAIR_CLS[k]?':'+[L.hair,L.beard,L.hcol,L.ecol].join(','):'');let s=heroCache.get(id);if(s)return s;
+  const pal=Object.assign({s:sk,e:'#1a1010',l:'#3a2e24'},HP_[k]||HP_.npc);if(L&&HAIR_CLS[k]){if(L.hcol>=0)pal.h=HCOLS[L.hcol%HCOLS.length];pal.e=ECOLS[L.ecol%ECOLS.length];}s=mk(humanRows(k,L),pal);s.id=id;s.sh=k!=='ghost';if(heroCache.size>200)heroCache.clear();heroCache.set(id,s);return s;}
  const L=lookOf(look);
- const id='sl:'+k+':'+[L.hue,L.sat,L.lit,L.eye,L.mouth,L.blush?1:0].join(',');let s=heroCache.get(id);if(s)return s;
+ const id='sl:'+k+':'+[L.hue,L.sat,L.lit,L.eye,L.mouth,L.blush?1:0,L.shape,L.pat].join(',');let s=heroCache.get(id);if(s)return s;
  const gh=k==='ghost',h=L.hue,S=gh?38:L.sat,l=gh?80:L.lit;
  const pal={o:gh?'#7a9ac0':hsl(h+(h>60&&h<240?15:-15),S*.7,Math.max(14,l-36)),b:hsl(h,S,l),l:hsl(h-8,S-8,Math.min(94,l+22)),d:hsl(h+12,S+4,l-12),k:'#141018',w:'#ffffff',m:'#5a1420',p:gh?'#c8e0ff':'#ff8aa8'};
  Object.assign(pal,(ACC[k]||{}).p);

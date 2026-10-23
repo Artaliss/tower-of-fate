@@ -2571,7 +2571,16 @@ const NM_WIDE=window.matchMedia?matchMedia('(min-width:600px) and (min-height:52
 function nmPlace(){const ns=document.querySelector('.nmset.onsc'),ch=document.querySelector('.chips.onscene'),w=ch&&ch.closest('.scnwrap');if(!ns||!ch||!w)return;
  if(NM_WIDE&&NM_WIDE.matches){ns.classList.add('below');if(ns.previousElementSibling!==w)w.after(ns);}else{ns.classList.remove('below');if(ns.parentNode!==ch)ch.appendChild(ns);}}
 if(NM_WIDE){try{NM_WIDE.addEventListener('change',nmPlace);}catch(e){}addEventListener('resize',nmPlace);}
-function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf(h),DT=dayOf(h),LI=lookInfo(h),mx=30,an=!S.rvDone&&!RM;
+// v0.3.5.4 look variety: rare looks unlock when they show up on the birth screen
+try{window.ACH&&window.ACH.add&&window.ACH.add([
+ {id:'look_cat',n:'สไลม์หูแมว',d:'เกิดมาเป็นสไลม์ที่มีหูแมว',icon:'🐱',tier:'bronze'},
+ {id:'look_drop',n:'หยดน้ำมีชีวิต',d:'เกิดมาเป็นสไลม์ทรงหยดน้ำ',icon:'💧',tier:'bronze'},
+ {id:'look_afro',n:'ผมฟูฟ่อง',d:'เกิดมาเป็นคนผมฟูทรงแอฟโฟร',icon:'🦱',tier:'bronze'},
+ {id:'look_beard',n:'เคราตั้งแต่เกิด',d:'เกิดมาเป็นคนที่มีเคราเต็มคาง',icon:'🧔',tier:'bronze'}]);}catch(e){}
+function lookAch(h){if(!window.ACH||!window.ACH.grant)return;let L=null;try{L=window.ART.lookOf(look(h));}catch(e){}if(!L)return;
+ if(L.form==='slime'){if(L.shape===4)window.ACH.grant('look_cat');if(L.shape===1)window.ACH.grant('look_drop');}
+ else if(['war','arc','pri','dra','dsl'].includes(h.cls)){if(L.hair===6)window.ACH.grant('look_afro');if(L.beard===1)window.ACH.grant('look_beard');}}
+function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf(h),DT=dayOf(h),LI=lookInfo(h),mx=30,an=!S.rvDone&&!RM;lookAch(h);
  if(!S.themeId||S.themeHero!==h){S.themeHero=h;S.themeId=heroTheme(h);}
  const D=i=>an?` style="--d:${i*350}ms"`:'';
  const bars=RANKS.map((r,i)=>`<div class="col ${i===h.rank?'me':''}">${i===h.rank?'<span class="me-tag">คุณ</span>':''}<div class="bar" style="height:${Math.max(3,r.w/mx*100)}%"></div></div>`).join('');
