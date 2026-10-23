@@ -249,9 +249,11 @@ function tapper(cv,pop,S,P,o){let pt=0;
   pop.hidden=true;});
  return S;}
 // ---------- ปุ่มมุมจอ ป้ายชื่อตระกูล และหน้าต่างเล็กในห้อง (ใช้ทั้งแท็บล็อบบี้และหน้าเมืองตอนเปิดเกม) ----------
-// ชื่อตระกูล: ตั้งเอง (P.clanName) > ฉายาตระกูลจากมังกร (CLAN_T) > สายตระกูลของฮีโร่ > ชื่อหัวหน้าตระกูล
+// ชื่อตระกูล: ตั้งเอง (P.clanName) > ฉายาตระกูลจากมังกร (CLAN_T) > สายตระกูลของทายาท (รุ่น 2 ขึ้นไป) > ชื่อหัวหน้าตระกูล > สายตระกูลของฮีโร่รุ่นแรก
 function clanT(){try{const T=C().CLAN_T||{},K=window.__auto&&window.__auto.clan&&window.__auto.clan.load();return(K&&T[K.m])||'';}catch(e){return'';}}
-function defName(P){const t=clanT();if(t)return t;let hs='';try{hs=window.__auto.S.hero.house||'';}catch(e){}if(hs)return'ตระกูล'+hs;const hd=P.roster.find(m=>m.id===P.head);return hd?'ตระกูล'+hd.name:'ตระกูลของเรา';}
+function defName(P){const t=clanT();if(t)return t;let hs='',gen=1;try{const h=window.__auto.S.hero;hs=h.house||'';gen=h.gen||1;}catch(e){}
+ // ฮีโร่รุ่นแรกที่เพิ่งสุ่มเกิดยังไม่ใช่คนในตระกูล ใช้ชื่อหัวหน้าก่อน ป้ายจะได้ไม่เปลี่ยนทุกครั้งที่สุ่มเกิดใหม่
+ const hd=P.roster.find(m=>m.id===P.head);if(hs&&(gen>1||!hd))return'ตระกูล'+hs;return hd?'ตระกูล'+hd.name:'ตระกูลของเรา';}
 function clanName(P){const t=clanT();return P.clanName?{n:P.clanName,t}:{n:defName(P),t:''};}
 const signHTML=P=>{const cn=clanName(P);return`<b>${esc(cn.n)}</b>${cn.t?`<small>${esc(cn.t)}</small>`:''}`;};
 function hudSync(){const P=M.load();document.querySelectorAll('.tw-hud').forEach(dv=>{const g=dv.querySelector('.tw-gold b'),s=dv.querySelector('.tw-sign');if(g)g.textContent=P.gold.toLocaleString();if(s)s.innerHTML=signHTML(P);});}
@@ -312,4 +314,5 @@ const ob=M.button,obd=M.bind;
 M.button=function(){return ob.apply(this,arguments)+mini();};
 M.bind=function(){obd.apply(this,arguments);try{bindMini();}catch(e){}};
 window.TOWN={DECOR,WEAR,mini,bindMini,W,H,BLD,scene,tapper,hud,hudSync,clanName,go,tabOf,tabLk,css,spOf};
+window.TOWN.grants=grants; // gate.js: หน้าเมืองตอนเปิดเกมปลดความสำเร็จของลานแบบเดียวกับแท็บล็อบบี้
 })();

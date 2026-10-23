@@ -12,6 +12,8 @@ const upd=f=>{const P=M.load(),r=f(P,st(P));M.save(P);M.refresh();return r;};
 const trOf=id=>(C().TRAITS||[]).find(t=>t.id===id)||null;
 const clsN=id=>{const c=(C().CLASSES||[]).find(x=>x.id===id);return c?c.n:'';};
 const fmt=n=>Math.round(n).toLocaleString();
+// อาชีพที่โชว์: สมาชิกตระกูลโชว์อาชีพจริง ถ้าในหอต้องสู้แบบอาชีพพื้นฐานอื่นก็บอกไว้ด้วย (เช่น ชาวไร่สู้แบบนักรบ)
+const clsTxt=o=>{const a=clsN(o.mc||o.cls),b=clsN(o.cls);return o.mc&&o.mc!==o.cls&&a?`${a} (สู้แบบ${b})`:b;};
 // ฮีโร่บนหน้าเกิดตอนนี้เป็นเนโครแมนเซอร์ไหม (จ้างใครไม่ได้ตามกติกาเดิม)
 function necNow(){try{const S=window.__auto&&window.__auto.S,h=S&&S.hero,K=C().CLASSES||[];return!!(h&&K[h.cls]&&K[h.cls].id==='nec');}catch(e){return false;}}
 // ---------- ทหารรับจ้างสุ่ม 3 คน เปลี่ยนทุกวัน ----------
@@ -19,12 +21,12 @@ function dayKey(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)
 function rng(s){let a=7;for(const ch of s)a=Math.imul(a^ch.charCodeAt(0),2654435761);return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 function offers(){const r=rng('tof-hire-'+dayKey()),N=C().COMPN||['ทหาร'],TR=C().TRAITS||[{id:'loyal'}],cl=['war','mag','arc','pri'],out=[];
  for(let i=0;i<3;i++){const T=TR[Math.floor(r()*TR.length)];let n=N[Math.floor(r()*N.length)];while(out.some(o=>o.n===n))n=N[(N.indexOf(n)+1)%N.length];
-  out.push({id:'d'+i,n,cls:cl[Math.floor(r()*4)],tr:T.id,k:1,cost:Math.round((55+r()*25)*(T.cost||1))});}return out;}
+  out.push({id:'d'+dayKey()+'-'+i,n,cls:cl[Math.floor(r()*4)],tr:T.id,k:1,cost:Math.round((55+r()*25)*(T.cost||1))});}return out;}
 // ---------- คนในตระกูล ----------
 const inj=(P,id)=>{const h=(P.mod.hard||{}).inj||{};return(h[id]||0)>Date.now();};
 const busy=id=>{try{return!!(window.CITY&&window.CITY.busy&&window.CITY.busy(id));}catch(e){return false;}};
 function why(P,m){return busy(m.id)?'ไปทำงานในเมือง':inj(P,m.id)?'บาดเจ็บจากดันเจี้ยน':'';}
-function memOffer(m){const ri=Math.max(0,Math.min(7,m.ri|0));return{id:m.id,mid:m.id,n:m.name,cls:CMAP[m.cls]||'war',tr:m.kind==='merc'&&trOf(m.tr)?m.tr:'loyal',k:1+ri*.04,cost:90+ri*15};}
+function memOffer(m){const ri=Math.max(0,Math.min(7,m.ri|0));return{id:m.id,mid:m.id,n:m.name,mc:m.cls||'',cls:CMAP[m.cls]||'war',tr:m.kind==='merc'&&trOf(m.tr)?m.tr:'loyal',k:1+ri*.04,cost:90+ri*15};}
 // ---------- auto.js เรียกตอนกดเข้าหอ ----------
 function take(R,o){const P=M.load(),h=st(P),c=h.cur;if(!c)return null;h.cur=null;
  const back=t=>{P.gold+=c.cost;M.save(P);o.say(`${t} เหรียญเมือง ${fmt(c.cost)} คืนเข้าคลังตระกูลแล้ว`,'info');return null;};
@@ -51,7 +53,7 @@ function css(){if(document.getElementById('hireCss'))return;const s=document.cre
 .tp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
 .tp-it{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:8px;border:1px solid var(--line,#2c3a36);background:rgba(255,255,255,.03)}
 .tp-it .ic{font-size:20px;flex:none}.tp-it b{display:block;font-size:13px}.tp-it small{display:block;font-size:11.5px;color:var(--dim,#8aa39a)}
-.tp-it.gold{border-color:#f4bb4a}.tp-it.silver{border-color:#c8d0d8}.tp-it.bronze{border-color:#c0804a}.tp-it.off{opacity:.45;border-color:var(--line,#2c3a36)}
+.tp-it.gold{border-color:#f4bb4a}.tp-it.legend{border-color:#ff7a5a}.tp-it.silver{border-color:#c8d0d8}.tp-it.bronze{border-color:#c0804a}.tp-it.off{opacity:.45;border-color:var(--line,#2c3a36)}
 .tp-row{display:flex;flex-wrap:wrap;gap:6px}.tp-coin{padding:4px 9px;border-radius:999px;border:1px solid var(--gold,#f4bb4a);font-size:12.5px}
 #townGate .tg-go{display:block;width:100%;margin:12px 0 0;padding:14px;border-radius:10px;border:0;background:var(--gold,#f4bb4a);color:#1a1206;font:inherit;font-size:18px;font-weight:700;cursor:pointer}
 #townGate .tg-go:focus-visible{outline:3px solid #fff;outline-offset:2px}
@@ -60,7 +62,7 @@ function css(){if(document.getElementById('hireCss'))return;const s=document.cre
 function card(o,P,btn,cur){const T=trOf(o.tr),m=o.mid&&P.roster.find(x=>x.id===o.mid);
  return`<div class="mt-card hr-card${cur?' hr-cur':''}"><canvas data-spr="${esc(o.id)}" width="1" height="1" aria-hidden="true"></canvas><div class="hr-t">
  <div>${m&&m.rank?`<span class="rk" style="background:${M.rkCol(m.master?'Master':m.rank)}">${m.master?'Master':esc(m.rank)}</span>`:''}<b>${esc(o.n)}</b>${P.head===o.mid?' 👑':''}</div>
- <div class="mt-dim">${esc(clsN(o.cls))}${T?' · '+esc(T.n):''}${m?` · ${m.kind==='merc'?'ลูกจ้างเก่า':'ฮีโร่รุ่นก่อน'}`:''}</div>${T&&T.d?`<div class="mt-dim">${esc(T.d)}</div>`:''}${btn}</div></div>`;}
+ <div class="mt-dim">${esc(clsTxt(o))}${T?' · '+esc(T.n):''}${m?` · ${m.kind==='merc'?'ลูกจ้างเก่า':'ฮีโร่รุ่นก่อน'}`:''}</div>${T&&T.d?`<div class="mt-dim">${esc(T.d)}</div>`:''}${btn}</div></div>`;}
 function render(el,P){css();const h=st(P),cur=h.cur,nec=necNow(),of=offers(),fam=P.roster.map(m=>({m,o:memOffer(m),w:why(P,m)}));
  const hb=o=>{const mine=cur&&cur.id===o.id,cost=o.cost;if(mine)return`<button class="mt-btn" data-hx="1">ยกเลิก คืน 🪙 ${fmt(cur.cost)}</button>`;
   const refund=cur?cur.cost:0,lack=P.gold+refund<cost;return`<button class="mt-btn pri" data-hire="${esc(o.id)}" ${nec||lack?'disabled':''}>${cur?'เปลี่ยนเป็นคนนี้':'จ้าง'} 🪙 ${fmt(cost)}</button>`;};
@@ -84,7 +86,7 @@ try{window.ACH&&window.ACH.add&&window.ACH.add([
  {id:'hire_clanwin',n:'ขึ้นยอดไปด้วยกัน',d:'พาคนในตระกูลเข้าหอไปด้วย แล้วพิชิตยอดหอโดยเขายังอยู่ข้างกาย',icon:'🤝',tier:'gold',ext:1}]);}catch(e){}
 // ---------- แถบบนหน้าเกิด: ใครจะตามไปด้วย ----------
 function stripHTML(P){const c=st(P).cur;if(!c){return P.runs>0?`<button class="btn" type="button" data-hgo="1">🛡 จ้างคนตามเข้าหอที่ป้อม</button>`:'';}
- const T=trOf(c.tr);return`<div class="hire-strip" role="status">${necNow()?`<span>💀 ${esc(c.n)}ไม่ยอมเดินกับเนโครแมนเซอร์ ถ้าเข้าหอไปแบบนี้ เหรียญจะคืนเอง</span>`:`<span>🛡 ตามไปด้วยรอบนี้: <b>${esc(c.n)}</b> · ${esc(clsN(c.cls))}${T?' · '+esc(T.n):''}</span>`}
+ const T=trOf(c.tr);return`<div class="hire-strip" role="status">${necNow()?`<span>💀 ${esc(c.n)}ไม่ยอมเดินกับเนโครแมนเซอร์ ถ้าเข้าหอไปแบบนี้ เหรียญจะคืนเอง</span>`:`<span>🛡 ตามไปด้วยรอบนี้: <b>${esc(c.n)}</b> · ${esc(clsTxt(c))}${T?' · '+esc(T.n):''}</span>`}
  <button class="btn" type="button" data-hx="1">ยกเลิก คืน 🪙 ${fmt(c.cost)}</button></div>`;}
 function bindStrip(root){(root||document).querySelectorAll('[data-hx]').forEach(b=>{if(b.closest('#metaDlg'))return;b.onclick=()=>cancel();});
  (root||document).querySelectorAll('[data-hgo]').forEach(b=>{if(b.closest('#metaDlg'))return;b.onclick=()=>M.open('merc');});}
@@ -119,11 +121,12 @@ function gateOpen(){const T=TW(),P=M.load();T.css();css();
  keyH=e=>{if(!gate)return;const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return;const dl=document.getElementById('metaDlg');
   if(e.key==='Escape'&&!(dl&&dl.open)){e.preventDefault();gateClose();return;}if(e.key==='Enter'||e.key===' '||/^[1-4]$/.test(e.key))e.stopPropagation();};
  window.addEventListener('keydown',keyH,true);try{gate.querySelector('#tgGo').focus({preventScroll:true});}catch(e){}
- try{M.grantAch('town_open');}catch(e){}}
+ try{if(T.grants)T.grants(P);else M.grantAch('town_open');}catch(e){}}
 function boot(){try{if(gateOk())gateOpen();}catch(e){console.error(e);}}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else setTimeout(boot,0);
+// รอให้โมดูลที่ลงแท็บตอน DOMContentLoaded (fest.js) ทำงานก่อน ไม่งั้นปุ่มร้านเทศกาลบนหน้าเมืองขึ้นว่า "เร็วๆ นี้"
+const bootL=()=>setTimeout(boot,0);if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootL);else bootL();
 // ---------- ห้องรางวัล (ปุ่มบ้านมุมซ้ายล่างของลาน): ความสำเร็จของระบบตระกูล เหรียญตราเทศกาล โล่รางวัลเควส ----------
-const ACHP=/^(meta_|town_|city_|hard_|fest_|hire_|leg_|clan_name)/;
+const ACHP=/^(meta_|town_|city_|hd_|fest_|hire_|leg_|clan_name)/;
 M.tab('trophy',{n:'🏆 ห้องรางวัล',o:6,render(el,P){css();let L=[];try{L=window.ACH.list().filter(a=>ACHP.test(a.id));}catch(e){}const got=L.filter(a=>a.got).length;
  const fs=((P.mod.fest||{}).coins)||[],FS=(window.FEST&&window.FEST.list)?window.FEST.list():[],cp=((P.mod.city||{}).perm)||{};let PQ=[];try{PQ=window.CITY.perm().filter(q=>!q.hard||P.unlock.hard);}catch(e){}
  const coin=c=>{const i=c.lastIndexOf('-'),F=FS.find(f=>f.id===c.slice(0,i));return`<span class="tp-coin">${F?`${F.ic} ${esc(F.coin||F.n)}`:'🎖 '+esc(c.slice(0,i))} ${esc(c.slice(i+1))}</span>`;};
