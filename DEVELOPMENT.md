@@ -243,6 +243,7 @@
 | `town.js` | ล็อบบี้ canvas: น้ำพุ+รูปปั้นหัวหน้า, อาคารเปิดแท็บอื่น, คอกสัตว์ (`mod.city.jobs.pen`), registry `TOWN.DECOR`/`TOWN.WEAR` |
 | `city.js` | กระดานเควสรายวัน, อาคาร 5 เลเวล, งานในเมือง `mod.city.jobs`, อารมณ์สัตว์ `mod.city.mood`, `window.CITY.{bonus,busy,petMul,petMood,focus}` |
 | `hard.js` | ลานฝึก (เลเวล/แรงค์/Master), ดันเจี้ยนยาก 20 ด่าน + หอท้าทาย, เหรียญรุ้ง, รูปปั้น `mod.hard.statue`, event `tof:hard-clear`/`tof:train` |
+| `gate.js` | หน้าเมืองเต็มจอตอนเปิดเกม (เฉพาะ `META.load().runs>0` และไม่มีรอบค้าง) · ป้อมทหารรับจ้าง จ้างสมาชิก/ทหารสุ่มรายวันไปด้วย 1 คนในรอบถัดไป |
 | `fest.js` | เทศกาลตามวันที่ (ฮาโลวีนเต็มระบบ), ร้านแฟชั่น `mod.fest.wear`, ของแต่งเมือง, `FEST.force(id)` สำหรับเทส |
 
 - ความสำเร็จของโมดูลลงผ่าน `ACH.add([...])` (ext:1 เสมอ) แล้วปลดด้วย `META.grantAch(id)`
