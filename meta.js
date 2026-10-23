@@ -4,6 +4,7 @@
 // ลงทะเบียนแท็บด้วย META.tab('city',{n:'🏘 เมือง',o:20,lock:P=>P.unlock.city?'':'ผ่านชั้น 100 ก่อน',render:(el,P,api)=>{...}})
 (function(){
 'use strict';
+const LEG_P=['drk','drs','drg','unicorn','fairy','phoenix','griffin'];
 const KEY='tof-meta-v1',SLOT_M=10,SLOT_P=5,SLOT_M_MAX=20,SLOT_P_MAX=6;
 const isObj=o=>!!o&&typeof o==='object'&&!Array.isArray(o);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -29,7 +30,8 @@ function recordRun(R){if(!R||!R.h)return;const P=load();P.runs++;
   P.statues.push({name:R.h.name,cls:((C().CLASSES||[])[R.h.cls]||{}).id||'',sec:(R.sec&&R.sec.res)||'',t:Date.now()});if(P.statues.length>30)P.statues.shift();}
  const add=[snapHero(R)];if(R.won&&Array.isArray(R.comps))R.comps.slice(0,2).forEach(c=>{if(c&&c.n&&!c.clan)add.push(snapComp(R,c));}); // c.clan = คนในตระกูลที่จ้างจากป้อม มีชื่อในทะเบียนอยู่แล้ว
  P.wait=(Array.isArray(P.wait)?P.wait:[]);add.forEach(m=>{if(P.roster.length<P.slots.m)P.roster.push(m);else P.wait.unshift(m);});P.wait=P.wait.slice(0,6);
- if(R.won&&Array.isArray(R.pets))R.pets.forEach(k=>{if(P.pets.length<P.slots.p&&!P.pets.some(p=>p.k===k&&p.from===R.h.name))P.pets.push({id:uid(),k,from:R.h.name,t:Date.now(),legend:['drk','drs','drg','unicorn','fairy','phoenix','griffin'].includes(k)||undefined});});
+ // สัตว์ตำนาน (สัตว์ประจำตระกูลที่ตามฮีโร่ไปไต่หอ) มีในคอกได้ตัวเดียวต่อชนิด ไม่งั้นทุกรอบที่ชนะจะเพิ่มตัวซ้ำจนคอกเต็ม แล้วลูกที่ฟักจากไข่ชั้นลับเข้าคอกไม่ได้
+ if(R.won&&Array.isArray(R.pets))R.pets.forEach(k=>{const lg=LEG_P.includes(k);if(P.pets.length<P.slots.p&&!P.pets.some(p=>p.k===k&&(lg||p.from===R.h.name)))P.pets.push({id:uid(),k,from:R.h.name,t:Date.now(),legend:lg||undefined});});
  save(P);H.forEach(f=>{try{f(R,P);}catch(e){}});}
 // ---------- หน้าต่าง "ตระกูลและเมือง" ----------
 const TABS={},H=[];let dlg=null,cur='';
