@@ -35,7 +35,7 @@ function errTxt(r){const e=r.j.error;if(r.st===0)return'ต่ออินเท
  if(e==='rate-limited'){const m=Math.ceil((r.j.retryAfter||60)/60);return`ลองบ่อยเกินไปแล้ว รออีกราว ${m} นาทีค่อยลองใหม่`;}
  return({taken:'ชื่อนี้มีคนใช้แล้ว ลองชื่ออื่นนะ','bad-name':'ชื่อต้องยาว 3–16 ตัว ใช้ได้แค่อักษรไทย อังกฤษ ตัวเลข และ _','bad-pw':'รหัสผ่านต้องยาว 8 ตัวขึ้นไป',
   'bad-login':'ชื่อหรือรหัสผ่านไม่ถูก',auth:'หลุดจากระบบแล้ว เข้าสู่ระบบใหม่อีกครั้งนะ','too-large':'เซฟในเครื่องนี้ใหญ่เกินกว่าจะเก็บขึ้นคลาวด์ได้',
-  'no-save':'ยังไม่มีเซฟบนคลาวด์ของบัญชีนี้',closed:'ร้านยังไม่เปิดขาย','not-ready':'ระบบบัญชียังไม่เปิด ลองใหม่ทีหลังนะ',stripe:'ระบบจ่ายเงินมีปัญหา ลองใหม่ทีหลังนะ'})[e]||'มีบางอย่างผิดพลาด ลองใหม่อีกครั้งนะ';}
+  'no-save':'ยังไม่มีเซฟบนคลาวด์ของบัญชีนี้',conflict:'มีเครื่องอื่นบันทึกเซฟขึ้นคลาวด์ไปแล้ว เลือกด้านล่างก่อนว่าจะเก็บเซฟไหน',closed:'ร้านยังไม่เปิดขาย','not-ready':'ระบบบัญชียังไม่เปิด ลองใหม่ทีหลังนะ',stripe:'ระบบจ่ายเงินมีปัญหา ลองใหม่ทีหลังนะ'})[e]||'มีบางอย่างผิดพลาด ลองใหม่อีกครั้งนะ';}
 
 // ---------- ของที่ซื้อ ----------
 const MAXM=M.SLOT_M_MAX,MAXP=M.SLOT_P_MAX;
@@ -64,20 +64,31 @@ function regWear(){const T=window.TOWN;if(T&&T.WEAR)for(const k in WEAR)if(!T.WE
 
 // ---------- เซฟคลาวด์ ----------
 const MV=()=>window.MOVE&&window.MOVE.collect?window.MOVE:null;
-let last={at:0,h:''},timer=0;try{const s=st();if(isObj(s.last))last=s.last;}catch(e){}
+// last.at = เวลาอัปโหลด/โหลดครั้งล่าสุด (ไว้เว้นช่วงซิงก์) · last.b = at ของเซฟบนคลาวด์ที่เครื่องนี้รู้จักล่าสุด (0 = ยังไม่เคย)
+// ส่ง b ไปด้วยตอนบันทึก ถ้าเครื่องอื่นบันทึกทับไปแล้ว เซิร์ฟเวอร์ตอบ conflict แทนการเขียนทับ (กันเซฟเก่า/เซฟว่างของเครื่องใหม่ไปทับ)
+let last={at:0,h:'',b:0},timer=0,clash=null;try{const s=st();if(isObj(s.last)){last=s.last;if(typeof last.b!=='number')last.b=last.at||0;}}catch(e){}
 function keepLast(){const s=st();if(s.tok){s.last=last;put(s);}}
-async function upload(force){const mv=MV();if(!mv||!name())return{st:0,j:{error:'auth'}};
- const o=mv.collect(),h=fnv(JSON.stringify(o));if(!force&&h===last.h)return{st:200,j:{ok:true,same:true}};
+const hashOf=o=>fnv(JSON.stringify(o));
+async function upload(force,over){const mv=MV();if(!mv||!name())return{st:0,j:{error:'auth'}};
+ const o=mv.collect(),h=hashOf(o);if(!force&&h===last.h)return{st:200,j:{ok:true,same:true}};
  let pk=null;try{pk=await mv.pack(o);}catch(e){}if(!pk)return{st:413,j:{error:'too-large'}};
- const r=await acct({a:'save',z:pk.z,p:pk.p,m:mv.summary(o)});
- if(r.j.ok){last={at:r.j.at||Date.now(),h};keepLast();if(me0)me0.save={at:last.at,m:mv.summary(o)};M.grantAch('acct_cloud');}
+ const m=Object.assign(mv.summary(o),{h}),b={a:'save',z:pk.z,p:pk.p,m};if(!over)b.base=last.b||0;
+ const r=await acct(b);
+ if(r.j.ok){last={at:r.j.at||Date.now(),h,b:r.j.at||0};clash=null;keepLast();if(me0)me0.save={at:last.b,m};M.grantAch('acct_cloud');}
+ else if(r.j.error==='conflict'){clash={at:r.j.at||0,m:isObj(r.j.m)?r.j.m:{}};if(me0)me0.save={at:clash.at,m:clash.m};}
  return r;}
 // ซิงก์เบาๆ: จบรอบหรือปิดหน้าต่างตระกูล → รอให้เซฟเขียนเสร็จก่อน แล้วอัปโหลดถ้าข้อมูลเปลี่ยนและห่างครั้งก่อนพอ
-function soon(){if(!name()||st().auto===false)return;clearTimeout(timer);const d=Math.max(2000,last.at+GAP-Date.now());
+// ถ้าเซฟบนคลาวด์มาจากเครื่องอื่น (clash) จะหยุดซิงก์ไว้จนกว่าผู้เล่นเลือกเองว่าจะโหลดหรือบันทึกทับ
+function soon(){if(!name()||st().auto===false||clash)return;clearTimeout(timer);const d=Math.max(2000,last.at+GAP-Date.now());
  timer=setTimeout(async()=>{if(busy)return soon();const r=await upload(false);if(r.j.ok&&!r.j.same)M.refresh();
+  if(r.j.error==='conflict')M.refresh();
   if(r.j.error==='rate-limited'){last.at=Date.now();soon();}},d);}
 async function me(){if(!name())return null;const r=await acct({a:'me'});if(!r.j.ok)return null;me0=r.j;
  const s=st();if(s.tok&&s.name!==r.j.name){s.name=r.j.name;put(s);}
+ // เทียบเซฟบนคลาวด์กับที่เครื่องนี้รู้จัก: ถ้าเป็นข้อมูลชุดเดียวกับในเครื่องก็ถือว่าตรงกัน ไม่งั้นรอให้ผู้เล่นเลือก
+ const sv=r.j.save,mv=MV();
+ if(sv&&sv.at!==last.b){const m=isObj(sv.m)?sv.m:{};if(mv&&m.h&&m.h===hashOf(mv.collect())){last.b=sv.at;last.h=m.h;keepLast();clash=null;}else clash={at:sv.at,m};}
+ else clash=null;
  await loadShop();applyEnts(r.j.ent);return me0;}
 
 // ---------- แท็บ 👤 บัญชี ----------
@@ -102,8 +113,8 @@ function renderOut(el){
   if(!NAME_RE.test(n)){say(errTxt({st:400,j:{error:'bad-name'}}),true);return;}if(pw.length<8){say(errTxt({st:400,j:{error:'bad-pw'}}),true);return;}
   busy=true;say(a==='signup'?'กำลังสร้างบัญชี…':'กำลังเข้าสู่ระบบ…');const r=await acct({a,name:n,pw},false);busy=false;
   if(!r.j.ok||!r.j.tok){say(errTxt(r),true);return;}
-  put({name:r.j.name,tok:r.j.tok,exp:r.j.exp,auto:true});last={at:0,h:''};if(a==='signup')M.grantAch('acct_new');
-  await me();say(a==='signup'?`สร้างบัญชี ${r.j.name} แล้ว ลองกด "บันทึกขึ้นคลาวด์" ดูนะ`:`ยินดีต้อนรับกลับ ${r.j.name}`);bindBirth();};
+  put({name:r.j.name,tok:r.j.tok,exp:r.j.exp,auto:true});last={at:0,h:'',b:0};clash=null;if(a==='signup')M.grantAch('acct_new');
+  await me();say(a==='signup'?`สร้างบัญชี ${r.j.name} แล้ว ลองกด "บันทึกขึ้นคลาวด์" ดูนะ`:clash?`ยินดีต้อนรับกลับ ${r.j.name} บนคลาวด์มีเซฟของบัญชีนี้อยู่ เลือกด้านล่างว่าจะโหลดมาเล่นต่อหรือใช้เซฟเครื่องนี้`:`ยินดีต้อนรับกลับ ${r.j.name}`);bindBirth();};
  f.onsubmit=e=>{e.preventDefault();go('login');};el.querySelector('[data-a=signup]').onclick=()=>go('signup');}
 function renderIn(el,P){const s=st(),sv=me0&&me0.save,mv=MV();
  if(pend){const here=mv.summary(mv.collect());
@@ -113,10 +124,14 @@ function renderIn(el,P){const s=st(),sv=me0&&me0.save,mv=MV();
   <p class="ac-warn">เซฟในเครื่องนี้จะหายทั้งหมด ถ้ายังอยากเก็บไว้ ให้กด "บันทึกขึ้นคลาวด์" ก่อน (เซฟบนคลาวด์จะถูกทับแทน)</p>
   <button class="mt-btn pri" data-a="yes">แทนที่เซฟเครื่องนี้</button><button class="mt-btn" data-a="no">ยกเลิก</button></div>${msgHTML()}`;
   el.querySelector('[data-a=no]').onclick=()=>{pend=null;say('');};
-  el.querySelector('[data-a=yes]').onclick=()=>{const o=pend.o;pend=null;if(!mv.apply(o)){say('เขียนเซฟไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์อาจเต็ม',true);return;}
-   last={at:Date.now(),h:fnv(JSON.stringify(mv.collect()))};keepLast();say('โหลดเซฟเสร็จแล้ว กำลังเปิดเกมใหม่…');setTimeout(()=>location.reload(),600);};
+  el.querySelector('[data-a=yes]').onclick=()=>{const o=pend.o,at=pend.at;pend=null;if(!mv.apply(o)){say('เขียนเซฟไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์อาจเต็ม',true);return;}
+   last={at:Date.now(),h:hashOf(mv.collect()),b:at||0};clash=null;keepLast();say('โหลดเซฟเสร็จแล้ว กำลังเปิดเกมใหม่…');setTimeout(()=>location.reload(),600);};
   return;}
  el.innerHTML=`<p>เข้าสู่ระบบเป็น <b>${esc(s.name)}</b></p>
+ ${clash?`<div class="ac-box" id="acClash"><h3>เซฟบนคลาวด์ไม่ตรงกับเครื่องนี้</h3>
+ <p>บนคลาวด์มีเซฟที่บันทึกไว้เมื่อ ${esc(dateTxt(clash.at))} อาจมาจากเครื่องอื่น หรือบันทึกไว้ก่อนเข้าสู่ระบบที่เครื่องนี้${mv?'<br>'+mv.sumLines(clash.m).map(esc).join('<br>'):''}</p>
+ <p class="ac-warn">เครื่องนี้พักการบันทึกอัตโนมัติไว้ก่อน จะได้ไม่ไปทับเซฟนั้น เลือกเองว่าจะเก็บเซฟไหน</p>
+ <button class="mt-btn pri" data-a="down">โหลดเซฟจากคลาวด์</button><button class="mt-btn" data-a="over">ใช้เซฟเครื่องนี้ทับคลาวด์</button></div>`:''}
  <div class="ac-box"><h3>☁️ เซฟคลาวด์</h3>
  <p class="mt-dim">${sv?`บันทึกล่าสุด ${esc(dateTxt(sv.at))}${sv.m&&mv?' · '+esc(mv.sumLines(sv.m)[0]):''}`:(me0?'ยังไม่เคยบันทึกขึ้นคลาวด์':'กำลังดูข้อมูลบนคลาวด์…')}</p>
  <button class="mt-btn pri" data-a="up">บันทึกขึ้นคลาวด์</button><button class="mt-btn" data-a="down" ${sv?'':'disabled'}>โหลดจากคลาวด์</button>
@@ -129,15 +144,16 @@ function renderIn(el,P){const s=st(),sv=me0&&me0.save,mv=MV();
  <div><button class="mt-btn pri" type="submit">เปลี่ยนรหัสผ่าน</button></div></form><p class="mt-dim">เปลี่ยนแล้วเครื่องอื่นที่เข้าบัญชีนี้อยู่จะถูกออกจากระบบ</p></details>
  <button class="mt-btn" data-a="out">ออกจากระบบ</button>`;
  const q=s=>el.querySelector(s);
- q('[data-a=up]').onclick=async()=>{if(busy)return;busy=true;say('กำลังบันทึก…');const r=await upload(true);busy=false;say(r.j.ok?'บันทึกขึ้นคลาวด์แล้ว':errTxt(r),!r.j.ok);};
- q('[data-a=down]').onclick=async()=>{if(busy)return;busy=true;say('กำลังโหลดเซฟจากคลาวด์…');const r=await acct({a:'load'});busy=false;
+ const up=over=>async()=>{if(busy)return;busy=true;say('กำลังบันทึก…');const r=await upload(true,over);busy=false;say(r.j.ok?'บันทึกขึ้นคลาวด์แล้ว':errTxt(r),!r.j.ok);if(r.j.ok)soon();};
+ q('[data-a=up]').onclick=up(false);if(q('[data-a=over]'))q('[data-a=over]').onclick=up(true);
+ el.querySelectorAll('[data-a=down]').forEach(d=>d.onclick=async()=>{if(busy)return;busy=true;say('กำลังโหลดเซฟจากคลาวด์…');const r=await acct({a:'load'});busy=false;
   if(!r.j.ok||typeof r.j.p!=='string'){say(errTxt(r),true);return;}let o=null;try{o=await mv.unpack(r.j.z,r.j.p);}catch(e){}
-  if(!isObj(o)){say('อ่านเซฟไม่ได้ เบราว์เซอร์นี้อาจเก่าเกินไป',true);return;}pend={o,at:r.j.at};say('');};
+  if(!isObj(o)){say('อ่านเซฟไม่ได้ เบราว์เซอร์นี้อาจเก่าเกินไป',true);return;}pend={o,at:r.j.at};say('');});
  q('[data-a=auto]').onchange=e=>{const s=st();s.auto=!!e.target.checked;put(s);};
  q('#acPwF').onsubmit=async e=>{e.preventDefault();if(busy)return;const pw=q('#acOld').value,npw=q('#acNew').value;if(npw.length<8){say(errTxt({st:400,j:{error:'bad-pw'}}),true);return;}
   busy=true;say('กำลังเปลี่ยนรหัสผ่าน…');const r=await acct({a:'passwd',pw,npw});busy=false;
   if(!r.j.ok){say(errTxt(r),true);return;}const s=st();s.tok=r.j.tok;s.exp=r.j.exp;put(s);say('เปลี่ยนรหัสผ่านแล้ว');};
- q('[data-a=out]').onclick=async()=>{if(busy)return;busy=true;await acct({a:'logout'});busy=false;put(null);me0=null;last={at:0,h:''};say('ออกจากระบบแล้ว เซฟในเครื่องนี้ยังอยู่เหมือนเดิม');bindBirth();};
+ q('[data-a=out]').onclick=async()=>{if(busy)return;busy=true;await acct({a:'logout'});busy=false;put(null);me0=null;last={at:0,h:'',b:0};clash=null;say('ออกจากระบบแล้ว เซฟในเครื่องนี้ยังอยู่เหมือนเดิม');bindBirth();};
  bindDress(el);}
 // 💎 ร้านพิเศษ
 function shopHTML(P){if(!shop)return`<div class="ac-box"><h3>💎 ร้านพิเศษ</h3><p class="mt-dim">กำลังเปิดร้าน…</p></div>`;

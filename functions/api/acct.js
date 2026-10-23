@@ -6,7 +6,9 @@
 // POST {a:'logout'}                    -> {ok}
 // POST {a:'passwd', pw, npw}           -> {ok, tok, exp}  (every other session of this account is signed out)
 // POST {a:'me'}                        -> {ok, name, save:{at,m}|null, ent:[{id,sku,qty,at}], shop}
-// POST {a:'save', z, p, m}             -> {ok, at}        p = the tof-* key set from savemove.js (z:'gz' = gzip + base64)
+// POST {a:'save', z, p, m, base?}      -> {ok, at}        p = the tof-* key set from savemove.js (z:'gz' = gzip + base64)
+//                                         base = `at` of the cloud save this browser last saw (0 = none); if the cloud save
+//                                         has moved on since (another browser uploaded), 409 {error:'conflict', at, m}. No base = overwrite.
 // POST {a:'load'}                      -> {ok, at, z, p, m} | 404 {error:'no-save'}
 
 import { readBody, sameOrigin } from './memorial.js';
@@ -23,6 +25,7 @@ function meta(m) {
   for (const k of ['keys', 'memo', 'lines', 'ach', 'unl', 'gen']) if (typeof m[k] === 'number' && Number.isInteger(m[k]) && m[k] >= 0 && m[k] <= 1e6) o[k] = m[k];
   if (typeof m.hero === 'string') o.hero = m.hero.replace(/[<>"'`\\&\u0000-\u001f]/g, '').slice(0, 24);
   if (typeof m.run === 'number' && m.run >= 0 && m.run <= 101) o.run = Math.floor(m.run);
+  if (typeof m.h === 'string' && /^[0-9a-z]{1,13}$/.test(m.h)) o.h = m.h;   // hash of the save, so a browser can tell the cloud copy is its own
   return o;
 }
 const wait = (ms) => { const s = Math.max(1, Math.ceil(ms / 1000)); return json({ error: 'rate-limited', retryAfter: s }, 429, { 'Retry-After': String(s) }); };
@@ -92,10 +95,16 @@ export async function onRequestPost({ request, env }) {
       if (typeof b.p !== 'string' || !b.p.length || b.p.length > MAX_P) return json({ error: 'too-large' }, 413);
       const z = b.z === 'gz' ? 'gz' : '';
       if (z ? !/^[A-Za-z0-9+/]+={0,2}$/.test(b.p) : b.p[0] !== '{') return json({ error: 'invalid', field: 'p' }, 400);
-      const sv = await db.prepare('SELECT at FROM acct_save WHERE uid = ?').bind(u.uid).first();
+      const base = b.base == null ? null : Number(b.base);
+      if (base != null && !(Number.isInteger(base) && base >= 0)) return json({ error: 'invalid', field: 'base' }, 400);
+      const sv = await db.prepare('SELECT at, m FROM acct_save WHERE uid = ?').bind(u.uid).first();
+      const clash = () => { let m = {}; try { m = JSON.parse(sv && sv.m || '{}'); } catch { } return json({ error: 'conflict', at: sv ? sv.at : 0, m }, 409); };
+      if (sv && base != null && sv.at !== base) return clash();
       if (sv && now - sv.at < SAVE_GAP) return wait(SAVE_GAP - (now - sv.at));
-      await db.prepare('INSERT INTO acct_save (uid, at, z, p, m) VALUES (?, ?, ?, ?, ?) ON CONFLICT(uid) DO UPDATE SET at = excluded.at, z = excluded.z, p = excluded.p, m = excluded.m')
-        .bind(u.uid, now, z, b.p, JSON.stringify(meta(b.m))).run();
+      // with a base the overwrite only happens if the row is still the one checked above (two uploads at once)
+      const r = await db.prepare('INSERT INTO acct_save (uid, at, z, p, m) VALUES (?, ?, ?, ?, ?) ON CONFLICT(uid) DO UPDATE SET at = excluded.at, z = excluded.z, p = excluded.p, m = excluded.m' + (sv && base != null ? ' WHERE acct_save.at = ?' : ''))
+        .bind(...[u.uid, now, z, b.p, JSON.stringify(meta(b.m))].concat(sv && base != null ? [base] : [])).run();
+      if (sv && base != null && r && r.meta && r.meta.changes === 0) return clash();
       return json({ ok: true, at: now });
     }
     if (b.a === 'load') {
