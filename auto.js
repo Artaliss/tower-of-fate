@@ -2535,7 +2535,7 @@ function partsHTML(P){return P.map(p=>{const k=chipKey(p);return`<span class="${
 const actQ=sel=>card.querySelector(sel)||(S&&S.phase==='end'&&!$('sceneActs').hidden?$('sceneActs').querySelector(sel):null);
 const inActs=el=>card.contains(el)||$('sceneActs').contains(el);
 function focusPrimary(){const b=actQ('[data-enter]')||card.querySelector('button:not(:disabled)');if(b&&document.activeElement&&document.activeElement!==document.body&&!inActs(document.activeElement))return;if(b)try{b.focus({preventScroll:true});}catch(e){}}
-function render(){if(S.phase!=='decide')card.classList.remove('legend');cardMode(S.phase);$('formBox').hidden=S.phase!=='birth';if(S.phase!=='end')$('sceneActs').hidden=true;renderHUD();renderParty();renderLog();renderCtl();renderLineage();saveRun();
+function render(){if(S.phase!=='decide')card.classList.remove('legend');if(S.phase!=='birth')document.querySelectorAll('.chips.onscene .nmset').forEach(x=>x.remove());cardMode(S.phase);$('formBox').hidden=S.phase!=='birth';if(S.phase!=='end')$('sceneActs').hidden=true;renderHUD();renderParty();renderLog();renderCtl();renderLineage();saveRun();
  const ph=S.phase;
  if(ph==='birth')renderBirth();else if(ph==='flow'){renderFlow();revealArm();}else if(ph==='decide')renderDecide();else if(ph==='combat')renderCombat();else if(ph==='dying')renderDying();else if(ph==='end')renderEnd();else if(ph==='secret')renderSecret();
  if(ph!=='end')endBar(false);try{window.SHARE&&window.SHARE.onPhase&&window.SHARE.onPhase(ph);}catch(e){}
@@ -2594,7 +2594,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  <div class="pas" style="margin-top:6px">นิสัย: <b>${esc(PERS[h.pers].n)}</b> · ${esc(PERS[h.pers].d)}</div>
  <div class="omenbox ${O.k==='พร'?'bless':O.k==='คำสาป'?'curse':'mix'}"><span class="ok">${O.k==='ผสม'?'พรปนคำสาป':O.k}ประจำชาตินี้</span> <b>${esc(O.n)}</b><br>${esc(O.d)}</div>${DT?`<div class="daybox" data-tip="day"><span class="ok">หัวข้อวันนี้</span> <b>${esc(DT.n)}</b><br>${esc(DT.d)}</div>`:''}</details></div>
  <div class="livebox" id="liveBox"${S.liveHTML?'':' hidden'}>${S.liveHTML||''}</div>
- <div class="nmset"><label for="inName">ตั้งชื่อเอง</label><input id="inName" type="text" maxlength="${NAME_MAX}" autocomplete="off" spellcheck="false" placeholder="${esc(h.name0||h.name)}" value="${h.cname?esc(h.name):''}"><span class="hint">ปล่อยว่างไว้ก็ใช้ชื่อที่สุ่มมา</span></div>
+ <div class="nmset"><label for="inName">✏️ ตั้งชื่อ</label><input id="inName" type="text" maxlength="${NAME_MAX}" autocomplete="off" spellcheck="false" placeholder="${esc(h.name0||h.name)}" value="${h.cname?esc(h.name):''}" title="ปล่อยว่างไว้ก็ใช้ชื่อที่สุ่มมา" aria-describedby="nmHint"><span class="hint" id="nmHint">ปล่อยว่างไว้ก็ใช้ชื่อที่สุ่มมา</span></div>
  <p class="lookn">สุ่มหน้าตาได้ไม่จำกัด แรงค์ อาชีพ และนิสัยยังเหมือนเดิม</p>${window.META?`<div class="acts">${window.META.button()}</div>`:''}${birthExtras(h)}</div>
  <div class="cpin"><div class="bpin"><button class="btn" id="btnReroll" data-k="1" title="สุ่มแรงค์และอาชีพใหม่ได้ครั้งเดียว" ${S.rerolled?'disabled':''}>🔄 สุ่มแรงค์ใหม่ ${S.rerolled?'(ใช้แล้ว)':'(1)'}<span class="kb">[1]</span></button>
  <button class="btn" id="btnLook" data-k="3" type="button" title="สุ่มหน้าตาได้ไม่จำกัด แรงค์ อาชีพ และนิสัยยังเหมือนเดิม">🎲 สุ่มหน้าตา<span class="kb">[3]</span></button>
@@ -2609,6 +2609,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  $('btnReroll').onclick=()=>{if(S.rerolled)return;S.rerolled=true;const old=S.hero;unlivedAdd(old);S.hero=rollBirth(S.bo);if(old.cname)setName(S.hero,old.name);if(old.petHome)S.hero.petHome=1;S.rvDone=false;VIS.star=0;render();};
  // appearance only, unlimited: new look seed in the same form; rank/class/personality/omen stay
  $('btnLook').onclick=()=>{const h2=S.hero;h2.look=window.ART.rollLook(look(h2).form);S.themeId=heroTheme(h2);render();};
+ {const ch=document.querySelector('.chips.onscene'),ns=card.querySelector('.nmset');if(ch&&ns){ch.querySelectorAll('.nmset').forEach(x=>x.remove());ns.classList.add('onsc');ch.appendChild(ns);}}
  const inp=$('inName');inp.addEventListener('input',()=>{setName(S.hero,inp.value);const nm=card.querySelector('.cert .nm');if(nm)nm.textContent=S.hero.name;renderHUD();renderParty();saveRun();});
  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
  inp.addEventListener('change',()=>{if(cleanName(inp.value)!==inp.value)inp.value=S.hero.cname?S.hero.name:'';});
