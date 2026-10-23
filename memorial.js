@@ -156,12 +156,32 @@ function css(){if(cssDone)return;cssDone=true;const st=el('style');st.textConten
 .mmv-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 .mmv-chips button{font:400 13.5px ${fT};padding:7px 13px;min-height:38px;border-radius:999px;border:1px solid #6a5038;background:transparent;color:#e6d6b4;cursor:pointer}
 .mmv-chips .own{border-color:#a3322a;color:#f0a090}
-.mmv-msg{min-height:20px;text-align:center;color:#9ad08a;font-size:13.5px;margin:10px 0 0}
+.mmv-msg{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:3;max-width:calc(100vw - 32px);text-align:center;color:#9ad08a;font-size:13.5px;margin:0;padding:8px 14px;border-radius:999px;background:#17110df2;border:1px solid #6a5038;box-shadow:0 4px 14px #0008;pointer-events:none}
+.mmv-msg:empty{display:none}
+.mmv-act{display:flex;gap:8px;width:100%}.mmv-act .mmv-btn{flex:1}
+.mmv-act .gb{background:#f6eedb;color:#2b2118;box-shadow:inset 0 -3px 0 #d9c49a}
+.mmv-tabs{scroll-margin-top:calc(60px + env(safe-area-inset-top,0px))}
+@media (max-width:560px),(max-height:760px){.mmv-body{padding-top:10px}.mmv-card{padding:12px}.mmv-cover{width:84px;height:84px}.mmv-nm{font-size:clamp(21px,6.4vw,26px)}
+ .mmv-ti{margin-top:6px}.mmv-eu{margin-top:6px;padding:4px 8px}.mmv-strip{height:32px;margin-top:8px}.mmv-sl{font-size:10.5px}
+ .mmv-cdl{margin-top:8px;padding:10px;gap:8px}.mmv-cdl canvas{width:128px}.mmv-cdt{font-size:13.5px}}
+@media (max-height:560px) and (min-width:600px){.mmv-body{width:min(900px,100%)}
+ .mmv-body>.mmv-card:first-child{display:grid;grid-template-columns:minmax(0,1fr) 260px;column-gap:12px;align-items:start}
+ .mmv-body>.mmv-card:first-child>*{grid-column:1}.mmv-body>.mmv-card:first-child>.mmv-cdl{grid-column:2;grid-row:1/span 6;margin-top:0;flex-direction:column;align-items:stretch;text-align:center}
+ .mmv-cdl canvas{align-self:center}.mmv-act{flex-direction:column}}
 .mmv-state{color:#e6d6b4;text-align:center;padding:60px 10px;font-size:15px;line-height:1.6}
 .mmv :focus-visible{outline:3px solid #ffd76a;outline-offset:2px}
-.mmc{border:none;padding:0;background:transparent;max-width:min(480px,calc(100vw - 20px));width:100%;color:#f1e7d0;font-family:${fT}}
+.mmc{box-sizing:border-box;border:none;padding:0;margin:auto;background:transparent;max-width:none;width:min(480px,calc(100vw - 24px));max-height:none;overflow:visible;color:#f1e7d0;font-family:${fT}}
 .mmc::backdrop{background:#000b}
-.mmc-box{background:#15232a;border:2px solid #3d5a66;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 40px);overflow-y:auto;box-shadow:0 0 0 2px #070c0e}
+.mmc-box{box-sizing:border-box;background:#15232a;border:2px solid #3d5a66;border-radius:12px;display:flex;flex-direction:column;max-height:min(90vh,720px);max-height:min(90dvh,720px);overflow:hidden;box-shadow:0 0 0 2px #070c0e}
+.mmc-hd{flex:none;display:flex;align-items:center;gap:8px;padding:12px 12px 10px 16px;border-bottom:1px solid #2c434d}
+.mmc-hd h2{flex:1;min-width:0}
+.mmc .mmc-x{flex:none;min-width:40px;min-height:36px;padding:4px 10px;font-size:15px}
+.mmc-bd{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.mmc-bd>*{flex-shrink:0}
+.mmc-ft{flex:none;display:flex;flex-direction:column;gap:8px;padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #2c434d;background:#121e24}
+.mmc-ft .mmc-msg:empty{display:none}
+@media (max-width:560px){.mmc{width:100vw;height:100vh;height:100dvh;margin:0}.mmc-box{height:100%;max-height:none;border-radius:0;border-width:0}.mmc-hd{padding-top:calc(12px + env(safe-area-inset-top,0px))}}
+@media (max-height:560px) and (min-width:561px){.mmc{height:100vh;height:100dvh;margin:0 auto}.mmc-box{height:100%;max-height:none;border-radius:0;border-top-width:0;border-bottom-width:0}}
 .mmc h2{margin:0;font-size:19px;font-weight:600;color:#f4bb4a}
 .mmc p{margin:0;font-size:14px;line-height:1.6;color:#d8cdb4}
 .mmc .dim{color:#8fa39b;font-size:12.5px}
@@ -181,6 +201,9 @@ function cBuild(){if(cdlg)return cdlg;css();cdlg=el('dialog',{class:'mmc','aria-
  cdlg.addEventListener('cancel',e=>{e.preventDefault();cClose();});cdlg._box=box;return cdlg;}
 function cClose(){if(!cdlg)return;try{cdlg.close();}catch(e){cdlg.removeAttribute('open');}}
 function cShow(){if(!cdlg.open){try{cdlg.showModal();}catch(e){cdlg.setAttribute('open','');}}}
+// title + ✕ on top, buttons and status pinned at the bottom, everything else scrolls in between
+function cLay(t,body,foot){const box=cdlg._box,hd=el('div',{class:'mmc-hd'}),x=el('button',{type:'button',class:'mmc-x','aria-label':'ปิด'},'✕');x.onclick=cClose;hd.append(t,x);
+ const bd=el('div',{class:'mmc-bd'}),ft=el('div',{class:'mmc-ft'});bd.append(...body);ft.append(...foot);box.replaceChildren(hd,bd,ft);}
 function create(d,opt){opt=opt||{};if(!d||cbusy)return;cBuild();const box=cdlg._box;box.replaceChildren();
  const t=el('h2',{id:'mmc-t'},'ตั้งอนุสรณ์ออนไลน์');
  const p1=el('p',null,`อนุสรณ์คือหน้าเว็บของ${d.n} ใครได้ลิงก์ไปก็เปิดดู จุดเทียน และฝากคำไว้ได้`);
@@ -188,7 +211,7 @@ function create(d,opt){opt=opt||{};if(!d||cbusy)return;cBuild();const box=cdlg._
  const img=el('img',{alt:`ภาพตัวอย่างลิงก์อนุสรณ์ของ ${d.n}`,width:'600',height:'315'});
  const msg=el('p',{class:'mmc-msg',role:'status','aria-live':'polite'});
  const go=el('button',{type:'button',class:'pri'},'ตั้งอนุสรณ์'),no=el('button',{type:'button'},'ยังก่อน');
- const row=el('div',{class:'mmc-row'});row.append(go,no);box.append(t,img,p1,p2,row,msg);no.onclick=cClose;
+ const row=el('div',{class:'mmc-row'});row.append(go,no);cLay(t,[img,p1,p2],[row,msg]);no.onclick=cClose;
  let og=null;const ogP=ogImage(d).then(u=>{og=u;if(u)img.src=u;}).catch(()=>{});
  cShow();try{go.focus({preventScroll:true});}catch(e){}
  go.onclick=async()=>{if(cbusy)return;cbusy=true;go.disabled=no.disabled=true;msg.style.color='#86d67f';msg.textContent='กำลังตั้งอนุสรณ์…';
@@ -203,7 +226,7 @@ function done(d,id,og){const box=cdlg._box;box.replaceChildren();const url=linkO
  const bC=el('button',{type:'button',class:'pri'},'คัดลอกลิงก์'),bS=el('button',{type:'button'},'แชร์'),bL=el('button',{type:'button'},'ส่งใน LINE'),bO=el('button',{type:'button'},'เปิดดูอนุสรณ์'),bX=el('button',{type:'button'},'ปิด');
  const r1=el('div',{class:'mmc-row'}),r2=el('div',{class:'mmc-row'});r1.append(bC,navigator.share?bS:bL);r2.append(bO,bX);
  const note=el('p',{class:'dim'},'เครื่องนี้เก็บกุญแจสำหรับถอดอนุสรณ์ไว้ ถ้าล้างข้อมูลเบราว์เซอร์ กุญแจจะหายไปด้วย (ย้ายเซฟไปเครื่องใหม่ กุญแจจะไปด้วย)');
- box.append(t,img,p,inp,r1,r2,msg,note);
+ cLay(t,[img,p,inp,note],[r1,r2,msg]);
  bC.onclick=async()=>{const ok=await copyTxt(url,box);msg.style.color=ok?'#86d67f':'#ef6b5e';msg.textContent=ok?'คัดลอกลิงก์แล้ว':'คัดลอกไม่ได้ กดค้างที่ลิงก์แล้วคัดลอกเองนะ';};
  bS.onclick=async()=>{try{await navigator.share({title:`อนุสรณ์ของ ${d.n}`,text:`รำลึกถึง${d.n} จากหอคอยโชคชะตา`,url});}catch(e){}};
  bL.onclick=()=>{const u='https://social-plugins.line.me/lineit/share?url='+encodeURIComponent(url);const w=window.open(u,'_blank','noopener');if(!w)location.href=u;};
@@ -240,7 +263,7 @@ function render(){const o=V.el,M=V.m,d=M.d,fl=d.f>100?100:d.f,own=ownLoad()[M.id
   ${d.ti?`<div class="mmv-ti">ฉายา <b>「${esc(d.ti)}」</b></div>`:''}<div class="mmv-ca">${esc(d.w?'พิชิตยอดหอคอย':d.ca)}</div>
   ${d.eu||d.el?`<div class="mmv-eu">${d.eu?`「${esc(d.eu)}」 `:''}${esc(d.el||'')}</div>`:''}
   <div class="mmv-strip" role="img" aria-label="แผนที่ ${fl} ชั้นที่ผ่านมา ความสูงของแท่งคือ HP ที่เหลือในชั้นนั้น">${stripHTML(d)}</div><div class="mmv-sl"><span>ชั้น 1</span><span>แท่งสูงต่ำตาม HP ที่เหลือ สีบอกว่าเจออะไร</span><span>100</span></div>
-  <div class="mmv-cdl"><canvas class="cdc" width="64" height="24" aria-hidden="true"></canvas><div class="mmv-cdt" aria-live="polite"></div><button type="button" class="mmv-btn cdb">🕯 จุดเทียน</button></div></section>
+  <div class="mmv-cdl"><canvas class="cdc" width="64" height="24" aria-hidden="true"></canvas><div class="mmv-cdt" aria-live="polite"></div><div class="mmv-act"><button type="button" class="mmv-btn cdb">🕯 จุดเทียน</button><button type="button" class="mmv-btn gb">💬 ฝากคำ</button></div></div></section>
  <div class="mmv-tabs" role="tablist"><button type="button" role="tab" data-t="alb">อัลบั้ม</button><button type="button" role="tab" data-t="gst">สมุดเยี่ยม</button><button type="button" role="tab" data-t="last">ช่วงเวลาสุดท้าย</button></div>
  <section class="mmv-card mmv-pane" role="tabpanel"></section>
  <section class="mmv-card mmv-cta"><p>${d.w?`${esc(d.n)}ขึ้นถึงยอดหอได้ แล้วคุณล่ะ จะไปได้ถึงชั้นไหน?`:`${esc(d.n)}ไปได้ถึงชั้น ${fl} แล้วคุณล่ะ จะไปได้ถึงชั้นไหน?`}</p><button type="button" class="mmv-btn go">ลองเกิดดูบ้าง</button><small>ชีวิตนี้มีคนเล่นจริงในหอคอยโชคชะตา เกิดแล้วไต่ได้ครั้งเดียว</small></section>
@@ -249,7 +272,8 @@ function render(){const o=V.el,M=V.m,d=M.d,fl=d.f>100?100:d.f,own=ownLoad()[M.id
  const body=o.querySelector('.mmv-body');body.innerHTML=head;
  const cv=o.querySelector('.mmv-cover').getContext('2d');cv.imageSmoothingEnabled=false;
  V.cover={x:cv,fr:lastFr(d)};V.cd={x:o.querySelector('.cdc').getContext('2d')};V.cd.x.imageSmoothingEnabled=false;candleTxt();
- o.querySelector('.cdb').onclick=candle;o.querySelector('.go').onclick=tryBirth;o.querySelector('.rnd').onclick=randomOne;
+ o.querySelector('.cdb').onclick=candle;o.querySelector('.go').onclick=tryBirth;
+ o.querySelector('.gb').onclick=()=>{tab('gst');const tb=o.querySelector('.mmv-tabs');try{tb.scrollIntoView({block:'start',behavior:RM?'auto':'smooth'});}catch(e){}const w=o.querySelector('.mmv-words button:not([disabled])');if(w)try{w.focus({preventScroll:true});}catch(e){}};o.querySelector('.rnd').onclick=randomOne;
  o.querySelector('.cp').onclick=async()=>{const ok=await copyTxt(linkOf(M.id),o);say(ok?'คัดลอกลิงก์แล้ว':'คัดลอกไม่ได้',!ok);};
  const sh=o.querySelector('.sh');if(sh)sh.onclick=async()=>{try{await navigator.share({title:`อนุสรณ์ของ ${d.n}`,url:linkOf(M.id)});}catch(e){}};
  o.querySelector('.rp').onclick=report;const ob=o.querySelector('.own');if(ob)ob.onclick=removeOwn;

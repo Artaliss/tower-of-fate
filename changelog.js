@@ -220,6 +220,12 @@ body.eb-on .clbtn{bottom:calc(74px + env(safe-area-inset-bottom,0px))}
 .cldlg ul{margin:4px 0 8px;padding-left:4px;list-style:none}
 .cldlg li{margin:6px 0}
 .cldlg details{margin-top:12px;border-top:1px dashed rgba(244,187,74,.3);padding-top:8px}
+.cldlg{box-sizing:border-box;max-width:none;margin:auto;max-height:min(90vh,640px);max-height:min(90dvh,640px);overflow:hidden}
+.cldlg[open]{display:flex;flex-direction:column}
+.cldlg .hd,.cldlg .ft{flex:none;position:static}
+.cldlg .bd{flex:1 1 auto;min-height:0;max-height:none;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+@media (max-width:560px){.cldlg{width:100vw;height:100vh;height:100dvh;max-height:none;margin:0;border-radius:0;border-width:0}.cldlg .hd{padding-top:calc(12px + env(safe-area-inset-top,0px))}.cldlg .ft{padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))}}
+@media (max-height:560px) and (min-width:561px){.cldlg{height:100vh;height:100dvh;max-height:none;margin:0 auto;border-radius:0;border-top-width:0;border-bottom-width:0}.cldlg .ft{padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}}
 .cldlg summary{cursor:pointer;opacity:.8}
 .cldlg .ft{padding:10px 16px 14px;border-top:2px solid rgba(244,187,74,.3);text-align:right}
 .cldlg .ok{background:var(--gold,#f4bb4a);color:#1a1206;border:2px solid #7a5214;border-radius:10px;padding:8px 18px;font:600 15px var(--fT,system-ui);cursor:pointer}

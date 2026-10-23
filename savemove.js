@@ -57,9 +57,17 @@ function errTxt(r){if(r.st===0)return'ต่ออินเทอร์เน็
 // ---------- dialog ----------
 let css0=false;
 function css(){if(css0)return;css0=true;const st=el('style');st.textContent=`
-.mvd{border:none;padding:0;background:transparent;max-width:min(460px,calc(100vw - 20px));width:100%;color:#f1e7d0;font-family:${fT}}
+.mvd{box-sizing:border-box;border:none;padding:0;margin:auto;background:transparent;max-width:none;width:min(460px,calc(100vw - 24px));max-height:none;overflow:visible;color:#f1e7d0;font-family:${fT}}
 .mvd::backdrop{background:#000b}
-.mvd-box{background:#15232a;border:2px solid #3d5a66;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 40px);overflow-y:auto;box-shadow:0 0 0 2px #070c0e}
+.mvd-box{box-sizing:border-box;background:#15232a;border:2px solid #3d5a66;border-radius:12px;display:flex;flex-direction:column;max-height:min(90vh,720px);max-height:min(90dvh,720px);overflow:hidden;box-shadow:0 0 0 2px #070c0e}
+.mvd-hd{flex:none;display:flex;align-items:center;gap:8px;padding:12px 12px 10px 16px;border-bottom:1px solid #2c434d}
+.mvd-hd h2{flex:1;min-width:0}
+.mvd-bd{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.mvd-bd>*{flex-shrink:0}
+.mvd-ft{flex:none;display:flex;flex-direction:column;gap:8px;padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #2c434d;background:#121e24}
+.mvd-ft .mvd-msg:empty{display:none}
+@media (max-width:560px){.mvd{width:100vw;height:100vh;height:100dvh;margin:0}.mvd-box{height:100%;max-height:none;border-radius:0;border-width:0}.mvd-hd{padding-top:calc(12px + env(safe-area-inset-top,0px))}}
+@media (max-height:560px) and (min-width:561px){.mvd{height:100vh;height:100dvh;margin:0 auto}.mvd-box{height:100%;max-height:none;border-radius:0;border-top-width:0;border-bottom-width:0}}
 .mvd h2{margin:0;font-size:19px;font-weight:600;color:#f4bb4a}
 .mvd p{margin:0;font-size:14px;line-height:1.6;color:#d8cdb4}
 .mvd .dim{color:#8fa39b;font-size:12.5px}
@@ -77,6 +85,7 @@ function css(){if(css0)return;css0=true;const st=el('style');st.textContent=`
 .mvd button:disabled{opacity:.6;cursor:default}
 .mvd-msg{min-height:18px;font-size:13px;color:#86d67f;text-align:center;margin:0}
 .mvd :focus-visible{outline:3px solid #ffd76a;outline-offset:2px}
+.mvd .mvd-x{flex:none;min-width:40px;min-height:36px;padding:4px 10px;font-size:15px}
 .mvp p{font-size:12.5px;color:var(--dim,#6f857e);margin:0 0 8px;line-height:1.5}
 .mvp .mvp-r{display:flex;gap:8px;flex-wrap:wrap}.mvp .mvp-r button{flex:1;min-width:150px}
 `;document.head.appendChild(st);}
@@ -84,7 +93,11 @@ let dlg=null,busy=false;
 function build(){if(dlg)return dlg;css();dlg=el('dialog',{class:'mvd','aria-labelledby':'mvd-t'});const box=el('div',{class:'mvd-box'});dlg.append(box);document.body.append(dlg);
  dlg.addEventListener('cancel',e=>{e.preventDefault();if(!busy)closeD();});dlg.addEventListener('keydown',e=>e.stopPropagation());dlg._box=box;return dlg;}
 function closeD(){if(!dlg)return;try{dlg.close();}catch(e){dlg.removeAttribute('open');}}
-function show(nodes,focus){build();dlg._box.replaceChildren(...nodes);if(!dlg.open){try{dlg.showModal();}catch(e){dlg.setAttribute('open','');}}if(focus)try{focus.focus({preventScroll:true});}catch(e){}}
+// the h2 goes in a header with ✕, button rows and the status line in a footer that never scrolls away, the rest in the scrolling middle
+function show(nodes,focus){build();const hd=el('div',{class:'mvd-hd'}),bd=el('div',{class:'mvd-bd'}),ft=el('div',{class:'mvd-ft'});
+ nodes.forEach(n=>(n.tagName==='H2'?hd:n.classList.contains('mvd-row')||n.classList.contains('mvd-msg')?ft:bd).append(n));
+ const x=el('button',{type:'button',class:'mvd-x','aria-label':'ปิด'},'✕');x.onclick=()=>{if(!busy)closeD();};hd.append(x);
+ dlg._box.replaceChildren(hd,bd,ft);if(!dlg.open){try{dlg.showModal();}catch(e){dlg.setAttribute('open','');}}if(focus)try{focus.focus({preventScroll:true});}catch(e){}}
 const msgEl=()=>el('p',{class:'mvd-msg',role:'status','aria-live':'polite'});
 function sayIn(m,t,bad){m.style.color=bad?'#ef6b5e':'#86d67f';m.textContent=t;}
 const dateTxt=t=>{try{return new Date(t).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return'';}};

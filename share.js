@@ -434,17 +434,23 @@ function track(kind,withNote){try{const o=stats();o.sh[kind]++;if(withNote&&stat
 
 // ---------- sheet ----------
 const CSS=`
-.shs{border:0;padding:0;margin:auto auto 0;width:100%;max-width:540px;max-height:94dvh;background:transparent;color:#f1e7d0;font-family:${fT};overflow:visible}
+.shs{box-sizing:border-box;border:0;padding:0;margin:auto;width:min(540px,calc(100vw - 24px));max-width:none;height:min(92vh,880px);height:min(92dvh,880px);max-height:none;background:transparent;color:#f1e7d0;font-family:${fT};overflow:visible}
 .shs::backdrop{background:rgba(4,8,10,.72)}
 .shs[open]{animation:shsUp .28s ease-out}
 @keyframes shsUp{from{transform:translateY(40px)}to{transform:none}}
 @media (prefers-reduced-motion:reduce){.shs[open]{animation:none}}
-@media (min-width:700px){.shs{margin:auto;max-height:92vh}.shs .shs-box{border-radius:10px;border-bottom:3px solid #b97a22}}
-.shs-box{background:#15232a;border:3px solid #b97a22;border-bottom:0;border-radius:14px 14px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.55);max-height:inherit;overflow:auto;overscroll-behavior:contain;
- padding:14px 16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;box-sizing:border-box}
-.shs-box>*{flex-shrink:0}
-.shs-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:-14px;background:#15232a;margin:-14px -16px 0;padding:12px 16px 8px;z-index:1;border-bottom:1px solid #2c434d}
-.shs-hd h2{margin:0;font:500 18px ${fT};color:#f4bb4a}
+.shs-box{height:100%;background:#15232a;border:3px solid #b97a22;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.55);overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box}
+.shs-hd{flex:none;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 16px 8px;border-bottom:1px solid #2c434d}
+.shs-bd{flex:0 1 auto;min-height:72px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:10px 16px;display:flex;flex-direction:column;gap:8px}
+.shs-bd>*{flex-shrink:0}
+.shs-card{flex:1 1 0;min-height:110px;min-height:max(110px,34vh);min-height:max(110px,34dvh);position:relative;margin:0 16px 10px}
+.shs-ft{flex:none;display:flex;flex-direction:column;gap:8px;padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #2c434d;background:#121e24}
+@media (max-width:560px){.shs{width:100vw;height:100vh;height:100dvh;margin:0}.shs-box{border-radius:0;border-width:0}.shs-hd{padding-top:calc(10px + env(safe-area-inset-top,0px))}}
+@media (max-height:560px){.shs{height:100vh;height:100dvh;margin:0 auto}.shs-box{border-radius:0;border-top-width:0;border-bottom-width:0}}
+@media (min-width:700px),(max-height:560px) and (min-width:600px){.shs{width:min(920px,calc(100vw - 32px))}
+ .shs-box{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"hd hd" "card bd" "card ft"}
+ .shs-hd{grid-area:hd}.shs-bd{grid-area:bd;min-height:0}.shs-ft{grid-area:ft;background:transparent}.shs-card{grid-area:card;min-height:0;margin:12px 0 12px 16px}}
+@media (min-width:700px) and (min-height:561px){.shs{height:min(90vh,760px);height:min(90dvh,760px)}}.shs-hd h2{margin:0;font:500 18px ${fT};color:#f4bb4a}
 .shs-x{background:#1c2e36;border:1px solid #3d5a66;color:#f1e7d0;font:400 14px ${fT};padding:6px 14px;border-radius:4px;cursor:pointer;min-height:36px}
 .shs-lead{margin:2px 0 0;font-size:15px;line-height:1.55;color:#f1e7d0}
 .shs-lab{font-size:13px;color:#a3b5ad;display:flex;justify-content:space-between;gap:8px}
@@ -466,12 +472,13 @@ const CSS=`
 .shs details{font-size:13px;color:#a3b5ad}
 .shs summary{cursor:pointer;padding:4px 0;color:#f4bb4a}
 .shs pre{white-space:pre-wrap;word-break:break-word;font:400 13.5px/1.6 ${fT};color:#f1e7d0;background:#0f1a1f;border:1px solid #2c434d;border-radius:6px;padding:10px;margin:6px 0 0}
-.shs-img{display:block;width:100%;height:auto;aspect-ratio:4/5;border-radius:6px;background:#efe4c8;border:2px solid #000}
-.shs-load{display:grid;place-items:center;aspect-ratio:4/5;color:#6f857e;background:#0f1a1f;border-radius:6px;font:400 15px ${fT}}
+.shs-img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 1px #000) drop-shadow(0 2px 6px #0008)}
+.shs-load{position:absolute;inset:0;display:grid;place-items:center;color:#6f857e;background:#0f1a1f;border-radius:6px;font:400 15px ${fT}}
 .shs-note{font-size:12px;color:#6f857e;margin:0;line-height:1.5}
 .shs-inapp{font-size:13px;color:#f2c14e;background:#2a2414;border:1px solid #6a5420;border-radius:6px;padding:8px 10px;margin:0;line-height:1.5}
-.shs-msg{min-height:18px;font-size:13px;color:#86d67f;text-align:center;margin:0}
+.shs-msg{min-height:18px;font-size:13px;color:#86d67f;text-align:center;margin:0}.shs-msg:empty{display:none}
 .shs :focus-visible{outline:3px solid #ffd76a;outline-offset:2px}
+@media (max-height:760px){.shs-pri{min-height:48px;padding:7px 10px;font-size:17px;gap:1px}.shs-pri small{font-size:12px}.shs-grid{gap:6px}.shs-grid button{min-height:40px;padding:6px 8px;font-size:14px}.shs-mini button{min-height:34px}.shs-ft{gap:6px;padding-top:8px}.shs textarea{min-height:48px;padding:6px 10px}.shs-lead{font-size:14px;line-height:1.45}}
 .tof-friend{display:flex;gap:10px;align-items:flex-start;margin:10px 0 0;padding:10px 12px;background:#2a2414;border:2px solid #b97a22;border-radius:6px;font-size:14px;line-height:1.55;color:#f1e7d0;box-shadow:0 0 0 2px #070c0e}
 .tof-friend .fi{flex:none;font-size:20px;line-height:1.2}
 .tof-friend .ft{flex:1;min-width:0}.tof-friend b{color:#f4bb4a;font-weight:500}
@@ -519,10 +526,13 @@ function build(){
  const msg=el('p',{class:'shs-msg',role:'status','aria-live':'polite'});
  const det=el('details');det.append(el('summary',null,'ดูข้อความที่จะโพสต์'));const pre=el('pre');det.append(pre);
  const hold=el('p',{class:'shs-note'},'กดค้างที่รูปเพื่อบันทึก');hold.hidden=!INAPP;
- const wrap=el('div');
+ const wrap=el('div',{class:'shs-card'});
  const foot=el('p',{class:'shs-note'},'ลิงก์ที่ส่งใน LINE, X และ Threads จะมีภาพตัวอย่างขึ้นเอง ถ้าอยากให้เพื่อนเห็นการ์ดใบนี้ด้วย ให้บันทึกรูปแล้วแนบไปกับโพสต์');
- box.append(hd,lead,lab,ta,hint,care,inapp,pri,grid,mini,msg,det,hold,wrap,foot);dlg.append(box);document.body.append(dlg);
- dlg._={ttl,labT,box,lead,ta,care,cnt,pri,bLine,bX,bTh,bCopy,bSave,bLink,msg,pre,wrap};
+ // header and footer stay put; only the middle scrolls, and the card shrinks to whatever height is left
+ const bd=el('div',{class:'shs-bd'}),ft=el('div',{class:'shs-ft'});
+ bd.append(lead,lab,ta,hint,care,inapp,det,hold,foot);ft.append(pri,grid,mini,msg);
+ box.append(hd,bd,wrap,ft);dlg.append(box);document.body.append(dlg);
+ dlg._={ttl,labT,box,bd,lead,ta,care,cnt,pri,bLine,bX,bTh,bCopy,bSave,bLink,msg,pre,wrap};
  x.onclick=close;
  dlg.addEventListener('cancel',e=>{e.preventDefault();close();});
  dlg.addEventListener('click',e=>{if(e.target!==dlg)return;const r=box.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)close();});
@@ -583,7 +593,7 @@ function openSheet(d,opt){
  D.bCopy.hidden=INAPP;D.msg.textContent='';D.wrap.replaceChildren(el('div',{class:'shs-load'},'กำลังวาดการ์ด…'));
  refreshText();
  if(!dlg.open){try{dlg.showModal();}catch(e){dlg.setAttribute('open','');}}
- D.box.scrollTop=0;try{(opt.auto&&!MOBILE?D.ta:D.pri).focus({preventScroll:true});}catch(e){}
+ D.bd.scrollTop=0;try{(opt.auto&&!MOBILE?D.ta:D.pri).focus({preventScroll:true});}catch(e){}
  return redraw();}
 
 // ---------- "someone sent you a fate" ----------

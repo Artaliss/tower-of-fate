@@ -160,6 +160,9 @@ const css=document.createElement('style');css.textContent=`
 @media (max-width:560px){.helpdlg{height:min(88vh,760px);height:min(88dvh,760px);max-height:none;margin:auto}.helpdlg .tabs{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding:5px 12px 9px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;mask-image:linear-gradient(90deg,#000 88%,transparent);-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent)}.helpdlg [role=tab]{flex:none}}
 .helpdlg .bd{padding:10px 14px 16px;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;flex:1 1 auto;min-height:0;font-size:13.5px;line-height:1.55}
 .helpdlg .bd:focus-visible{outline:2px solid var(--line2,#3d5a66);outline-offset:-2px}
+.helpdlg{margin:auto;max-height:min(90vh,720px);max-height:min(90dvh,720px)}
+@media (max-width:560px){.helpdlg{width:100vw;height:100vh;height:100dvh;max-height:none;margin:0;border-radius:0;border-width:0}.helpdlg .hd{padding-top:calc(10px + env(safe-area-inset-top,0px))}.helpdlg .bd{padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}}
+@media (max-height:560px) and (min-width:561px){.helpdlg{height:100vh;height:100dvh;max-height:none;margin:0 auto;border-radius:0;border-top-width:0;border-bottom-width:0}.helpdlg .bd{padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}}
 .helpdlg .hl{list-style:none;margin:0 0 10px;padding:0}
 .helpdlg .hl li{display:flex;gap:8px;padding:3px 0}
 .helpdlg .hl .e{flex:none;width:1.6em;text-align:center}
