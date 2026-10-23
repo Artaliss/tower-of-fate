@@ -2840,6 +2840,8 @@ function renderSecret(){const R=S.R,X=R.sec,D=DRG[X.c],h=R.h,EGN='ไข่ส�
  card.innerHTML=`${tag}<h3>${esc(t)}</h3><p>${esc(p)}</p>${gain.length?`<ul class="msgs">${gain.map(g=>`<li class="good">${esc(g)}</li>`).join('')}${ms.map(m=>`<li class="lv">${esc(m.t)}</li>`).join('')}</ul>`:''}
  ${pin(`<div class="acts"><button class="btn pri" id="secEnd" data-enter>ไปที่แผ่นจารึก<span class="kb">[Enter]</span></button></div>`)}`;
  $('secEnd').onclick=secLeave;}
+// won but died on the secret floor: still a winner everywhere, only the wording changes
+const secX=R=>!!(R&&R.won&&R.sec&&R.sec.res==='x'),SEC_X='พิชิตชั้น 100 แล้วล้มที่ชั้นลับ';
 const secSum=R=>{const X=R.sec||{},D=DRG[X.c];if(!D)return'';return X.res==='n'?'พบบันไดขึ้นไปแต่เลือกไม่ขึ้น':X.res==='f'?`ล้ม${D.n}แล้วไว้ชีวิต ได้ไข่สัตว์ตำนานกลับมา`:X.res==='s'?`ฆ่า${D.n}แล้วขนสมบัติกลับมา`:X.res==='x'?`ตายในกรงเล็บของ${D.n}`:'';};
 let cbTimer=null;
 function cbLine(e,en){const n=Math.round(e.d||0);
@@ -2873,7 +2875,7 @@ function judge(k){for(const j of JUDGE)if(k>=j.min)return j.t;return JUDGE[JUDGE
 function fateLine(R){const gm=R.mN?Math.exp(R.mLog/R.mN):1,sh=R.fateShift;
  const a=`ทอยชะตามา ${R.mN} ชั้น ตัวคูณความเสี่ยงเฉลี่ย ×${gm.toFixed(2)} (คนทั่วไป ×1.00)${R.pMaxF?` · ชั้นที่เฉียดที่สุดคือชั้น ${R.pMaxF} (โอกาสตาย ${(R.pMax*100).toFixed(1)}%)`:''}`;
  const b=Math.abs(sh)>=1?` · การตัดสินใจของคุณ${sh>0?'ต่อชะตา':'ตัดชะตา'}ไปราว ${Math.round(Math.abs(sh))} ชั้น`:'';
- if(R.won)return`${a}${b} และรอดมาได้ทุกครั้ง`;
+ if(R.won)return secX(R)?`${a}${b} รอดมาได้ทุกชั้นจนพิชิตชั้น 100 แล้วไปล้มบนชั้นลับ`:`${a}${b} และรอดมาได้ทุกครั้ง`;
  if(R.death==='boss')return`${a}${b} · คุณทอยชะตารอดมาทุกชั้น จุดจบมาจากการแพ้บอส`;
  return a+b;}
 // ---- cohort panel: everyone who entered together (you included), shortest life first, one line of story each ----
@@ -3134,7 +3136,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  const coh=R.coh||[],beat=coh.filter(c=>!c.won&&c.f<fl).length,diff=Math.round(fl-avg);
  const certH=`<div class="dcert" data-tip="cert"><div class="dh">${won?'ใบประกาศผู้พิชิตหอ':'ใบมรณบัตร'}</div>
   <dl class="kv"><dt>ชื่อ</dt><dd>${esc(h.name)} · รุ่นที่ ${h.gen||1} แห่งสาย${esc(h.house||h.name)}</dd><dt>${won?'ชั้นสุดท้าย':'เสียชีวิตที่'}</dt><dd class="px">ชั้น ${fl}</dd>
-  <dt>${won?'ผลลัพธ์':'สาเหตุ'}</dt><dd>${esc(won?'พิชิตยอดหอคอย':R.cause)}${won?'':` <span class="dim">(${esc(CAUSEN[R.ck]||'ชะตาขาด')})</span>`}</dd>
+  <dt>${won?'ผลลัพธ์':'สาเหตุ'}</dt><dd>${esc(won?(secX(R)?SEC_X:'พิชิตยอดหอคอย'):R.cause)}${won?'':` <span class="dim">(${esc(CAUSEN[R.ck]||'ชะตาขาด')})</span>`}</dd>
   ${won?'':`<dt>พบบ่อยแค่ไหน</dt><dd>${cs?`สาเหตุนี้พบใน${cs.band} ราว <b class="px">${cs.p<.01?'ไม่ถึง 1':Math.round(cs.p*100)}%</b> ของการตาย <span class="dim">(จากการจำลอง ${fmt(cs.N)} ชีวิต)</span>`:'ยังจำลองไม่พอจะบอกได้'}</dd>`}
   <dt>อายุในหอ</dt><dd>${fl} ชั้น · ค่าเฉลี่ยราว ${Math.round(avg)} ชั้น (${diff>=0?`นานกว่า ${diff}`:`สั้นกว่า ${-diff}`} ชั้น)</dd>
   ${coh.length?`<dt>เพื่อนรุ่นเดียวกัน</dt><dd>${coh.length} คน · คุณไปได้ไกลกว่า ${beat} คน</dd>`:''}</dl>
@@ -3145,7 +3147,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  const share=!!(window.SHARE&&window.SHARE.open),lb=!!(window.LB&&window.LB.open);
  card.innerHTML=`<div class="cs"><div class="epi"><div class="tag">${won?'ตำนานบทใหม่':'แผ่นจารึกหน้าหลุมศพ'}</div><div class="big">${won?'👑 ':'✝ '}${esc(h.name)}</div><div class="rtitle${S.title.gold?' gold':''}">ฉายา: ${esc(S.title.t)}</div>
  <dl class="kv"><dt>แรงค์/อาชีพ</dt><dd>${RANKS[h.rank].k} · ${R.turned?esc(clsName(R.turned.from)):C.n} (1 ใน ${fmt(h.odds)})</dd>${R.turned?`<dt>เปลี่ยนร่าง</dt><dd>จาก${esc(clsName(R.turned.from))}เป็น${esc(C.n)} ที่ชั้น ${R.turned.f}</dd>`:''}${R.unl?`<dt>ปลดล็อก</dt><dd>ชีวิตต่อไปมีโอกาสเกิดเป็น${esc(clsName(R.unl))}</dd>`:''}${pathOf(R)?`<dt>ทางของอาชีพ</dt><dd><span data-tip="path">${esc(pathOf(R).n)}</span> · ${R.pathHi?`ขั้นสูงสุด "${esc(pathHiName(R))}"`:'ยังไม่ถึงขั้นแรก'} · ${Math.floor(R.path||0)} แต้ม</dd>`:''}${crownArch(R)?`<dt>ชิงตำแหน่ง</dt><dd>「${esc(crownArch(R).t)}」 ${esc(crownArch(R).d)}</dd>`:''}<dt>ชั้นที่ไปถึง</dt><dd class="px">${fl} / 100</dd><dt>เลเวล</dt><dd class="px">${h.lv}</dd>
- <dt>${won?'ผลลัพธ์':'สาเหตุการตาย'}</dt><dd>${esc(won?'พิชิตผู้กลืนดาราและยืนบนยอดหอคอย':R.cause)}</dd>${secSum(R)?`<dt>ชั้นลับ</dt><dd>${esc(secSum(R))}</dd>`:''}${CLAN_T[R.clanM]?`<dt>ตระกูล</dt><dd><span data-tip="clan">${CLAN_T[R.clanM]}</span>${R.clanM==='s'?` · ต้องล้มมังกรอีก ${3-(R.clanN|0)} ตัวคำสาปจึงจะคลาย`:''}</dd>`:''}${excRow(R)}${godRow(R)}<dt>ดวงชะตา</dt><dd>${esc(fateLine(R))}</dd>
+ <dt>${won?'ผลลัพธ์':'สาเหตุการตาย'}</dt><dd>${esc(won?(secX(R)?'พิชิตผู้กลืนดาราที่ชั้น 100 แล้วล้มบนชั้นลับเหนือยอดหอ':'พิชิตผู้กลืนดาราและยืนบนยอดหอคอย'):R.cause)}</dd>${secSum(R)?`<dt>ชั้นลับ</dt><dd>${esc(secSum(R))}</dd>`:''}${CLAN_T[R.clanM]?`<dt>ตระกูล</dt><dd><span data-tip="clan">${CLAN_T[R.clanM]}</span>${R.clanM==='s'?` · ต้องล้มมังกรอีก ${3-(R.clanN|0)} ตัวคำสาปจึงจะคลาย`:''}</dd>`:''}${excRow(R)}${godRow(R)}<dt>ดวงชะตา</dt><dd>${esc(fateLine(R))}</dd>
  <dt>จุดเปลี่ยน</dt><dd>${R.keys} ครั้ง${R.timeouts?` · ปล่อยให้นิสัย${esc(PERS[h.pers].n)}เลือกแทน ${R.timeouts} ครั้ง`:''}${R.sameN+R.plainN?` · ตอบไปเองโดยไม่ต้องหยุด ${R.sameN+R.plainN} ครั้ง`:''}</dd><dt>ทองที่ทิ้งไว้</dt><dd class="px">${fmt(h.gold)}</dd>
  <dt>ปาร์ตี้</dt><dd>${[...R.pets.map(p=>PETS[p].n),...R.comps.map(c=>c.n+' ('+clsName(c.cls)+')')].join(', ')||'เดินทางคนเดียว'}</dd>
  <dt>กรรม</dt><dd class="px" style="color:var(--karma)">${R.karma>0?'+':''}${R.karma} ${R.karma>=0?'กรรมดี':'กรรมชั่ว'}</dd></dl>
@@ -3169,7 +3171,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  $('btnHeir').onclick=()=>newBirth({heir:P});
  $('btnReborn').onclick=()=>newBirth({kShift:clamp(R.karma/5,-6,6),prev:{name:h.name}});
  const L=S.lg,LI=lookInfo(h);
- const sum={name:h.name,village:h.village,rankK:RANKS[h.rank].k,rankIdx:h.rank,rankCol:RANKS[h.rank].col,clsId:C.id,clsN:C.n,pathN:pathHiName(R)||'',turn:R.turned?clsName(R.turned.from):'',look:look(h),form:look(h).form,floor:R.sec&&R.sec.win?101:fl,won,title:S.title.t,cause:won?'พิชิตยอดหอคอย':R.cause,
+ const sum={name:h.name,village:h.village,rankK:RANKS[h.rank].k,rankIdx:h.rank,rankCol:RANKS[h.rank].col,clsId:C.id,clsN:C.n,pathN:pathHiName(R)||'',turn:R.turned?clsName(R.turned.from):'',look:look(h),form:look(h).form,floor:R.sec&&R.sec.win?101:fl,won,title:S.title.t,cause:won?(secX(R)?SEC_X:'พิชิตยอดหอคอย'):R.cause,
   odds:combOdds(h),pct,karma:R.karma,score:L.score,themeId:R.theme||S.themeId||'',gen:h.gen||1,pets:[...R.pets],comps:R.comps.map(c=>c.n),kills:R.kills,bosses:R.bosses,scars:R.scars,keyMoments:R.keys,timeouts:R.timeouts,
   stanceHist:R.stH||'',durationMs:S.t0?Date.now()-S.t0:0,date:Date.now(),lookName:LI.n,
   tk:R.net&&R.net.tk||'',sid:R.net&&R.net.sid||'',day:h.day&&h.day.d||'',dh:dHit?1:0,
@@ -3289,7 +3291,7 @@ function memoData(R){const h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.floor,T
  (S.mont||[]).slice(0,6).forEach(m=>fr.push({k:'m',f:m.f,v:visLite(momVis(m)),r:m.rar||'',c:m.t,s:`เลือก "${m.c}"${m.res?` · ${m.res}`:''}`}));
  fr.push(won?{k:'w',f:100,c:'ยืนอยู่บนยอดหอคอย',s:'ลมบนนี้เย็นกว่าที่คิด'}:{k:'d',f:fl,v:R.death==='boss'?{t:'en',en:{id:BOSSES[biome(fl)].id,boss:true}}:null,c:cauShort(R.cause)||'ชะตาขาด',s:BIOMES[biome(fl)]});
  return{v:1,n:h.name,vl:h.village,hs:h.house||h.name,g:h.gen||1,rk:h.rank,ck:C.id,cn:C.n+(pathHiName(R)?' · '+pathHiName(R):''),lk:look(h),
-  f:R.sec&&R.sec.win?101:fl,w:won?1:0,dg:R.sec&&['n','f','s','x'].includes(R.sec.res)?R.sec.res:'',ti:T.t,tg:T.gold?1:0,ca:won?'พิชิตยอดหอคอย':R.cause,
+  f:R.sec&&R.sec.win?101:fl,w:won?1:0,dg:R.sec&&['n','f','s','x'].includes(R.sec.res)?R.sec.res:'',ti:T.t,tg:T.gold?1:0,ca:won?(secX(R)?SEC_X:'พิชิตยอดหอคอย'):R.cause,
   kr:R.karma,sc:S.lg?S.lg.score:0,lv:h.lv,kl:R.kills,bo:R.bosses,od:Math.max(1,Math.round(h.odds||1)),pt:pt?{c:pt.code,n:pt.n}:null,eu:eu.who,el:eu.line,jd:judge(R.karma),
   mp:R.map.slice(0,100),hp:isArr(R.hpF)?R.hpF.slice(0,100):[],pets:R.pets.slice(0,4),cm:R.comps.slice(0,4).map(c=>({n:c.n,cls:c.cls,tr:c.tr||'',legend:!!c.legend})),
   rain:(S.cineRain!=null?S.cineRain:!won&&(fl<30||!!SUDDEN[R.ck]||R.karma<-8))?1:0,fr:fr.slice(0,9),dt:Date.now()};}

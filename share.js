@@ -252,7 +252,7 @@ async function renderRun(d){
  const GY=544,GH=d.note&&d.pat?88:92,CW=456,CX=[64,560];
  const party=[...d.petN,...d.comps].filter(Boolean);
  const cells=[
-  [d.won?'ผลลัพธ์':'สาเหตุการตาย',d.drgW?(d.drg==='f'?'สหายมังกร · ชั้นลับ':'นักล่ามังกร · ชั้นลับ'):d.won?'พิชิตยอดหอคอย':(d.cause.replace(/\s*\(ชั้น \d+\)\s*$/,'')||'ชะตาขาด'),d.won?P.gold2:P.red],
+  [d.won?'ผลลัพธ์':'สาเหตุการตาย',d.drgW?(d.drg==='f'?'สหายมังกร · ชั้นลับ':'นักล่ามังกร · ชั้นลับ'):d.won?(d.drg==='x'?'พิชิตชั้น 100 แล้วล้มที่ชั้นลับ':'พิชิตยอดหอคอย'):(d.cause.replace(/\s*\(ชั้น \d+\)\s*$/,'')||'ชะตาขาด'),d.won?P.gold2:P.red],
   ['ฉายา',(d.title?'「'+d.title+'」':'—')+(d.arch&&d.arch!==d.title?' · '+d.arch:''),P.ink],
   ['กรรม',(d.karma>0?'+':'')+d.karma+' · '+verdict(d.karma),d.karma>=6?P.stamp:d.karma<=-6?P.red:P.ink],
   ['สัตว์เลี้ยง / เพื่อนร่วมทาง',party.length?party.slice(0,3).join(', ')+(party.length>3?' +'+(party.length-3):''):'เดินทางคนเดียว',P.ink],
