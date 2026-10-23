@@ -171,7 +171,7 @@ function play(stage){const P=M.load(),h=H(P),T=team(P,h);if(!T.length||T.some(m=
   if(stage>=1)M.grantAch('hd_s1');if(stage>=10)M.grantAch('hd_s10');if(stage>=20)M.grantAch('hd_s20');if(ch&&h.ch>=10)M.grantAch('hd_ch10');
   if(new Set(T.map(m=>m.cls).filter(Boolean)).size>=4)M.grantAch('hd_4cls');}
  else{r.down.forEach(id=>{if(T.some(m=>m.id===id))h.inj[id]=Date.now()+10*60000;});res.inj=r.down.filter(id=>T.some(m=>m.id===id)).length;}
- M.save(P);if(r.win)fire('tof:hard-clear',{stage,first});
+ M.save(P);if(r.win)fire('tof:hard-clear',{stage,first,pets:pet?[pet.id]:[]}); // city.js: เฉพาะตัวที่พาไปถึงจะเหนื่อย
  clearInterval(timer);bt={log:r.log,n:0,res};timer=setInterval(()=>{if(!bt)return clearInterval(timer);bt.n++;const el=document.getElementById('hdLog');
   if(el&&bt.n<=bt.log.length){const d=document.createElement('div');d.textContent=bt.log[bt.n-1];el.appendChild(d);el.scrollTop=el.scrollHeight;}
   if(bt.n>=bt.log.length){clearInterval(timer);M.refresh();}},330);M.refresh();}
