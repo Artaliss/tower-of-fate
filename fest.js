@@ -14,6 +14,9 @@ const FESTS=[
   shop:[{k:'wizhat',t:'w',n:'หมวกนักเวท',ic:'🧙',c:60,g:900},{k:'witchhat',t:'w',n:'หมวกแม่มด',ic:'🧹',c:80,g:1200},{k:'catears',t:'w',n:'หูแมวดำ',ic:'🐈‍⬛',c:50,g:750},
    {k:'pumpkinhead',t:'w',n:'หัวฟักทอง',ic:'🎃',c:120,g:1800},{k:'batwings',t:'w',n:'ปีกค้างคาว',ic:'🦇',c:150,g:2200},{k:'crown',t:'w',n:'มงกุฎราชันย์ผี',ic:'👑',c:260,g:4000},
    {k:'pumpkin',t:'d',n:'โคมฟักทอง',ic:'🎃',c:40,g:600},{k:'ghostlamp',t:'d',n:'ตะเกียงผี',ic:'👻',c:70,g:1000},{k:'cauldron',t:'d',n:'หม้อยาแม่มด',ic:'🫕',c:90,g:1300},{k:'batflag',t:'d',n:'ธงค้างคาว',ic:'🚩',c:50,g:750}],
+  bonus:R=>Math.min(5,Math.max(0,R.bosses|0))*6,bn:'บอสแจกขนม',bd:'บอสที่ล้มได้ในรอบนั้นแจกลูกอมเพิ่มตัวละ 6 (นับไม่เกิน 5 ตัว)',
+  q:[{id:'hw_kill',n:'ไล่ผีออกจากหอ: ปราบมอนสเตอร์รวม 250 ตัว',v:e=>e.kills,max:250,r:40},{id:'hw_curse',n:'โดนผีแกล้ง: จบรอบที่ติดคำสาปมาด้วย 2 รอบ',v:e=>e.curseRuns,max:2,r:30},
+   {id:'hw_fl70',n:'เดินเคาะประตูขอขนมขึ้นไปถึงชั้น 70',v:e=>e.maxFl,max:70,r:50}],
   ach:['fest_coin_hw','fest_hw_all']},
  {id:'loy',n:'ลอยกระทง',ic:'🪷',a:[11,15],b:[11,30],it:'🪷',itn:'กลีบบัว',coin:'เหรียญกระทงทอง',col:'#ffd36a',
   d:'คืนเดือนเพ็ญ คนในเมืองพากันไปลอยกระทงที่คูน้ำหน้าหอ เก็บกลีบบัวไว้แลกของงานวัด',
@@ -63,7 +66,7 @@ function upcoming(){const d=new Date(),A=active();return FESTS.map(F=>{let s=new
 // ---------- ข้อมูล ----------
 const isObj=o=>!!o&&typeof o==='object'&&!Array.isArray(o);
 function st(P){if(!isObj(P.mod))P.mod={};const m=P.mod.fest=isObj(P.mod.fest)?P.mod.fest:{};['ev','own','wear'].forEach(k=>{if(!isObj(m[k]))m[k]={};});if(!Array.isArray(m.coins))m.coins=[];return m;}
-function ev(m,inst){const e=m.ev[inst]=Object.assign({item:0,got:0,runs:0,bosses:0,maxFl:0,hard:0,buy:0,kills:0,wins:0,good:0,petRuns:0,compRuns:0,potRuns:0,clanRuns:0,bonus:0},isObj(m.ev[inst])?m.ev[inst]:{});if(!isObj(e.q))e.q={};return e;}
+function ev(m,inst){const e=m.ev[inst]=Object.assign({item:0,got:0,runs:0,bosses:0,maxFl:0,hard:0,buy:0,kills:0,wins:0,good:0,petRuns:0,compRuns:0,potRuns:0,clanRuns:0,curseRuns:0,bonus:0},isObj(m.ev[inst])?m.ev[inst]:{});if(!isObj(e.q))e.q={};return e;}
 const joined=m=>Object.keys(m.ev).filter(k=>(m.ev[k].got|0)>0);
 const allItems=()=>FESTS.reduce((a,F)=>a.concat(F.shop.map(s=>Object.assign({f:F.id},s))),[]);
 const item=k=>allItems().find(s=>s.k===k);
@@ -84,12 +87,12 @@ function gain(n,kind,x){const A=active();if(!A)return 0;n=Math.max(0,Math.round(
  return upd((P,m)=>{const e=ev(m,A.inst);e.item+=n;e.got+=n;if(kind)kind(e,x);m.last={inst:A.inst,n,bx,t:Date.now()};return n;},x&&x.P);}
 
 // จบรอบไต่หอ: ชั้นละครึ่งชิ้น บอสตัวละ 5 พิชิตยอดแถม 30 + โบนัสตามธีมของงานนั้น
-// ตัวนับสำหรับภารกิจประจำธีมก็เก็บจาก R ของรอบนี้ (kills karma pets comps potions)
+// ตัวนับสำหรับภารกิจประจำธีมก็เก็บจาก R ของรอบนี้ (kills karma pets comps potions cursed)
 M.onRun((R,P)=>{const A=active();if(!A)return;const fl=R.won?100:(R.floor|0),b=R.bosses|0;let bx=0;try{bx=A.F.bonus?Math.max(0,A.F.bonus(R)|0):0;}catch(er){}
  const cp=Array.isArray(R.comps)?R.comps:[];
  gain(fl/2+b*5+(R.won?30:0)+bx,e=>{e.runs++;e.bosses+=b;e.maxFl=Math.max(e.maxFl,fl);e.kills+=R.kills|0;if(R.won)e.wins++;
   if((R.karma|0)>=10)e.good++;if(Array.isArray(R.pets)&&R.pets.length)e.petRuns++;if(cp.length)e.compRuns++;if((R.potions|0)>0)e.potRuns++;
-  if(cp.some(c=>c&&c.clan))e.clanRuns++;e.bonus+=bx;},{P,bx});
+  if(cp.some(c=>c&&c.clan))e.clanRuns++;if((R.cursed|0)>0)e.curseRuns++;e.bonus+=bx;},{P,bx});
  if(bx)M.grantAch('fest_bonus');});
 // ชนะด่านโหมดยาก (hard.js): +15 ด่านที่ผ่านครั้งแรกได้ 25
 window.addEventListener('tof:hard-clear',ev=>{const d=(ev&&ev.detail)||{};gain(d.first?25:15,e=>{e.hard++;});});
