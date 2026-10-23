@@ -20,7 +20,7 @@ function clean(v,max){let s=typeof v==='string'?v:'';
  return Array.from(s).slice(0,max).join('').trim();}
 function canon(e){return [e.name,e.village,e.rankK,e.clsId,e.form,e.floor,e.won?1:0,e.title,e.score,e.karma,e.gen,e.ach,e.date].join('|');}
 // หอเกียรติยศ (v0.2.8): lk={f:'s'|'h',s:seed uint32,p?:[สัตว์เลี้ยง ไม่เกิน 2]} gear=[id ไม่เกิน 4] ค่าที่ไม่ผ่านกลายเป็น null แล้วไม่ส่ง field นั้น
-const PETS=['slime','fox','owl','wolf','drk','drs','drg'],GEAR=['excal']; // สัตว์เลี้ยงหรือของใหม่ ต่อท้ายทั้งสองไฟล์
+const PETS=['slime','fox','owl','wolf','drk','drs','drg','unicorn','fairy','phoenix','griffin'],GEAR=['excal']; // สัตว์เลี้ยงหรือของใหม่ ต่อท้ายทั้งสองไฟล์
 function lookIn(v){if(!v||typeof v!=='object'||Array.isArray(v))return null;if(v.f!=='s'&&v.f!=='h')return null;
  if(typeof v.s!=='number'||!Number.isInteger(v.s)||v.s<0||v.s>4294967295)return null;const o={f:v.f,s:v.s};
  if(Array.isArray(v.p)){const p=[...new Set(v.p.slice(0,4).filter(x=>typeof x==='string'&&PETS.includes(x)))].slice(0,2);if(p.length)o.p=p;}return o;}

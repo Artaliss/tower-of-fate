@@ -198,9 +198,9 @@ function rollFloor(R){if(R.floor<=R.rolled||R.floor>=100)return false;R.rolled=R
 // "fate shifts" from events: d floors of extra life ~ hazard x e^{-g d} (Gompertz slope)
 function shiftFate(R,d){R.hzP*=Math.exp(-HZ.g*d);R.fateShift+=d;return d;}
 const hasSw=R=>!!(R&&(R.exc||(R.h&&R.h.ex&&R.h.ex.got))); // sword in the stone (EXC): pulled this life or carried since birth
-const eAtk=R=>R.h.atk*(hasPet(R,'fox')?1.12:1)*(hasPet(R,'drk')?1.1:1)*(hasSw(R)?EXC.atk:1)*stOf(R).a*hzF(R,'a');
-const eDef=R=>R.h.def*(hasPet(R,'wolf')?1.12:1)*(hasPet(R,'drs')?1.1:1)*(hasTr(R,'shield')?1.1:1)*stOf(R).df;
-const eLuk=R=>(R.h.luk+(hasPet(R,'owl')?6:0)+(hasPet(R,'drg')?3:0)+(hasTr(R,'lucky')?4:0))*(cid(R)==='far'?1.5:1);
+const eAtk=R=>R.h.atk*(hasPet(R,'fox')?1.12:1)*(hasPet(R,'drk')?1.1:1)*(hasPet(R,'griffin')?1.05:1)*(hasSw(R)?EXC.atk:1)*stOf(R).a*hzF(R,'a');
+const eDef=R=>R.h.def*(hasPet(R,'wolf')?1.12:1)*(hasPet(R,'drs')?1.1:1)*(hasPet(R,'griffin')?1.05:1)*(hasTr(R,'shield')?1.1:1)*stOf(R).df;
+const eLuk=R=>(R.h.luk+(hasPet(R,'owl')?6:0)+(hasPet(R,'drg')?3:0)+(hasPet(R,'fairy')?5:0)+(hasPet(R,'unicorn')?2:0)+(hasTr(R,'lucky')?4:0))*(cid(R)==='far'?1.5:1);
 const riskAdj=(R,p)=>clamp(p*clamp(1-(eLuk(R)-8)*.012,.45,1.25)*(cid(R)==='arc'?1-.05*pathTier(R):cid(R)==='ang'&&pathTier(R)>=3?.85:1),.02,.95);
 const critCh=R=>clamp(.05+eLuk(R)*.004+(cid(R)==='arc'?.12:0),0,.5);
 const dodgeCh=R=>clamp(eLuk(R)*.0025+(cid(R)==='arc'?.03*pathTier(R):0)+(cid(R)==='ang'?.05+.02*Math.min(2,pathTier(R)):0),0,.3);
@@ -258,7 +258,7 @@ function fight(R,en,o){o=o||{};const h=R.h,id=cid(R),T=pathTier(R),A=eAtk(R)*(id
   for(const c of R.comps){if(c.cls==='pri')hp=Math.min(h.mhp,hp+h.mhp*.03);const d2=hit(c.pw,en.def)*rr(.8,1.2)*(c.cls==='pri'?.5:1);ehp-=d2;rec&&ev.push({t:'c',n:c.n,d:d2,hp,ehp});if(ehp<=st)break;}
   if(ehp<=st)break;
   if(id==='nec'){const bp=bonePw(R);for(let j=0,nb=boneN(R);j<nb&&ehp>st;j++){const d=hit(bp,en.def)*rr(.8,1.2);ehp-=d;if(T>=3)hp=Math.min(h.mhp,hp+d*.15);rec&&ev.push({t:'c',n:'โครงกระดูก',d,hp,ehp,bone:j});}if(ehp<=st)break;}
-  for(let pi=0;pi<R.pets.length&&ehp>st;pi++){const p=R.pets[pi],k=(p==='wolf'?.25:0)+(id==='far'&&T>=1?.06+.06*T:0);if(!k)continue;const d3=hit(A*k,en.def);ehp-=d3;rec&&ev.push({t:'p',d:d3,hp,ehp,pi});}
+  for(let pi=0;pi<R.pets.length&&ehp>st;pi++){const p=R.pets[pi],k=(p==='wolf'?.25:p==='griffin'?.15:0)+(id==='far'&&T>=1?.06+.06*T:0);if(!k)continue;const d3=hit(A*k,en.def);ehp-=d3;rec&&ev.push({t:'p',d:d3,hp,ehp,pi});}
   if(ehp<=st)break;
   if(id==='rog'&&T>=3&&rec&&!stole&&rnd()<.25){stole=Math.round((BAL.g0+BAL.g1*R.floor)*.8*gMul(R));h.gold+=stole;ev.push({t:'steal',g:stole,hp,ehp});}
   if(en.calm)continue;
@@ -390,6 +390,7 @@ const canRez=R=>cid(R)==='pri'&&!R.rez;
 function rezNow(R,out){R.rez=1;R.rezFx=1;R.h.hp=Math.max(1,R.h.mhp*.3);R.h.mp=R.h.mmp;R.hzP*=REZ_HZ;say(R,out,'แสงศักดิ์สิทธิ์ดึงวิญญาณกลับเข้าร่าง คุณลืมตาขึ้นอีกครั้ง (นักบวชฟื้นคืนชีพได้ครั้งเดียว)','lv');out.rez=1;}
 function mortal(R,out,cause){if(R.h.hp>0||!R.alive)return;
  if(R.lethal&&canRez(R)){rezNow(R,out);return;}
+ if(R.lethal&&hasPet(R,'phoenix')&&!R.phx){R.phx=1;R.rezFx=1;R.h.hp=Math.max(1,R.h.mhp*.3);R.hzP*=2;say(R,out,'ลูกฟีนิกซ์กางปีกคลุมร่างคุณไว้ ไฟอุ่นๆ ปลุกให้ลุกขึ้นมาได้อีกครั้ง (ฟีนิกซ์ช่วยได้ครั้งเดียว)','lv');out.rez=1;return;}
  if(R.lethal){die(R,cause||`สิ้นใจที่ชั้น ${R.floor}`);return;}
  R.h.hp=Math.max(1,R.h.mhp*.12);R.scars++;out.saved=true;say(R,out,fresh(R,'sv',SAVED)+` (แผลเป็น ${R.scars})`,'lv');}
 function resolve(R,ev,i){const h=R.h,f=R.floor;const out={msgs:[],combat:null,after:'result',coins:0,enemy:null,cause:''};
@@ -437,7 +438,7 @@ function farm(R){const out={msgs:[],combat:null,after:'result',coins:0,cause:''}
  if(R.h.hp<=0)mortal(R,out,out.cause);return out;}
 function drink(R){if(R.potions<1)return false;R.potions--;R.h.hp=Math.min(R.h.mhp,R.h.hp+R.h.mhp*.45);return true;}
 function climb(R){const out={msgs:[]},h=R.h,id=cid(R),hf0=h.hp/h.mhp;R.floor++;if(R.floor>R.maxFloor)R.maxFloor=R.floor;R.farmN=0;
- const rg=BAL.regen+MD(R,'regen',0)+(id==='pri'?.05+.005*pathTier(R):0)+(id==='dra'?.03:0)+(id==='ang'?.02:0)+(hasPet(R,'slime')?.04:0)+(hasPet(R,'drs')?.02:0);h.hp=Math.min(h.mhp,h.hp+h.mhp*rg);h.mp=Math.min(h.mmp,h.mp+h.mmp*.2);
+ const rg=BAL.regen+MD(R,'regen',0)+(id==='pri'?.05+.005*pathTier(R):0)+(id==='dra'?.03:0)+(id==='ang'?.02:0)+(hasPet(R,'slime')?.04:0)+(hasPet(R,'drs')?.02:0)+(hasPet(R,'unicorn')?.03:0)+(hasPet(R,'fairy')?.01:0);h.hp=Math.min(h.mhp,h.hp+h.mhp*rg);h.mp=Math.min(h.mmp,h.mp+h.mmp*.2);
  R.comps.forEach(c=>c.pw*=1.015);
  {const d=h.gold-(R.gPrev||0);if(d>0)R.gIn=(R.gIn||0)+d;R.gPrev=h.gold;}
  // stance "help": now and then a small good deed on the way up
@@ -2037,6 +2038,19 @@ Object.assign(SPECIAL,{
    else if(i===1){hurt(R,.15);laterAt(R,6,'train',{a:D.a/2},'ท่าดาบของครูพเนจร');say(R,out,'คุณแบกถังน้ำขึ้นลงบันไดจนไหล่ระบม ครูพยักหน้าแล้วสอนให้ครึ่งท่า','info');}
    else say(R,out,'เสียงไม้เท้าเหล็กกระทบพื้นดังตามหลังคุณขึ้นบันไดไป','info');}}});
 Object.assign(TIER,{invest:'c',thorn:'c',seed:'c',letter:'r',loan:'c',tutor:'c'});
+const LEGP=['unicorn','fairy','phoenix','griffin'];
+const legAch=id=>{try{window.META&&window.META.grantAch(id);}catch(e){}};
+const legAll=()=>{try{const P=window.META&&window.META.load();if(P&&Array.isArray(P.pets)&&LEGP.every(k=>P.pets.some(x=>x.k===k)))legAch('leg_all');}catch(e){}};
+// v0.3 legendary pet in the tower: fairy or unicorn, floor 61+, added after TIER_N so other legendaries keep their share
+const LEG_TXT={fairy:{t:'แฟรี่หลงทาง',x:'แสงสีเขียวลอยวนอยู่กลางบันได เข้าไปใกล้ถึงเห็นว่าเป็นแฟรี่ตัวจิ๋ว เธอเอียงคอมองคุณอยู่นาน เหมือนกำลังชั่งใจว่าจะไว้ใจคนตรงหน้าดีไหม'},
+ unicorn:{t:'ยูนิคอนกลางหอ',x:'ยูนิคอนตัวเล็กยืนอยู่กลางลานหิน รอบกีบมีดอกไม้ขึ้นเป็นวง เห็นคุณแล้วมันก็ไม่หนี แค่ก้มหัวลงนิดหนึ่งแล้วยืนรอ'}};
+Object.assign(SPECIAL,{legpet:{w:1,ok:R=>R.floor>=61,mk(R,K){const f=R.floor,p=rnd()<.5?'fairy':'unicorn',P=PETS[p];K.data={p};K.tag=`ชั้น ${f} · สัตว์ตำนาน`;K.title=LEG_TXT[p].t;K.text=LEG_TXT[p].x;K.vis={t:'pet',p};
+   K.ch=[CH(R.pets.length<2?'ยื่นมือให้มัน':`ยื่นมือให้มัน แล้วปล่อย${PETS[R.pets[0]].n}กลับป่า`,[{t:P.d,c:'g'},{t:'สัตว์ตำนาน',c:'g'}]),
+    CH('ขอพรแล้วปล่อยมันไป',[{t:'HP เต็ม',c:'g'},{t:'LUK +2',c:'g'},kk(2)])];K.ai=0;legAch('leg_meet');},
+  res(R,K,i,out){const f=R.floor,p=K.data.p,h=R.h;
+   if(i===0){R.map[f-1]='pet';if(R.pets.length>=2){say(R,out,`ปล่อย${PETS[R.pets[0]].n}กลับป่า`,'info');R.pets.shift();}addPet(R,p,out);}
+   else{R.map[f-1]='good';h.hp=h.mhp;h.luk+=2;R.karma+=2;say(R,out,`${PETS[p].n}แตะหน้าผากคุณเบาๆ ความเหนื่อยหายไปหมด พอเงยหน้าขึ้นมันก็ไม่อยู่แล้ว`,'good');}}}});
+Object.assign(TIER,{legpet:'l'});SP_BI.legpet=[3,4];
 /*SIM-END*/
 if(typeof document==='undefined'){window.AUTO_SIM={SPECIAL,ARCS,DRAMA,PATHS,pathTier,MFIT,secPrep,BFIT,DAYS,dayHit,secEn,secFight,secOpts,estimateWin,fight,SEC_K,DRG,rollHero,HZ,LX,pRoll,project,hzM,autoLife,newRun,planFloor,applyKey,mkKey,BAL,RUN_OMENS,STANCES};return;}
 
@@ -2372,9 +2386,18 @@ function loadClan(){try{const v=JSON.parse(localStorage.getItem(CKEY)||'null');i
  if(!v.g3){C.g3=1;if(['f','s','d'].includes(C.m))C.pg=[...new Set([...clanPets(C),...Object.values(EGGP)])].join(',');saveClan(C);}return C;}}catch(e){}return clan0();}
 function saveClan(C){try{localStorage.setItem(CKEY,JSON.stringify(C));}catch(e){}}
 // birth: an egg brought back from the secret floor hatches (once) into the family pet
-function clanBirth(){const C=loadClan();if(C.egg){const c=C.egg;C.pet=Math.random()<.6?EGGP[c]||'drk':pick(PETK);C.fresh=c;C.egg='';C.pg=clanPets(C).join(',');saveClan(C);}return C;}
+function clanBirth(){const C=loadClan();if(C.egg){const c=C.egg;C.pet=Math.random()<.5?EGGP[c]||'drk':pick(LEGP);C.fresh=c;C.egg='';C.pg=clanPets(C).join(',');saveClan(C);legPen(C.pet);}return C;}
+// the hatchling also moves into the family pen (META) if there's room and none of its kind lives there yet
+function legPen(k){try{const M=window.META;if(!M||!M.load)return;const P=M.load();if(Array.isArray(P.pets)&&P.pets.length<((P.slots&&P.slots.p)|0)&&!P.pets.some(x=>x.k===k)){P.pets.push({id:M.uid(),k,from:'ไข่ชั้นลับ',legend:true});M.save(P);}if(LEGP.includes(k))legAch('egg_'+k);legAll();}catch(e){}}
 // marks this player has earned at least once (C.got, filled in from C.m for saves made before it existed); d implies s was held
 const clanGot=C=>{const g=String(C.got||'')+(C.m||'')+(C.m==='d'?'s':'');return['f','s','d'].filter(x=>g.includes(x));};
+if(window.ACH&&window.ACH.add)window.ACH.add([{id:'egg_unicorn',n:'เขาเกลียวสีมุก',d:'ฟักไข่จากชั้นลับได้ยูนิคอน',icon:'🦄',tier:'gold'},
+ {id:'egg_fairy',n:'เพื่อนตัวเท่านิ้วโป้ง',d:'ฟักไข่จากชั้นลับได้แฟรี่',icon:'🧚',tier:'gold'},
+ {id:'egg_phoenix',n:'เกิดจากเถ้า',d:'ฟักไข่จากชั้นลับได้ลูกฟีนิกซ์',icon:'🔥',tier:'gold'},
+ {id:'egg_griffin',n:'หัวอินทรีตัวสิงโต',d:'ฟักไข่จากชั้นลับได้ลูกกริฟฟิน',icon:'🦅',tier:'gold'},
+ {id:'leg_all',n:'คอกในตำนาน',d:'มียูนิคอน แฟรี่ ฟีนิกซ์ และกริฟฟินอยู่ในคอกของตระกูลครบทั้งสี่',icon:'🌟',tier:'legend'},
+ {id:'leg_meet',n:'สิ่งที่ไม่ควรมีอยู่จริง',d:'เจอสัตว์ตำนานระหว่างไต่หอ',icon:'✨',tier:'gold'}]);
+setTimeout(legAll,0);
 // family pets this player has hatched (C.pg, plus the current C.pet for older saves)
 const clanPets=C=>[...new Set([...String(C.pg||'').split(','),C.pet||''])].filter(p=>PETS[p]);
 const clanOf=C=>({m:['f','s','d'].includes(C.m)?C.m:'',n:clamp(C.n|0,0,2),pet:PETS[C.pet]?C.pet:''});
@@ -2507,7 +2530,7 @@ function renderBirth(){const h=S.hero,C=CLASSES[h.cls],Rk=RANKS[h.rank],O=omenOf
  const cOpt=(v,t,on)=>`<option value="${v}"${on?' selected':''}>${t}</option>`,cGot=clanGot(CC),cPets=clanPets(CC);
  const cAct=[cGot.length>1?`<label class="csel">ชื่อตระกูล <select id="selClanM">${cGot.map(x=>cOpt(x,CLAN_T[x],x===CL.m)).join('')}</select></label>`:'',
   cp?`<label class="csel">สัตว์ประจำตระกูล <select id="selClanPet">${cPets.map(p=>cOpt(p,esc(PETS[p].n),!h.petHome&&p===CL.pet)).join('')}${cOpt('home','ฝากไว้ที่บ้าน',!!h.petHome)}</select></label>`:''].join('');
- const clanH=CL.m||cp||C.id==='dsl'?`<div class="inhbox clanbox rv"${D(5)}>${CL.m?`<span data-tip="clan"><b>${CLAN_T[CL.m]}</b></span> · ${esc(clanLine(CL.m,CL.n))}`:''}${cp?`${CL.m?'<br>':''}<span data-tip="clanpet">${CF?`ไข่มังกร${esc(DRG[CF]?DRG[CF].n.replace('มังกร',''):'')}ที่คนในตระกูลเก็บกลับมาฟักแล้ว ได้${esc(cp.n)}เป็นสัตว์ประจำตระกูล`:h.petHome?`${esc(cp.n)} สัตว์ประจำตระกูล ชาตินี้ฝากไว้ที่บ้าน`:`${esc(cp.n)} สัตว์ประจำตระกูล เดินตามมาด้วย`} (${esc(cp.d)})</span>`:''}${C.id==='dsl'?`${CL.m||cp?'<br>':''}<span data-tip="dsl">เกิดมาเป็นนักล่ามังกร อาชีพลับที่เกิดได้เฉพาะในตระกูลที่เคยฆ่ามังกร</span>`:''}${cAct.trim()?`<div class="clanacts">${cAct}</div>`:''}</div>`:'';
+ const clanH=CL.m||cp||C.id==='dsl'?`<div class="inhbox clanbox rv"${D(5)}>${CL.m?`<span data-tip="clan"><b>${CLAN_T[CL.m]}</b></span> · ${esc(clanLine(CL.m,CL.n))}`:''}${cp?`${CL.m?'<br>':''}<span data-tip="clanpet">${CF?`ไข่สัตว์ตำนานจากรัง${esc(DRG[CF]?DRG[CF].n:'มังกร')}ที่คนในตระกูลเก็บกลับมาฟักแล้ว ได้${esc(cp.n)}เป็นสัตว์ประจำตระกูล`:h.petHome?`${esc(cp.n)} สัตว์ประจำตระกูล ชาตินี้ฝากไว้ที่บ้าน`:`${esc(cp.n)} สัตว์ประจำตระกูล เดินตามมาด้วย`} (${esc(cp.d)})</span>`:''}${C.id==='dsl'?`${CL.m||cp?'<br>':''}<span data-tip="dsl">เกิดมาเป็นนักล่ามังกร อาชีพลับที่เกิดได้เฉพาะในตระกูลที่เคยฆ่ามังกร</span>`:''}${cAct.trim()?`<div class="clanacts">${cAct}</div>`:''}</div>`:'';
  const ssH=h.ss?`<div class="inhbox clanbox rv"${D(5)}><b>✨ ของขวัญจากดวงดาว</b> · เกิดมาแรงค์ SS ได้ทอง +${SS_GOLD} กับยาฟื้นฟูอีก 1 ขวด</div>`:'';
  const excH=h.ex&&h.ex.got?`<div class="inhbox clanbox rv"${D(5)}><span data-tip="excal"><b>🗡 ดาบศักดิ์สิทธิ์ในหิน</b></span> · ติดตัวมาตั้งแต่เกิด (ATK +10% · ตีบอสแรงขึ้น 10%)</div>`:'';
  card.innerHTML=`<div class="cert${an?' anim':''}"><div class="hd">✦ ใบประกาศนักผจญภัย ✦</div><div class="nm">${esc(h.name)}</div><div class="vil">ถิ่นกำเนิด: ${esc(h.village)}</div>${lin}
@@ -2729,7 +2752,7 @@ function secLeave(){const R=S.R;R.sec.st='done';if(!R.sec.res)R.sec.res='n';if(R
 function secGo(way){const R=S.R;if(R.sec.st!=='choose')return;const out=secFight(R,way),c=out.combat;R.sec.st='res';R.sec.msgs=out.msgs.map(m=>({t:m.t,c:m.c}));
  S.frame={f:100,tag:'ชั้นลับ',title:'',text:'',msgs:out.msgs};S.pendCoins=R.sec.g||0;
  S.cb={en:c.en,ev:c.ev,i:0,hp:c.startHp,mhp:c.mhp,ehp:c.en.mhp,lines:[],win:c.win,spare:way===0,tag:'ชั้นลับ'};VIS.show={t:'en',en:c.en};VIS.edead=false;S.phase='combat';render();playCombat();}
-function renderSecret(){const R=S.R,X=R.sec,D=DRG[X.c],h=R.h,EGN=`ไข่มังกร${D.n.replace('มังกร','')}`;
+function renderSecret(){const R=S.R,X=R.sec,D=DRG[X.c],h=R.h,EGN='ไข่สัตว์ตำนาน SS';
  if(X.st==='talk'||X.st==='choose'||(X.st==='res'&&X.res==='f'))VIS.show={t:'en',en:secEn(R)};else if(X.st==='ask')VIS.show=null;
  const tag=`<div class="tag keytag">✦ ชั้นลับ · ไม่มีในแผนที่</div>`,btn=(k,t,s,pri)=>`<button class="ch${pri?' ai':''}" data-k="${k}"><span class="k">${k}</span><span><span class="t">${esc(t)}</span>${s?`<span class="s">${s}</span>`:''}</span></button>`,chip=(t,c)=>`<span class="${c||''}">${esc(t)}</span>`;
  if(X.st==='ask'){card.innerHTML=`${tag}<h3>คุณค้นพบชั้นใหม่</h3><p>ผู้กลืนดาราล้มลงแล้ว แต่หลังบัลลังก์ของมันมีบันไดแคบๆ ทอดขึ้นไปอีก บันไดนี้ไม่มีในแผนที่ของใครเลย ลมร้อนที่พัดลงมามีกลิ่นเหมือนทองเก่า</p><p><b>ต้องการเข้าท้าทายหรือไม่</b></p>
@@ -2748,15 +2771,15 @@ function renderSecret(){const R=S.R,X=R.sec,D=DRG[X.c],h=R.h,EGN=`ไข่ม�
  // result
  const res=X.res,cur=X.m0==='s';let t,p,gain=[];
  if(res==='f'){t='มังกรยอมรับคุณ';p=`${D.n}ทรุดตัวลงบนกองทองแล้วหัวเราะเสียงต่ำ 「ดีมาก ข้าแพ้แล้ว รางวัลของเจ้าอยู่ตรงนี้」 มันใช้หางเขี่ยไข่ใบหนึ่งออกมาจากใต้กองเหรียญ`;
-  gain=[`+${fmt(X.g||0)} ทอง`,`${EGN} (จะฟักตอนคนรุ่นต่อไปเกิด)`,cur?'มังกรยังไม่ยอมนับเป็นสหาย แต่คำสาปของตระกูลเบาลง':'ตระกูลได้ฉายา สหายมังกร มอนสเตอร์เผ่ามังกรจะไม่ทำร้ายลูกหลาน'];}
+  gain=[`+${fmt(X.g||0)} ทอง`,`${EGN} (ฟักตอนคนรุ่นต่อไปเกิด อาจเป็นลูก${D.n}หรือสัตว์ตำนานตัวอื่น)`,cur?'มังกรยังไม่ยอมนับเป็นสหาย แต่คำสาปของตระกูลเบาลง':'ตระกูลได้ฉายา สหายมังกร มอนสเตอร์เผ่ามังกรจะไม่ทำร้ายลูกหลาน'];}
  else if(res==='s'){t='มังกรสิ้นใจ';p=`${D.n}ล้มลงบนกองทองจนเหรียญกระเด็นไปทั่วโถง ไม่เหลือใครให้รางวัลคุณแล้ว คุณเลยหยิบเอาเอง`;
-  gain=[`+${fmt(X.g||0)} ทอง`,`${EGN} (ขโมยมา จะฟักตอนคนรุ่นต่อไปเกิด)`,'ฉายา นักล่ามังกร',cur?'นับเป็นมังกรที่ล้มได้อีกตัว':'ตระกูลติดคำสาปนักล่ามังกร มอนสเตอร์เผ่ามังกรจะดุใส่ลูกหลาน จนกว่าจะล้มมังกรครบ 3 ตัว','ลูกหลานมีโอกาสเกิดเป็นอาชีพลับ'];}
+  gain=[`+${fmt(X.g||0)} ทอง`,`${EGN} (ขโมยมา ฟักตอนคนรุ่นต่อไปเกิด อาจเป็นลูก${D.n}หรือสัตว์ตำนานตัวอื่น)`,'ฉายา นักล่ามังกร',cur?'นับเป็นมังกรที่ล้มได้อีกตัว':'ตระกูลติดคำสาปนักล่ามังกร มอนสเตอร์เผ่ามังกรจะดุใส่ลูกหลาน จนกว่าจะล้มมังกรครบ 3 ตัว','ลูกหลานมีโอกาสเกิดเป็นอาชีพลับ'];}
  else{t='ชั้นลับกลายเป็นหลุมศพ';p=`คุณล้มลงข้างกองทอง ${D.n}ใช้กรงเล็บดันร่างของ${h.name}ไปกองรวมกับกระดูกของคนอื่นๆ ที่เคยขึ้นมาถึงตรงนี้`;}
  const ms=(X.msgs||[]).filter(m=>m.c==='lv');
  card.innerHTML=`${tag}<h3>${esc(t)}</h3><p>${esc(p)}</p>${gain.length?`<ul class="msgs">${gain.map(g=>`<li class="good">${esc(g)}</li>`).join('')}${ms.map(m=>`<li class="lv">${esc(m.t)}</li>`).join('')}</ul>`:''}
  <div class="acts"><button class="btn pri" id="secEnd" data-enter>ไปที่แผ่นจารึก<span class="kb">[Enter]</span></button></div>`;
  $('secEnd').onclick=secLeave;}
-const secSum=R=>{const X=R.sec||{},D=DRG[X.c];if(!D)return'';return X.res==='n'?'พบบันไดขึ้นไปแต่เลือกไม่ขึ้น':X.res==='f'?`ล้ม${D.n}แล้วไว้ชีวิต ได้ไข่มังกรกลับมา`:X.res==='s'?`ฆ่า${D.n}แล้วขนสมบัติกลับมา`:X.res==='x'?`ตายในกรงเล็บของ${D.n}`:'';};
+const secSum=R=>{const X=R.sec||{},D=DRG[X.c];if(!D)return'';return X.res==='n'?'พบบันไดขึ้นไปแต่เลือกไม่ขึ้น':X.res==='f'?`ล้ม${D.n}แล้วไว้ชีวิต ได้ไข่สัตว์ตำนานกลับมา`:X.res==='s'?`ฆ่า${D.n}แล้วขนสมบัติกลับมา`:X.res==='x'?`ตายในกรงเล็บของ${D.n}`:'';};
 let cbTimer=null;
 function cbLine(e,en){const n=Math.round(e.d||0);
  if(e.t==='h')return(e.cr?'คริติคอล! ':'')+`คุณโจมตี ${n}`;if(e.t==='skill')return e.x2?`ร่ายซ้ำอีกรอบ! ${n} ดาเมจ`:`ใช้สกิล! ${n} ดาเมจ`;if(e.t==='volley')return`ยิงชุดแรกก่อนศัตรูขยับ ${n}`;if(e.t==='stab')return`แทงจากเงา! ${n}`;
