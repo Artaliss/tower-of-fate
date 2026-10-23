@@ -69,7 +69,7 @@ const MV=()=>window.MOVE&&window.MOVE.collect?window.MOVE:null;
 let last={at:0,h:'',b:0},timer=0,clash=null;try{const s=st();if(isObj(s.last)){last=s.last;if(typeof last.b!=='number')last.b=last.at||0;}}catch(e){}
 function keepLast(){const s=st();if(s.tok){s.last=last;put(s);}}
 const hashOf=o=>fnv(JSON.stringify(o));
-async function upload(force,over){const mv=MV();if(!mv||!name())return{st:0,j:{error:'auth'}};
+async function upload(force,over){const mv=MV();if(!mv||!name())return{st:0,j:{error:'auth'}};if(window.ADMIN&&window.ADMIN.on)return{st:0,j:{error:'admin'}}; // admin test save never goes to the cloud
  const o=mv.collect(),h=hashOf(o);if(!force&&h===last.h)return{st:200,j:{ok:true,same:true}};
  let pk=null;try{pk=await mv.pack(o);}catch(e){}if(!pk)return{st:413,j:{error:'too-large'}};
  const m=Object.assign(mv.summary(o),{h}),b={a:'save',z:pk.z,p:pk.p,m};if(!over)b.base=last.b||0;
@@ -149,7 +149,7 @@ function renderIn(el,P){const s=st(),sv=me0&&me0.save,mv=MV();
  const q=s=>el.querySelector(s);
  const up=over=>async()=>{if(busy)return;busy=true;say('กำลังบันทึก…');const r=await upload(true,over);busy=false;say(r.j.ok?'บันทึกขึ้นคลาวด์แล้ว':errTxt(r),!r.j.ok);if(r.j.ok)soon();};
  q('[data-a=up]').onclick=up(false);if(q('[data-a=over]'))q('[data-a=over]').onclick=up(true);
- el.querySelectorAll('[data-a=down]').forEach(d=>d.onclick=async()=>{if(busy)return;busy=true;say('กำลังโหลดเซฟจากคลาวด์…');const r=await acct({a:'load'});busy=false;
+ el.querySelectorAll('[data-a=down]').forEach(d=>d.onclick=async()=>{if(busy)return;if(window.ADMIN&&window.ADMIN.on){say('ตอนนี้อยู่ในเซฟแอดมิน สลับกลับเซฟปกติก่อนแล้วค่อยโหลดจากคลาวด์');return;}busy=true;say('กำลังโหลดเซฟจากคลาวด์…');const r=await acct({a:'load'});busy=false;
   if(!r.j.ok||typeof r.j.p!=='string'){say(errTxt(r),true);return;}let o=null;try{o=await mv.unpack(r.j.z,r.j.p);}catch(e){}
   if(!isObj(o)){say('อ่านเซฟไม่ได้ เบราว์เซอร์นี้อาจเก่าเกินไป',true);return;}pend={o,at:r.j.at};say('');});
  q('[data-a=auto]').onchange=e=>{const s=st();s.auto=!!e.target.checked;put(s);};

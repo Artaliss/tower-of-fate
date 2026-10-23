@@ -5,14 +5,14 @@
 // POST {a:'login', name, pw}           -> {ok, name, tok, exp}   | 401 {error:'bad-login'} | 429 {error:'rate-limited', retryAfter}
 // POST {a:'logout'}                    -> {ok}
 // POST {a:'passwd', pw, npw}           -> {ok, tok, exp}  (every other session of this account is signed out)
-// POST {a:'me'}                        -> {ok, name, save:{at,m}|null, ent:[{id,sku,qty,at}], shop}
+// POST {a:'me'}                        -> {ok, name, save:{at,m}|null, ent:[{id,sku,qty,at}], shop, admin?}
 // POST {a:'save', z, p, m, base?}      -> {ok, at}        p = the tof-* key set from savemove.js (z:'gz' = gzip + base64)
 //                                         base = `at` of the cloud save this browser last saw (0 = none); if the cloud save
 //                                         has moved on since (another browser uploaded), 409 {error:'conflict', at, m}. No base = overwrite.
 // POST {a:'load'}                      -> {ok, at, z, p, m} | 404 {error:'no-save'}
 
 import { readBody, sameOrigin } from './memorial.js';
-import { ensureSchema, json, dbErr, ipOf, iterOf, okName, okPw, nameKey, pbkdf2, hex, rand, same, count, hit, newSession, who, ents, shopOpen } from './acctlib.js';
+import { ensureSchema, json, dbErr, ipOf, iterOf, okName, okPw, nameKey, pbkdf2, hex, rand, same, count, hit, newSession, who, ents, shopOpen, isAdmin } from './acctlib.js';
 
 const MAX_BODY = 1200000, MAX_P = 1100000;
 const FAIL_NAME = 8, FAIL_IP = 40, FAIL_WIN = 15 * 60e3;   // wrong passwords: 8 per name, 40 per IP, per 15 min
@@ -91,7 +91,7 @@ export async function onRequestPost({ request, env }) {
     if (b.a === 'me') {
       const sv = await db.prepare('SELECT at, m FROM acct_save WHERE uid = ?').bind(u.uid).first();
       let m = {}; try { m = JSON.parse(sv && sv.m || '{}'); } catch { }
-      return json({ ok: true, name: u.name, save: sv ? { at: sv.at, m } : null, ent: await ents(db, u.uid), shop: shopOpen(env) });
+      return json({ ok: true, name: u.name, save: sv ? { at: sv.at, m } : null, ent: await ents(db, u.uid), shop: shopOpen(env), admin: isAdmin(env, u.name) || undefined });
     }
     if (b.a === 'save') {
       if (typeof b.p !== 'string' || !b.p.length || b.p.length > MAX_P) return json({ error: 'too-large' }, 413);

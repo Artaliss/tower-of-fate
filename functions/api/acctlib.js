@@ -66,6 +66,9 @@ export async function who(db, request, now) {
   return r && r.exp > now ? { uid: r.uid, name: r.name, th } : null;
 }
 
+// ---- admins: account names (comma list in env ADMIN_NAMES, default the game owner's account) that get the admin tab ----
+export const isAdmin = (env, name) => String(env && env.ADMIN_NAMES || 'edzero').split(',').map(s => nameKey(s.trim())).filter(Boolean).includes(nameKey(name || ''));
+
 // ---- shop catalog (prices live here, never trusted from the game) ----
 // amount in satang (THB x 100). Stripe's minimum for THB is 10 baht.
 // k: what the game does with it (account.js `GIVE`): sm = member slots, sp = pet slots, g = city coins, w = outfit key

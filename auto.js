@@ -116,12 +116,12 @@ function rankWeights(kShift){const w=RANKS.map(r=>r.w),s=clamp(kShift||0,-6,6);i
  if(s>0){const t=Math.min(s,w[0]-1);w[0]-=t;for(let i=3;i<w.length;i++)w[i]+=t*hi[i]/hs;}
  else{const t=Math.min(-s,hs/2);w[0]+=t;for(let i=3;i<w.length;i++)w[i]-=t*hi[i]/hs;}
  return w;}
-function rollHero(o){o=o||{};
- const rk=wIdx(rankWeights(o.kShift)),cw=CLASSES.map(c=>c.w||((c.id==='dsl'?o.dsl:o.unl&&o.unl[c.id])?c.sw:0)||0),ck=wIdx(cw),C=CLASSES[ck],m=RANKS[rk].m;
+function rollHero(o){o=o||{};const AF=o.unl&&window.ADMIN&&window.ADMIN.on&&window.ADMIN.force||null; // admin.js: forced rank/class/look for the next birth (admin save only)
+ const rk=AF&&RANKS[AF.rank]?AF.rank:wIdx(rankWeights(o.kShift)),cw=CLASSES.map(c=>c.w||((c.id==='dsl'?o.dsl:o.unl&&o.unl[c.id])?c.sw:0)||0),ck=AF&&CLASSES[AF.cls]?AF.cls:wIdx(cw),C=CLASSES[ck],m=RANKS[rk].m;
  const h={name:genName(),village:pick(VILLAGES),rank:rk,cls:ck,lv:1,exp:0,mhp:C.hp*m,atk:C.atk*m,def:C.def*m,luk:C.luk+rk,mmp:C.mp*m,
   gold:Math.round(rr(12,28)*(1+rk*.45)*(C.id==='rog'?1.4:1)*(C.id==='far'?.6:1))};
  h.omen=pick(RUN_OMENS).id;const M=omenOf(h).mod;h.mhp*=M.hp||1;h.atk*=M.atk||1;h.def*=M.def||1;h.luk+=M.luk||0;h.gold=Math.round(h.gold*(M.g0||1));
- h.hp=h.mhp;h.mp=h.mmp;h.look=window.ART.rollLook(rollHero.form||'slime');h.cp=cw[ck]/cw.reduce((a,b)=>a+b,0);h.odds=Math.round(1/((RANKS[rk].w/100)*h.cp));
+ h.hp=h.mhp;h.mp=h.mmp;h.look=Object.assign(window.ART.rollLook(AF&&AF.form||rollHero.form||'slime'),AF&&AF.look||{});h.cp=(cw[ck]||.01)/cw.reduce((a,b)=>a+b,0);h.odds=Math.round(1/((RANKS[rk].w/100)*h.cp));
  h.con=clamp(Math.exp(gauss()*.35),.45,2.4);h.pers=rollPers(ck,rk);h.m0=birthM(h);h.proj=project(1,h.m0).med;h.hint=fuzzHint(h.proj);
  return h;
 }
@@ -3372,5 +3372,5 @@ card.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!b.di
  b.addEventListener('click',()=>{if(!audioInit){audioInit=true;try{AUDIO.init();}catch(e){}}AUDIO.setMuted(!AUDIO.muted);sync();if(S&&S.R)music(biome(S.R.floor),S.R.floor);else music(0,0);});})();
 renderMemo();if(!resumeRun())newBirth();requestAnimationFrame(loop);poolBg();
 (function(){const b=$('btnLB');if(!b)return;const sync=()=>{b.hidden=!(window.LB&&window.LB.open);};sync();setTimeout(sync,1500);b.onclick=()=>{try{window.LB.open();}catch(e){}};})();
-window.__auto={get S(){return S;},tick,choose,render,key:(t,ev)=>{clearTimeout(S.tm);const K=mkKey(S.R,t,ev);openKey(K);return K;},mon:()=>genMonster(S.R.floor,S.R),cine:CINE,cineGo,secret:c=>{const R=S.R;if(!R)return;R.won=true;R.alive=false;R.floor=100;R.sec={st:'ask',c:DRG[c]?c:'k'};S.phase='secret';render();},clan:{load:loadClan,save:saveClan},cineStatic,goDying:()=>goDying(),fatePattern,fx:{fxEv,animFight,killFx,lvlFx,VIS,drawScene}}; // debug hooks (console testing)
+window.__auto={get S(){return S;},adminBirth:()=>{if(!S||S.phase!=='birth')return false;S.hero=rollBirth(S.bo);S.rerolled=false;S.rvDone=false;VIS.star=0;render();saveRun();return true;},save:()=>saveRun(),tick,choose,render,key:(t,ev)=>{clearTimeout(S.tm);const K=mkKey(S.R,t,ev);openKey(K);return K;},mon:()=>genMonster(S.R.floor,S.R),cine:CINE,cineGo,secret:c=>{const R=S.R;if(!R)return;R.won=true;R.alive=false;R.floor=100;R.sec={st:'ask',c:DRG[c]?c:'k'};S.phase='secret';render();},clan:{load:loadClan,save:saveClan},cineStatic,goDying:()=>goDying(),fatePattern,fx:{fxEv,animFight,killFx,lvlFx,VIS,drawScene}}; // debug hooks (console testing)
 })();
