@@ -2647,6 +2647,7 @@ function setName(h,v){const n=cleanName(v);if(!h.name0)h.name0=h.name;const own=
 // sword in the stone: what this player's line has done so far (tries, pulled), copied onto the hero at birth
 function excBirth(){const v=excLoad()||{};return{n:Math.max(0,Math.floor(+v.n||0)),got:v.got?1:0};}
 const SS_GOLD=300;
+window.CONTENT.TUNE={necK:NEC_K,angK:ANG_K,ssGold:SS_GOLD,secP:SEC_P,SPB}; // guide.js reads these so its numbers follow the game
 function rollBirth(bo){let h;const C=clanBirth();
  if(bo&&isObj(bo.heir)){const P=bo.heir;h=rollHero({dsl:C.cls,unl:loadUnl()});h.village=P.village||h.village;h.gen=(P.gen||1)+1;h.lin=P.lin;h.house=P.house||P.name;h.master=P.name;
   const k=clamp(Math.round((P.karma||0)*.25),-6,6),g=Math.min(600,Math.round((P.gold||0)*.3));h.inh={gold:g,pet:P.pet&&PETS[P.pet]?P.pet:null,k,from:P.name};h.gold+=g;if(k>=2)h.luk+=2;
