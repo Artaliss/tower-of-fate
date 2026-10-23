@@ -104,6 +104,10 @@ function bg(){if(BG)return BG;const cv=document.createElement('canvas');cv.width
 // ---------- สไปรต์ ----------
 function spOf(m){const a=A();try{return m.kind==='merc'?a.compSpr({n:m.name,cls:m.cls,tr:m.tr}):a.heroSpr(m.cls||'war',m.look||{form:m.form||'human',seed:m.name});}catch(e){try{return a.heroSpr('npc');}catch(e2){return null;}}}
 function petSp(k){const P=A().PSPR||{};return P[k]||P.slime||null;}
+// head = first row with a body pixel (lowercase key); class hats use uppercase keys
+function headRow(s){if(s._hr!=null)return s._hr;let i=0;while(i<s.h-1&&!/[a-z]/.test(s.rows[i]))i++;return s._hr=i;}
+// the clan head's statue wears the crown instead of a class hat
+function noHat(s){if(!s)return s;const hr=headRow(s);if(!hr)return s;return Object.assign({},s,{id:(s.id||'')+'~nh',rows:s.rows.map((r,i)=>i<hr?'.'.repeat(r.length):r),_hr:hr,_tw:hr});}
 function topRow(s){if(s._tw!=null)return s._tw;let i=0;while(i<s.h-1&&!/[^.]/.test(s.rows[i]))i++;return s._tw=i;}
 function lum(col){if(typeof col!=='string')return .5;if(col[0]==='#'&&col.length===7){const n=parseInt(col.slice(1),16);return((n>>16)*.3+(n>>8&255)*.59+(n&255)*.11)/255;}
  const m=/hsl\([^,]+,[^,]+,\s*([\d.]+)%/.exec(col);return m?(+m[1])/100:.5;}
@@ -118,7 +122,7 @@ function drawStatue(c,s,x,yb,sc,mat,t,seed,rg){const pc=PED[mat]||PED[0],pw=sc>1
  R(c,x-pw/2,yb-ph,pw,ph,pc[0]);R(c,x-pw/2,yb-ph,pw,1,pc[1]);R(c,x-pw/2-1,yb-1,pw+2,1,pc[2]);if(sc>1)R(c,x-pw/2+3,yb-ph+3,pw-6,2,pc[2]);
  const top=yb-ph;if(!s){const g=c.globalAlpha;c.globalAlpha=g*(.18+.08*Math.sin(t/500));R(c,x-5,top-16*sc/2,10,16*sc/2,'#e8f0ff');R(c,x-3,top-16*sc/2-6,6,6,'#e8f0ff');c.globalAlpha=g;return;}
  const cv=statueCv(s,mat),dw=s.w*sc,dh=s.h*sc,sm=c.imageSmoothingEnabled;c.imageSmoothingEnabled=false;c.drawImage(cv,Math.round(x-dw/2),Math.round(top-dh),dw,dh);c.imageSmoothingEnabled=sm;
- if(rg){const u=sc,hx=Math.round(x),hy=Math.round(top-dh+(topRow(s)+1.5)*sc),cg=mat===2?`hsl(${Math.floor(t/20)%360},80%,62%)`:'#f4bb4a',cd=mat===2?'#b04ad0':'#a8741a';
+ if(rg){const u=sc,hx=Math.round(x),hy=Math.round(top-dh+(headRow(s)+1.5)*sc),cg=mat===2?`hsl(${Math.floor(t/20)%360},80%,62%)`:'#f4bb4a',cd=mat===2?'#b04ad0':'#a8741a';
   // crown: band + three points with a gem; sword: blade raised at the right hand
   R(c,hx-4*u,hy-2*u,8*u,2*u,cg);R(c,hx-4*u,hy-4*u,u,2*u,cg);R(c,hx-u/2,hy-5*u,u,3*u,cg);R(c,hx+3*u,hy-4*u,u,2*u,cg);R(c,hx-4*u,hy-u,8*u,u,cd);R(c,hx-u/2,hy-2*u,u,u,'#ff5a7a');
   const sx=Math.round(x+dw/2-2*u),sy=Math.round(top-dh*.55),bl=mat===1?'#ffe9a8':mat===2?'#eef2fa':'#c8d0d8';
@@ -142,7 +146,7 @@ function pick(e){let tx,ty;if(e.pen){e.q=[{x:rnd(PEN.x0+8,PEN.x1-8),y:rnd(PEN.y0
  // ข้ามฝั่งน้ำพุ: อ้อมใต้น้ำพุก่อน
  e.q=(e.x<FX)!==(tx<FX)?[{x:FX+rnd(-12,12),y:rnd(108,113)},{x:tx,y:ty}]:[{x:tx,y:ty}];}
 function build(P){const hd=P.roster.find(m=>m.id===P.head),mt=mat(P),ents=[],stat=[],J=jobsOf(P);
- stat.push({s:hd?spOf(hd):null,x:FX,y:FY,sc:2,rg:1,info:hd?`<b>👑 ${esc(hd.name)}</b><br><span class="mt-dim">รูปปั้นหัวหน้าตระกูลกลางน้ำพุ${mt===1?' (ทอง)':mt===2?' (รุ้ง)':''}</span>`:`<b>แท่นกลางน้ำพุยังว่างอยู่</b><br><span class="mt-dim">${P.wins?'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูลได้ที่ป้อมทหารรับจ้าง':'ไต่หอให้ถึงชั้น 100 เพื่อหาลูกรักมาเป็นหัวหน้าตระกูล'}</span>`});
+ stat.push({s:hd?noHat(spOf(hd)):null,x:FX,y:FY,sc:2,rg:1,info:hd?`<b>👑 ${esc(hd.name)}</b><br><span class="mt-dim">รูปปั้นหัวหน้าตระกูลกลางน้ำพุ${mt===1?' (ทอง)':mt===2?' (รุ้ง)':''}</span>`:`<b>แท่นกลางน้ำพุยังว่างอยู่</b><br><span class="mt-dim">${P.wins?'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูลได้ที่ป้อมทหารรับจ้าง':'ไต่หอให้ถึงชั้น 100 เพื่อหาลูกรักมาเป็นหัวหน้าตระกูล'}</span>`});
  P.statues.filter(s=>!hd||s.name!==hd.name).slice(-ST_SLOT.length).reverse().forEach((s,i)=>{let sp=null;try{sp=A().heroSpr(s.cls||'war',{form:'human',seed:s.name});}catch(e){}
   stat.push({s:sp,x:ST_SLOT[i][0],y:ST_SLOT[i][1],sc:1,info:`<b>🗿 ${esc(s.name)}</b><br><span class="mt-dim">${esc(M.clsN(s.cls))} · ผู้พิชิตยอดหอ${s.sec==='f'||s.sec==='s'?' และชั้นลับ':''}</span>`});});
  const spawn=e=>{if(e.pen){e.x=rnd(PEN.x0+8,PEN.x1-8);e.y=rnd(PEN.y0+8,PEN.y1-4);}else{for(let i=0;i<12;i++){e.x=rnd(10,182);e.y=rnd(64,112);if(okPlaza(e.x,e.y))break;}}pick(e);ents.push(e);};
