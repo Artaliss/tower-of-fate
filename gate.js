@@ -105,8 +105,8 @@ function gateClose(){if(!gate)return;gate.remove();gate=null;document.body.style
  try{window.scrollTo(0,0);const b=document.getElementById('btnEnter');if(b)b.focus({preventScroll:true});}catch(e){}}
 function gateOpen(){const T=TW(),P=M.load();T.css();css();
  gate=document.createElement('div');gate.id='townGate';gate.setAttribute('role','dialog');gate.setAttribute('aria-modal','true');gate.setAttribute('aria-labelledby','tgT');
- gate.innerHTML=`<div class="tg-in"><h2 id="tgT" class="tg-sr">ห้องโถงของ${esc(T.clanName(P).n)}</h2>
- <p class="tg-sub">แวะจ้างคนที่ป้อมก่อนก็ได้ หรือจะเดินเข้าวงเวทไปหอคอยเลยก็ได้</p>
+ gate.innerHTML=`<div class="tg-in"><h2 id="tgT" class="tg-sr">เมืองของ${esc(T.clanName(P).n)}</h2>
+ <p class="tg-sub">แวะจ้างคนที่ป้อมก่อนก็ได้ หรือจะตรงไปหอคอยเลยก็ได้</p>
  <div class="tw-wrap"><canvas class="tw-cv" width="${T.W}" height="${T.H}" role="img" aria-label="ลานกลางเมืองของตระกูล มีน้ำพุ รูปปั้นหัวหน้าตระกูล และคนในตระกูลเดินเล่น"></canvas><div class="tw-pop" hidden></div></div>
  <div class="tg-hire"></div>
  <button class="tg-go" type="button" id="tgGo">ไปหอคอย ▲</button>
@@ -122,7 +122,7 @@ function gateOpen(){const T=TW(),P=M.load();T.css();css();
  try{M.grantAch('town_open');}catch(e){}}
 function boot(){try{if(gateOk())gateOpen();}catch(e){console.error(e);}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else setTimeout(boot,0);
-// ---------- ห้องรางวัล (ปุ่มบ้านมุมซ้ายล่างของห้องโถง): ความสำเร็จของระบบตระกูล เหรียญตราเทศกาล โล่รางวัลเควส ----------
+// ---------- ห้องรางวัล (ปุ่มบ้านมุมซ้ายล่างของลาน): ความสำเร็จของระบบตระกูล เหรียญตราเทศกาล โล่รางวัลเควส ----------
 const ACHP=/^(meta_|town_|city_|hard_|fest_|hire_|leg_|clan_name)/;
 M.tab('trophy',{n:'🏆 ห้องรางวัล',o:6,render(el,P){css();let L=[];try{L=window.ACH.list().filter(a=>ACHP.test(a.id));}catch(e){}const got=L.filter(a=>a.got).length;
  const fs=((P.mod.fest||{}).coins)||[],FS=(window.FEST&&window.FEST.list)?window.FEST.list():[],cp=((P.mod.city||{}).perm)||{};let PQ=[];try{PQ=window.CITY.perm().filter(q=>!q.hard||P.unlock.hard);}catch(e){}
