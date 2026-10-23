@@ -27,7 +27,7 @@ function recordRun(R){if(!R||!R.h)return;const P=load();P.runs++;
  if(R.won){P.wins++;if(!P.unlock.city){P.unlock.city=true;P.newUnl=1;}if(!P.unlock.hard){P.unlock.hard=true;P.newUnl=1;}
   // หัวหน้าตระกูลคนแรกได้รูปปั้นที่ lobby
   P.statues.push({name:R.h.name,cls:((C().CLASSES||[])[R.h.cls]||{}).id||'',sec:(R.sec&&R.sec.res)||'',t:Date.now()});if(P.statues.length>30)P.statues.shift();}
- const add=[snapHero(R)];if(R.won&&Array.isArray(R.comps))R.comps.slice(0,2).forEach(c=>{if(c&&c.n)add.push(snapComp(R,c));});
+ const add=[snapHero(R)];if(R.won&&Array.isArray(R.comps))R.comps.slice(0,2).forEach(c=>{if(c&&c.n&&!c.clan)add.push(snapComp(R,c));}); // c.clan = คนในตระกูลที่จ้างจากป้อม มีชื่อในทะเบียนอยู่แล้ว
  P.wait=(Array.isArray(P.wait)?P.wait:[]);add.forEach(m=>{if(P.roster.length<P.slots.m)P.roster.push(m);else P.wait.unshift(m);});P.wait=P.wait.slice(0,6);
  if(R.won&&Array.isArray(R.pets))R.pets.forEach(k=>{if(P.pets.length<P.slots.p&&!P.pets.some(p=>p.k===k&&p.from===R.h.name))P.pets.push({id:uid(),k,from:R.h.name,t:Date.now(),legend:['drk','drs','drg','unicorn','fairy','phoenix','griffin'].includes(k)||undefined});});
  save(P);H.forEach(f=>{try{f(R,P);}catch(e){}});}
@@ -95,5 +95,5 @@ function button(){const P=load();return`<button class="btn" id="btnMeta" type="b
 function bind(){const b=document.getElementById('btnMeta');if(b)b.onclick=()=>open();}
 try{window.ACH&&window.ACH.add&&window.ACH.add([{id:'meta_head',n:'ลูกรักของตระกูล',d:'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูล',icon:'👑',tier:'gold'},{id:'meta_slot',n:'บ้านหลังใหญ่ขึ้น',d:'จ่ายเหรียญเมืองเพิ่มช่องในตระกูล',icon:'🏠',tier:'bronze'}]);}catch(e){}
 const API={load,save,refresh,addGold,grantAch,open,uid,esc,clsN,rkCol};
-window.META=Object.assign(API,{recordRun,tab,onRun,hasWon,button,bind,SLOT_M_MAX,SLOT_P_MAX});
+window.META=Object.assign(API,{recordRun,tab,onRun,hasWon,button,bind,SLOT_M_MAX,SLOT_P_MAX,hasTab:id=>!!TABS[id],tabLock:id=>{const T=TABS[id];return T&&T.lock?T.lock(load()):'';}});
 })();

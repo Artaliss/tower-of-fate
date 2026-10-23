@@ -48,7 +48,7 @@ crown:{n:'มงกุฎ',draw(c,x,y){R(c,x-4,y-2,8,2,'#f4bb4a');R(c,x-4,y-4,1,
 // แถวบน: ป้อม/ประตูดันเจี้ยน/ร้านเทศกาล · กลาง: น้ำพุ + รูปปั้นหัวหน้าตระกูล · ซ้าย: กระดานเควส · ขวา: ลานฝึก · ล่าง: คอกสัตว์เลี้ยง
 const BY=46,FX=96,FY=88,PEN={x0:50,y0:120,x1:142,y1:156};
 // r = กรอบแตะ [x0,y0,x1,y1] · tab = แท็บที่เปิด · focus = ส่งต่อให้ CITY.focus
-const BLD=[{id:'clan',tab:'clan',n:'ป้อมทหารรับจ้าง',ic:'🛡',x:30,r:[14,0,46,BY]},
+const BLD=[{id:'clan',tab:'merc',n:'ป้อมทหารรับจ้าง',ic:'🛡',x:30,r:[14,0,46,BY]},
  {id:'hard',tab:'hard',n:'ประตูดันเจี้ยน',ic:'🌀',x:96,r:[80,6,112,BY]},
  {id:'fest',tab:'fest',n:'ร้านเทศกาล',ic:'🎃',x:162,r:[146,14,178,BY]},
  {id:'quest',tab:'quest',n:'กระดานเควส',ic:'📜',x:22,y:90,r:[7,58,37,91]},
@@ -188,17 +188,14 @@ function css(){if(document.getElementById('twCss'))return;const st=document.crea
 .tw-mini{flex:1 1 100%;display:block;position:relative;width:100%;max-width:420px;padding:0;border:1px solid var(--line,#2c3a36);border-radius:8px;overflow:hidden;background:#0e1513;cursor:pointer;color:inherit;font:inherit}
 .tw-mini canvas{display:block;width:100%;height:auto;max-height:130px;image-rendering:pixelated}
 .tw-mini span{position:absolute;left:6px;bottom:5px;padding:1px 7px;border-radius:5px;background:rgba(10,14,16,.78);font-size:12px}
+.tw-mini.nw canvas{filter:grayscale(.6) brightness(.7)}
 .tw-mini:focus-visible{outline:2px solid var(--focus,#ffd76a);outline-offset:2px}`;document.head.appendChild(st);}
-const tabOf=id=>document.querySelector(`#metaDlg .mt-tabs [data-t="${id}"]`);
+// ถามจาก META ตรงๆ เพราะหน้าเมืองตอนเปิดเกมยังไม่มีหน้าต่าง #metaDlg
+const tabOf=id=>M.hasTab?M.hasTab(id):!!document.querySelector(`#metaDlg .mt-tabs [data-t="${id}"]`);
+const tabLk=id=>{try{return M.tabLock?!!M.tabLock(id):false;}catch(e){return false;}};
 function go(b){M.open(b.tab);if(b.focus)try{window.CITY&&window.CITY.focus&&window.CITY.focus(b.focus);}catch(e){}}
-function render(el,P){css();const hd=P.roster.find(m=>m.id===P.head),dec=decorOf(P),J=jobsOf(P),inPen=P.roster.filter(m=>J.pen.has(m.id)).length,away=P.roster.filter(m=>J.busy.has(m.id)).length,walk=P.roster.length-inPen-away;
- el.innerHTML=`<p class="mt-dim" style="margin:0">ลานหน้าบ้านของตระกูล แตะใครก็ได้เพื่อดูว่าเป็นใคร แตะอาคารหรือคอกสัตว์เพื่อไปทำธุระ</p>
- <div class="tw-wrap"><canvas class="tw-cv" width="${W}" height="${H}" role="img" aria-label="ลานหน้าบ้านตระกูล มีน้ำพุกลางลาน คนเดินเล่น ${walk} คน สัตว์เลี้ยงในคอก ${P.pets.length} ตัว"></canvas><div class="tw-pop" hidden></div></div>
- ${hd?'':`<p class="tw-note">🗿 ${P.wins?'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูลได้ที่ป้อมทหารรับจ้าง แล้วรูปปั้นจะขึ้นกลางน้ำพุ':'ไต่หอให้ถึงชั้น 100 เพื่อหาลูกรักมาเป็นหัวหน้าตระกูล'}</p>`}
- <div class="tw-bld">${BLD.map(b=>{const tb=tabOf(b.tab),lk=tb&&tb.classList.contains('lk');return`<button class="mt-btn" type="button" data-go="${b.id}" ${tb?'':'disabled'}>${b.ic} ${esc(b.n)}<small>${!tb?'เร็วๆ นี้':lk?'🔒 ยังเข้าไม่ได้':'แตะเพื่อเข้าไป'}</small></button>`;}).join('')}</div>
- <p class="mt-dim" style="margin:8px 0 0">เดินเล่นอยู่ ${walk} คน${inPen?` · ดูแลคอกสัตว์ ${inPen} คน`:''}${away?` · ไปทำงาน ${away} คน`:''} · สัตว์เลี้ยง ${P.pets.length} ตัว · รูปปั้น ${Math.min(P.statues.filter(s=>!hd||s.name!==hd.name).length,ST_SLOT.length)+(hd?1:0)} รูป${dec.length?` · ของตกแต่ง ${Math.min(dec.length,DE_SLOT.length)} ชิ้น`:''}</p>`;
- el.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{const d=BLD.find(x=>x.id===b.dataset.go);if(d)go(d);});
- const cv=el.querySelector('.tw-cv'),pop=el.querySelector('.tw-pop'),S=scene(cv,P);let pt=0;
+// แตะในฉาก: คน/สัตว์/รูปปั้นขึ้นป้ายบอก อาคารพาไปแท็บนั้น (ใช้ทั้งแท็บล็อบบี้และหน้าเมืองตอนเปิดเกม)
+function tapper(cv,pop,S,P){let pt=0;
  const say=(html,px,py)=>{pop.innerHTML=html;pop.hidden=false;const wr=cv.parentNode.getBoundingClientRect(),pw=pop.offsetWidth,ph=pop.offsetHeight;
   pop.style.left=Math.max(4,Math.min(wr.width-pw-4,px-pw/2))+'px';pop.style.top=Math.max(4,py-ph-10<4?py+14:py-ph-10)+'px';clearTimeout(pt);pt=setTimeout(()=>{pop.hidden=true;},3500);};
  cv.addEventListener('click',ev=>{const r=cv.getBoundingClientRect(),k=W/r.width,x=(ev.clientX-r.left)*k,y=(ev.clientY-r.top)*k,px=ev.clientX-r.left,py=ev.clientY-r.top,D=S.D;
@@ -211,6 +208,15 @@ function render(el,P){css();const hd=P.roster.find(m=>m.id===P.head),dec=decorOf
   if(b){if(tabOf(b.tab))return go(b);return say(`<b>${b.ic} ${esc(b.n)}</b><br><span class="mt-dim">เร็วๆ นี้</span>`,px,py);}
   if(((x-FX)/31)**2+((y-FY+2)/13)**2<1)return say(D.stat[0].info,px,py);
   pop.hidden=true;});
+ return S;}
+function render(el,P){css();const hd=P.roster.find(m=>m.id===P.head),dec=decorOf(P),J=jobsOf(P),inPen=P.roster.filter(m=>J.pen.has(m.id)).length,away=P.roster.filter(m=>J.busy.has(m.id)).length,walk=P.roster.length-inPen-away;
+ el.innerHTML=`<p class="mt-dim" style="margin:0">ลานหน้าบ้านของตระกูล แตะใครก็ได้เพื่อดูว่าเป็นใคร แตะอาคารหรือคอกสัตว์เพื่อไปทำธุระ</p>
+ <div class="tw-wrap"><canvas class="tw-cv" width="${W}" height="${H}" role="img" aria-label="ลานหน้าบ้านตระกูล มีน้ำพุกลางลาน คนเดินเล่น ${walk} คน สัตว์เลี้ยงในคอก ${P.pets.length} ตัว"></canvas><div class="tw-pop" hidden></div></div>
+ ${hd?'':`<p class="tw-note">🗿 ${P.wins?'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูลได้ที่ป้อมทหารรับจ้าง แล้วรูปปั้นจะขึ้นกลางน้ำพุ':'ไต่หอให้ถึงชั้น 100 เพื่อหาลูกรักมาเป็นหัวหน้าตระกูล'}</p>`}
+ <div class="tw-bld">${BLD.map(b=>{const tb=tabOf(b.tab),lk=tb&&tabLk(b.tab);return`<button class="mt-btn" type="button" data-go="${b.id}" ${tb?'':'disabled'}>${b.ic} ${esc(b.n)}<small>${!tb?'เร็วๆ นี้':lk?'🔒 ยังเข้าไม่ได้':'แตะเพื่อเข้าไป'}</small></button>`;}).join('')}</div>
+ <p class="mt-dim" style="margin:8px 0 0">เดินเล่นอยู่ ${walk} คน${inPen?` · ดูแลคอกสัตว์ ${inPen} คน`:''}${away?` · ไปทำงาน ${away} คน`:''} · สัตว์เลี้ยง ${P.pets.length} ตัว · รูปปั้น ${Math.min(P.statues.filter(s=>!hd||s.name!==hd.name).length,ST_SLOT.length)+(hd?1:0)} รูป${dec.length?` · ของตกแต่ง ${Math.min(dec.length,DE_SLOT.length)} ชิ้น`:''}</p>`;
+ el.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{const d=BLD.find(x=>x.id===b.dataset.go);if(d)go(d);});
+ const cv=el.querySelector('.tw-cv');tapper(cv,el.querySelector('.tw-pop'),scene(cv,P),P);
  grants(P);}
 function grants(P){const g=M.grantAch;g('town_open');if(P.roster.length>=10)g('town_10');if(P.statues.length>=3)g('town_st3');if(decorOf(P).length>=6)g('town_decor');if(P.pets.length>=5)g('town_pets');}
 M.tab('town',{n:'🏘 ล็อบบี้ตระกูล',o:5,render});
@@ -221,10 +227,10 @@ try{window.ACH&&window.ACH.add&&window.ACH.add([
  {id:'town_decor',n:'บ้านใครสวยขนาดนี้',d:'วางของตกแต่งในลานครบ 6 ชิ้น',icon:'⛲',tier:'silver'},
  {id:'town_pets',n:'คอกเต็ม',d:'มีสัตว์เลี้ยงวิ่งเล่นในคอก 5 ตัว',icon:'🐾',tier:'silver'}]);}catch(e){}
 // ---------- พรีวิวบนหน้าเกิด: ต่อท้ายปุ่ม 🏰 ผ่าน META.button/bind (ไม่ต้องแก้ auto.js) ----------
-function mini(){css();return`<button type="button" class="tw-mini" id="twMini" aria-label="เข้าล็อบบี้ตระกูล"><canvas width="${W}" height="${MINI_H}"></canvas><span>🏘 ล็อบบี้ตระกูล · แตะเพื่อเข้าไป</span></button>`;}
+function mini(){css();const nw=!(M.load().runs>0);return`<button type="button" class="tw-mini${nw?' nw':''}" id="twMini" aria-label="${nw?'เมืองแรกของตระกูล จะเปิดหลังจบรอบแรก':'เข้าล็อบบี้ตระกูล'}"><canvas width="${W}" height="${MINI_H}"></canvas><span>${nw?'🏘 เมืองแรก · เปิดหลังไต่หอจบรอบแรก':'🏘 ล็อบบี้ตระกูล · แตะเพื่อเข้าไป'}</span></button>`;}
 function bindMini(){const b=document.getElementById('twMini');if(!b||b._tw)return;b._tw=1;b.onclick=()=>M.open('town');scene(b.querySelector('canvas'),M.load(),true);}
 const ob=M.button,obd=M.bind;
 M.button=function(){return ob.apply(this,arguments)+mini();};
 M.bind=function(){obd.apply(this,arguments);try{bindMini();}catch(e){}};
-window.TOWN={DECOR,WEAR,mini,bindMini};
+window.TOWN={DECOR,WEAR,mini,bindMini,W,H,BLD,scene,tapper,go,tabOf,tabLk,css,spOf};
 })();
