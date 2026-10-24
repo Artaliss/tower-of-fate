@@ -25,7 +25,7 @@ function swap(to,fresh){const mv=window.MOVE;if(!mv||!mv.collect||!mv.apply){ale
  // เซฟแอดมินครั้งแรก (หรือกดเริ่มใหม่) = สำเนาของเซฟปกติ
  let next=fresh?pj(rd(SK('normal')))||(cur==='normal'?now:{}):pj(rd(SK(to)));
  if(!isObj(next))next=to==='admin'?now:{};
- if(!mv.apply(next)){alert('เขียนเซฟไม่สำเร็จ พื้นที่ในเบราว์เซอร์อาจเต็ม');return;}
+ window.__tofMoving=1;if(!mv.apply(next)){window.__tofMoving=0;alert('เขียนเซฟไม่สำเร็จ พื้นที่ในเบราว์เซอร์อาจเต็ม');return;}
  wr(MK,to);location.reload();}
 
 // ---------- กันข้อมูลทดสอบหลุดออกไปข้างนอก ----------

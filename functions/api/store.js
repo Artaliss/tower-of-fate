@@ -12,7 +12,7 @@ const init = db => ready || (ready = (async () => {
 })().catch(e => { ready = null; throw e; }));
 
 // read-modify-write of one key: fn(current string | null) -> new string, or null to write nothing. Returns true if it wrote.
-// D1: the write only lands if nobody wrote the row since it was read, else fn runs again on the fresh value (3 tries),
+// D1: the write only lands if nobody wrote the row since it was read, else fn runs again on the fresh value (up to 10 tries, with a short random wait so racers spread out),
 // so two requests at once cannot wipe each other's change. fn may run more than once. Plain KV (no D1) cannot do this.
 export async function update(kv, k, fn, o) {
   if (kv.update) return kv.update(k, fn);
@@ -36,14 +36,15 @@ export function store(env) {
     async put(k, v, o) {
       await init(db);
       const exp = o && o.expirationTtl ? Date.now() + o.expirationTtl * 1000 : null;
-      await db.prepare('INSERT INTO kv (k, v, exp) VALUES (?, ?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v, exp = excluded.exp')
+      await db.prepare('INSERT INTO kv (k, v, exp) VALUES (?, ?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v, exp = excluded.exp, ver = kv.ver + 1')
         .bind(k, String(v), exp).run();
       // expired rate-limit / dedupe / ticket rows are swept now and then
       if (Math.random() < 0.01) await db.prepare('DELETE FROM kv WHERE exp IS NOT NULL AND exp < ?').bind(Date.now()).run();
     },
     async update(k, fn) {
       await init(db);
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 10; i++) {
+        if (i) await new Promise(r => setTimeout(r, Math.random() * 15 * i));
         const r = await db.prepare('SELECT v, exp, ver FROM kv WHERE k = ?').bind(k).first();
         let cur = r && !(r.exp && r.exp <= Date.now()) ? r.v : null;
         if (!r && kv) { try { cur = await kv.get(k); } catch { } }
