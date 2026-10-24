@@ -48,7 +48,9 @@ const GIVE={slot_m5:P=>{P.slots.m=Math.min(MAXM,P.slots.m+5);},slot_p1:P=>{P.slo
 // ซื้อได้ไหม (ช่องเต็มแล้ว/มีชุดแล้ว = ไม่ต้องซื้อ)
 function canBuy(sku,P){const a=ast(P);if(sku==='slot_m5')return P.slots.m+5<=MAXM;if(sku==='slot_p1')return P.slots.p<MAXP;
  if(sku.indexOf('wear_')===0)return!a.own[sku.slice(5)];return true;}
-async function loadShop(){if(shop)return shop;const r=await call('/api/pay/checkout');
+let shopP=null; // one request at a time: me() and the tab render both ask on open
+function loadShop(){return shop?Promise.resolve(shop):shopP||(shopP=loadShop0().finally(()=>{shopP=null;}));}
+async function loadShop0(){const r=await call('/api/pay/checkout');
  const s=r.st===200&&isObj(r.j.items)?{open:!!r.j.open,items:r.j.items}:{open:false,items:{}};if(r.st===200)shop=s;return s;}
 
 // ---------- แฟชั่นพิเศษ (วาดในล็อบบี้ผ่าน TOWN.WEAR · ใส่ทับ P.mod.fest.wear ที่ town.js อ่านอยู่แล้ว) ----------

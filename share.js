@@ -564,7 +564,8 @@ function getBlob(){const s=state;if(!s)return Promise.resolve(null);if(s.blob)re
 function dl(b,name){const u=URL.createObjectURL(b);const a=el('a',{href:u,download:name});a.style.display='none';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);}
 async function save(){const s=state;const b=await getBlob();if(!b||s!==state)return;dl(b,fname(s.d));say('บันทึกรูปแล้ว');}
 async function shareImage(){const s=state;if(!s)return;const t=text(s.d,'full');
- try{const b=s.blob||await getBlob();let file=null;try{file=b&&new File([b],fname(s.d),{type:'image/png'});}catch(e){}
+ if(!s.blob){say('การ์ดยังวาดไม่เสร็จ รอสักครู่แล้วกดอีกครั้ง');return;} // waiting for the blob would use up the tap, and iOS then refuses navigator.share
+ try{const b=s.blob;let file=null;try{file=b&&new File([b],fname(s.d),{type:'image/png'});}catch(e){}
   if(file&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],text:t});track('native',false);return;}
   if(b){track('save',false);dl(b,fname(s.d));say('เครื่องนี้แชร์รูปตรงๆ ไม่ได้ เลยบันทึกรูปให้แทน');}
  }catch(e){if(e&&e.name!=='AbortError')say('แชร์ไม่สำเร็จ ลองบันทึกรูปแทน',true);}}

@@ -2476,13 +2476,16 @@ function saveRun(){if(!S||window.__tofMoving)return;
  if(S.phase==='birth'){try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:'birth',hero:S.hero,rerolled:!!S.rerolled,bo:S.bo||null}));}catch(e){}return;} // refresh cannot re-roll the hero
  if(!S.R)return;if(secOpen(S.R)){try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:'secret',runId:S.runId,t0:S.t0||0,hero:S.hero,R:S.R,frame:S.frame}));}catch(e){}return;}
  // run over: keep it as 'over' so a reload still reaches the end screen (results sent once via fin/sent) and the heir; newBirth drops it
- if(!S.R.alive||S.R.won){try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:'over',runId:S.runId,t0:S.t0||0,hero:S.hero,R:S.R,fin:!!S.fin,sent:!!S.sent,cd:!!S.cineDone,end:S.saved?{fresh:S.fresh,title:S.title,mont:S.mont,lg:S.lg,eu:S.eu}:null}));}catch(e){}return;}
+ if(!S.R.alive||S.R.won){if(S.dup||(!S.fin&&finSeen(S.runId)))return; // another tab counted this run: keep its end screen in the save, not ours
+ try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:'over',runId:S.runId,t0:S.t0||0,hero:S.hero,R:S.R,fin:!!S.fin,sent:!!S.sent,cd:!!S.cineDone,end:S.saved?{fresh:S.fresh,title:S.title,mont:S.mont,lg:S.lg,eu:S.eu}:null}));}catch(e){}return;}
  if(!['flow','decide','combat'].includes(S.phase))return;
  try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:S.phase,paused:!!S.paused,runId:S.runId,t0:S.t0||0,hero:S.hero,R:S.R,K:S.phase==='decide'?S.K:null,frame:S.frame}));}catch(e){}}
 // the run is over: write the memorial once (FINK = last finalized runId, so a second tab on the same run counts nothing twice)
 const FINK='tof-auto-fin-v1'; // comma list of the last 20
+function finList(){try{return String(localStorage.getItem(FINK)||'').split(',');}catch(e){return[];}}
+const finSeen=id=>finList().includes(String(id));
 function finalizeRun(){if(!S||!S.R||S.fin||window.__tofMoving)return; // a save being imported must not get this run's death written over it
-S.fin=1;try{const L=String(localStorage.getItem(FINK)||'').split(',');if(L.includes(String(S.runId))){S.sent=true;return;}localStorage.setItem(FINK,[S.runId,...L.slice(0,19)].join(','));}catch(e){}const R=S.R,h=R.h,fl=R.won?100:R.floor;
+S.fin=1;try{const L=finList();if(L.includes(String(S.runId))){S.sent=true;S.dup=1;return;}localStorage.setItem(FINK,[S.runId,...L.slice(0,19)].join(','));}catch(e){}const R=S.R,h=R.h,fl=R.won?100:R.floor;
  try{addLife(R);S.hero.lin=h.lin;S.hero.house=h.house;S.hero.gen=h.gen;}catch(e){}
  try{clanApply(R);}catch(e){}
  try{unlApply(R);}catch(e){}
