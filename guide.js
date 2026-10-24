@@ -6,7 +6,7 @@
 (function(){
 'use strict';
 const C=()=>window.CONTENT||{},A=()=>window.ART||null,HD=()=>window.HARD||{};
-const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=window.META.esc;
 const J=k=>{try{const v=JSON.parse(localStorage.getItem(k)||'null');return v&&typeof v==='object'?v:{};}catch(e){return{};}};
 const pct=(v,d)=>{const n=v*100;return(d==null?(n<1?n.toFixed(1):Math.round(n)):n.toFixed(d))+'%';};
 const fmt=n=>(+n||0).toLocaleString();

@@ -6,22 +6,21 @@
 //   "ลองเกิดดูบ้าง", random memorial, copy/share link, report, and removal for the owner
 // - d (built by memoData() in auto.js, cleaned again by functions/api/memorial.js): run summary + up to 9 scene descriptors, no pictures.
 //   Every picture here is drawn again from those descriptors with sprites.js.
-// API: window.MEMO = { create(d,opt), open(id), close(), owned() }
+// API: window.MEMO = { create(d,opt), open(id), close() }
 (function(){
 'use strict';
 if(typeof document==='undefined')return;
-const A=window.ART,CT=window.CONTENT||{};if(!A)return;
+const A=window.ART;
 const ORIGIN='https://tower-of-fate.pages.dev',OWN_K='tof-memo-own-v1';
 const RANK_K=['F','E','D','C','B','A','S','SS'];
-const BIOMES=CT.BIOMES||['ทุ่งหญ้า','ถ้ำคริสตัล','ป่าต้องสาป','ภูเขาไฟ','ห้วงดารา'];
-const MAPC={fight:'#c0503a',treasure:'#e8b840',trap:'#8a4ab0',good:'#5fc06a',evil:'#6a1a2a',pet:'#ea9bbd',comp:'#4fa6e0',boss:'#ff8a2a',warp:'#7ae8f0',flee:'#8a9aa0',calm:'#7a8a80',bad:'#8a6a4a',farm:'#2a6a5a',death:'#f1e7d0'};
+const BIOMES=window.CONTENT.BIOMES;
 const WORDS=['หลับให้สบายนะ','เดินมาไกลมากแล้ว','ไต่ได้สวยมาก','จะไม่ลืมเลย','ขอบคุณที่สู้มา'];
 const BANDS=[[1,25],[26,50],[51,75],[76,100]];
 const PEMO={'บ':'⚔️','ร':'🛡️','ห':'💰','ช':'🤝','ด':'🚶','พ':'👥','☀':'☀️','☾':'🌙'};
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const fT="'Mitr','Kanit','Noto Sans Thai',system-ui,sans-serif";
-const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const nf=n=>Number(n||0).toLocaleString('th-TH');
+const esc=window.META.esc;
+const nf=window.META.nf;
 const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));
 const biome=f=>clampN(Math.floor(((f||1)-1)/20),0,4);
 const okId=s=>typeof s==='string'&&/^[a-z2-9]{9}$/.test(s);
@@ -39,45 +38,17 @@ function ownSave(o){try{localStorage.setItem(OWN_K,JSON.stringify(o));}catch(e){
 function rndHex(n){const b=new Uint8Array(n/2);crypto.getRandomValues(b);return[...b].map(x=>x.toString(16).padStart(2,'0')).join('');}
 
 // ---------- network ----------
-async function api(url,body,ms){const ctl=typeof AbortController!=='undefined'?new AbortController():null;const tm=setTimeout(()=>{try{ctl&&ctl.abort();}catch(e){}},ms||15000);
- try{const o=body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{};if(ctl)o.signal=ctl.signal;
-  const r=await fetch(url,o);let j=null;try{j=await r.json();}catch(e){}return{st:r.status,j:j&&typeof j==='object'?j:{}};}
- catch(e){return{st:0,j:{}};}finally{clearTimeout(tm);}}
+const api=window.META.api;
 function errTxt(r){if(r.st===0)return'ต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้งนะ';if(r.st===429)return'วันนี้กดแบบนี้บ่อยไปหน่อย พักสักครู่แล้วค่อยลองใหม่';
  if(r.j.error==='not-found')return'ไม่พบอนุสรณ์นี้ อาจถูกถอดออกไปแล้ว หรือไม่มีใครเปิดดูเลย 90 วันจนถูกลบไป';if(r.j.error==='too-large')return'ข้อมูลของชีวิตนี้ยาวเกินไป ตั้งอนุสรณ์ไม่ได้';
  return'ตอนนี้ระบบอนุสรณ์ยังไม่เปิด ลองใหม่ทีหลังนะ';}
 
 // ---------- scenes (same layout as the end cinematic in auto.js, drawn from the stored descriptors) ----------
-const heroS=d=>A.heroSpr(d.ck,d.lk);
 function compS(c){const cc={n:c.n,cls:c.cls||'war',tr:c.tr||'',legend:!!c.legend};return{s:A.compSpr(cc),k:'c'+A.compKey(cc)};}
-function enS(e){if(!e)return null;if(e.cls)return{spr:A.heroSpr(e.cls),x:128,y:84,flip:true,key:'c'+e.cls};
- const big=e.boss,spr=big?A.BSPR[e.id]:A.MSPR[e.id];if(!spr)return null;if(/^hoard_/.test(e.id))return{spr,x:130,y:62,flip:false,key:e.id};
- return{spr,x:big?118:128,y:big?70:84,flip:!big&&['wolf','sala'].indexOf(e.id)<0?false:true,key:e.id};}
-function drawVis(x,v,t,bob){if(!v)return;
- if(v.t==='en'){const E=enS(v.en);if(E)A.blit(x,E.spr,E.x,v.en.cls?84+bob:v.en.boss?70+bob:84,{flip:E.flip,key:E.key});}
- else if(v.t==='prop'){const N=A.NPCS||{};A.drawProp(x,v.fb&&!N[v.pr]?v.fb:v.pr,t);}
- else if(v.t==='pet'){if(A.PSPR[v.p])A.blit(x,A.PSPR[v.p],132,91+bob,{key:'p'+v.p});}
- else if(v.t==='comp'){const s=v.c&&v.c.cls?compS(v.c):{s:A.heroSpr(v.cls||'war'),k:'c'+(v.cls||'war')};A.blit(x,s.s,128,84+bob,{flip:true,key:s.k});}}
 function mourners(d){const M=(d.cm||[]).map(c=>Object.assign(compS(c),{n:c.n}));(d.pets||[]).forEach(p=>{if(A.PSPR[p])M.push({s:A.PSPR[p],k:'p'+p,pet:1});});return M.slice(0,8);}
-const FUN_X=[68,108,52,124,36,140,20,156];
-function drawFun(x,d,t){const won=!!d.w,bob=t?Math.round(Math.sin(t/260)):0;if(A.funeralDraw)A.funeralDraw(x,won);else x.drawImage(A.funeralBg(won),0,0);
- if(won){const hs=heroS(d);x.fillStyle='rgba(244,187,74,0.16)';x.fillRect(84,40,24,60);A.blit(x,hs,88,82+bob,{key:'h'+hs.id});}
- else{A.blit(x,A.STONE,90,86,{key:'stone',noShadow:true});x.fillStyle='#1a1418';x.fillRect(93,90,6,1);A.blit(x,A.WREATH,92,93,{key:'wreath',noShadow:true});
-  [[80,94],[110,94],[84,97],[106,97]].forEach(([X,Y],i)=>A.drawCandle(x,X,Y,t,i));}
- mourners(d).forEach((m,i)=>{const yy=m.pet?91:100-m.s.h,sb=t&&!m.pet?Math.round(Math.sin(t/700+i)*.6):0;A.blit(x,m.s,FUN_X[i],yy+sb,{flip:i%2!==0,key:m.k});});
- if(d.rain){x.fillStyle='rgba(170,190,230,0.45)';for(let i=0;i<70;i++){const X=Math.floor((A.hash(i)*192+(t||0)*.04)%192),Y=Math.floor((A.hash(i+77)*128+(t||0)*.22)%128);x.fillRect(X,Y,1,3);}
-  x.fillStyle='rgba(20,24,40,0.18)';x.fillRect(0,0,192,128);}}
-function drawFrame(x,fr,d,t){if(!fr)return;if(fr.k==='u'){drawFun(x,d,t);return;}
- const b=fr.k==='b'?0:biome(fr.f),hs=heroS(d),hk='h'+hs.id,bob=t?Math.round(Math.sin(t/260)):0;
- if(A.bgDraw)A.bgDraw(x,b);else x.drawImage(A.bgImg(b),0,0);A.drawOverlay(x,b,t||0);
- if(fr.k==='b'){x.fillStyle='rgba(244,187,74,0.14)';x.fillRect(84,0,24,100);x.fillStyle='#5a4a3a';x.fillRect(80,100,32,4);A.blit(x,hs,88,84+bob,{key:hk});return;}
- if(fr.k==='d'){A.blit(x,A.PROPS.grave,88,84);x.globalAlpha=.55;A.blit(x,A.heroSpr('ghost',d.lk),88,60+(t?Math.round(Math.sin(t/500)*3):0),{key:'ghost'});x.globalAlpha=1;drawVis(x,fr.v,t,bob);return;}
- if(fr.k==='w'){(d.cm||[]).forEach((c,i)=>{const v=compS(c);A.blit(x,v.s,62-i*16,84+bob,{key:v.k});});(d.pets||[]).forEach((p,i)=>{if(A.PSPR[p])A.blit(x,A.PSPR[p],112+i*14,91,{key:'p'+p});});
-  x.fillStyle='rgba(244,187,74,0.16)';x.fillRect(84,0,24,100);A.blit(x,hs,88,84+bob,{key:hk});
-  for(let i=0;i<8;i++){const a=(t||0)/700+i*.785;x.fillStyle=i%2?'#fff6c0':'#ffd04a';x.fillRect(96+Math.round(Math.cos(a)*22),80+Math.round(Math.sin(a)*14),1,1);}return;}
- A.blit(x,hs,52,84+bob,{key:hk});drawVis(x,fr.v,t,bob);}
+const KIND={u:'fun',b:'birth',d:'death',w:'win'};
 const lastFr=d=>(d.fr||[]).find(f=>f.k==='d'||f.k==='w')||(d.fr||[])[0];
-function safeDraw(x,fr,d,t){try{drawFrame(x,fr,d,t);}catch(e){x.fillStyle='#15232a';x.fillRect(0,0,192,128);}}
+function safeDraw(x,fr,d,t){if(!fr)return;try{A.cineFrame(x,{kind:KIND[fr.k],f:fr.f,v:fr.v},{won:!!d.w,hs:A.heroSpr(d.ck,d.lk),gh:A.heroSpr('ghost',d.lk),cm:(d.cm||[]).map(compS),pets:d.pets||[],M:mourners(d),rain:d.rain},t);}catch(e){x.fillStyle='#15232a';x.fillRect(0,0,192,128);}}
 
 // ---------- link preview (laid out at 1200x630, scaled to 600x315 JPEG ~25–40 KB before upload; the server drops images over 160 KB) ----------
 let fontsP=null;
@@ -253,7 +224,7 @@ async function open(id){if(!okId(id))return;if(!V.el){V.lastFocus=document.activ
  V.m=r.j.m;render();}
 function stripHTML(d){const fl=d.f>100?100:d.f,hp=d.hp||[],mp=d.mp||[];let s='';
  for(let i=0;i<100;i++){const f=i+1,m=mp[i],h=hp[i];if(f>fl){s+='<i class="no" style="height:6%"></i>';continue;}
-  const ht=h>=0?clampN(h,6,100):m?62:40,col=MAPC[m]||'#d8c89a',dead=!d.w&&f===fl;s+=`<i class="${dead?'dead':''}" style="height:${ht}%;background:${col}" title="ชั้น ${f}${h>=0?' · HP เหลือต่ำสุด '+h+'%':''}"></i>`;}
+  const ht=h>=0?clampN(h,6,100):m?62:40,col=A.MAPC[m]||'#d8c89a',dead=!d.w&&f===fl;s+=`<i class="${dead?'dead':''}" style="height:${ht}%;background:${col}" title="ชั้น ${f}${h>=0?' · HP เหลือต่ำสุด '+h+'%':''}"></i>`;}
  return s;}
 function render(){const o=V.el,M=V.m,d=M.d,fl=d.f>100?100:d.f,own=ownLoad()[M.id],cls=String(d.cn||'');
  o.setAttribute('aria-label',`อนุสรณ์ของ ${d.n}`);
@@ -357,7 +328,7 @@ function replay(d){if(RP.on)return;RP.d=d;RP.steps=rpSteps(d);RP.i=-1;RP.cur=0;R
  requestAnimationFrame(()=>RP.el&&RP.el.classList.add('open'));}
 function reanim(n){if(!n)return;n.classList.remove('in');void n.offsetWidth;n.classList.add('in');}
 function rpStrip(f,dead){const cells=RP.el.querySelectorAll('.cstrip i'),mp=RP.d.mp||[],a=RP.lit,n=Math.max(1,f-a);
- for(let j=a;j<f&&j<100;j++){const c=cells[j];c.style.transitionDelay=(((j-a)/n)*.8).toFixed(2)+'s';const m=mp[j];c.style.background=m&&m!=='calm'&&m!=='farm'?(MAPC[m]||'#d8c89a'):'#d8c89a';c.classList.add('on');}
+ for(let j=a;j<f&&j<100;j++){const c=cells[j];c.style.transitionDelay=(((j-a)/n)*.8).toFixed(2)+'s';const m=mp[j];c.style.background=m&&m!=='calm'&&m!=='farm'?(A.MAPC[m]||'#d8c89a'):'#d8c89a';c.classList.add('on');}
  if(dead&&cells[f-1])cells[f-1].classList.add('dead');RP.lit=Math.max(a,f);}
 function rpShow(s){const el=RP.el;
  if(s.k==='t'){el.dataset.mode='t';el.querySelector('.cta').textContent=s.a;el.querySelector('.ctb').textContent=s.b||'';reanim(el.querySelector('.ct'));return;}
@@ -385,7 +356,6 @@ function rpClose(){if(!RP.on)return;RP.on=false;clearTimeout(RP.tm);clearTimeout
 
 // ---------- boot: /m/<id> or ?m=<id> ----------
 function bootId(){try{const L=location,m=L.pathname.match(/\/m\/([a-z2-9]{9})\/?$/);if(m)return m[1];const q=new URLSearchParams(L.search).get('m');return okId(q)?q:null;}catch(e){return null;}}
-const owned=()=>Object.keys(ownLoad()).filter(okId);
-window.MEMO={create,open:id=>{V.fromUrl=V.fromUrl&&!!V.el;open(id);},close,owned};
+window.MEMO={create,open:id=>{V.fromUrl=V.fromUrl&&!!V.el;open(id);},close};
 const bid=bootId();if(bid){V.fromUrl=true;setTimeout(()=>open(bid),0);}
 })();

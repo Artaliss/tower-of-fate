@@ -228,5 +228,5 @@ function panelHTML(){injectCSS();const L=list(),g=L.filter(a=>a.got).length;
 const grant=id=>{try{return !!(BY[id]&&BY[id].ext)&&unlock(id);}catch(e){return false;}};
 // v0.3: โมดูลอื่นลงทะเบียนความสำเร็จของตัวเอง (ext:1 เสมอ ปลดผ่าน grant) ACH.add([{id,n,d,icon,tier,hid}])
 const add=L=>{(Array.isArray(L)?L:[L]).forEach(a=>{if(a&&a.id&&!BY[a.id]){const d=Object.assign({tier:'silver',icon:'🏅'},a,{ext:1});DEFS.push(d);BY[d.id]=d;}});};
-window.ACH={onEvent,onRunEnd,list,panelHTML,count,grant,add,TIERS:TIER};
+window.ACH={onEvent,onRunEnd,list,panelHTML,count,grant,add};
 })();

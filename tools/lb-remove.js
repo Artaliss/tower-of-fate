@@ -13,5 +13,5 @@ for(const key of ['top','recent']){
  drop.forEach(e=>console.log(`${key}: remove ${e.id} ${e.name} floor ${e.floor} score ${e.score}`));
  if(!drop.length||dry)continue;
  const f=path.join(os.tmpdir(),`tof-${key}.sql`);
- fs.writeFileSync(f,`UPDATE kv SET v='${JSON.stringify(arr.filter(e=>!ids.includes(e.id))).replace(/'/g,"''")}' WHERE k='${key}';`);
+ fs.writeFileSync(f,`UPDATE kv SET v='${JSON.stringify(arr.filter(e=>!ids.includes(e.id))).replace(/'/g,"''")}', ver=ver+1 WHERE k='${key}';`);
  q(['--file',f]);fs.unlinkSync(f);console.log(key,': saved');}

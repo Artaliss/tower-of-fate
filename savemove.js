@@ -15,7 +15,7 @@ const SKIP=['tof-lb-queue-v1','tof-share-stat-v1','tof-auto-birth-v1','tofc-auto
 const mine=k=>typeof k==='string'&&(k.startsWith('tof-')||k.startsWith('tofc-'))&&!SKIP.includes(k);
 const fT="'Mitr','Kanit','Noto Sans Thai',system-ui,sans-serif";
 const okCode=s=>typeof s==='string'&&/^[a-z2-9]{9}$/.test(s);
-const nf=n=>Number(n||0).toLocaleString('th-TH');
+const nf=window.META.nf;
 function el(tag,attrs,txt){const e=document.createElement(tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(txt!=null)e.textContent=txt;return e;}
 
 // ---------- what is in a save ----------
@@ -46,9 +46,7 @@ async function unpack(z,p){if(z!=='gz')return JSON.parse(p);if(typeof Decompress
  const st=new Blob([unb64(p)]).stream().pipeThrough(new DecompressionStream('gzip'));return JSON.parse(await new Response(st).text());}
 
 // ---------- network ----------
-async function api(body){const ctl=typeof AbortController!=='undefined'?new AbortController():null;const tm=setTimeout(()=>{try{ctl&&ctl.abort();}catch(e){}},30000);
- try{const o={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)};if(ctl)o.signal=ctl.signal;const r=await fetch('/api/move',o);
-  let j=null;try{j=await r.json();}catch(e){}return{st:r.status,j:j&&typeof j==='object'?j:{}};}catch(e){return{st:0,j:{}};}finally{clearTimeout(tm);}}
+const api=body=>window.META.api('/api/move',body,30000);
 function errTxt(r){if(r.st===0)return'ต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้งนะ';if(r.st===429)return'ลองบ่อยเกินไปแล้ว รอสักครู่ค่อยลองใหม่';
  if(r.j.error==='used')return'โค้ดนี้ใช้ไปแล้ว ขอโค้ดใหม่จากเครื่องเดิมนะ';if(r.j.error==='not-found')return'ไม่พบโค้ดนี้ อาจพิมพ์ผิดหรือหมดอายุแล้ว (โค้ดมีอายุ 3 วัน)';
  if(r.j.error==='invalid'||r.j.error==='too-large')return'เซฟในเครื่องนี้ใหญ่เกินกว่าจะย้ายด้วยโค้ดได้';
@@ -154,8 +152,8 @@ function confirmIn(code,info){const here=summary(collect()),there=info.m||{};
   if(!r.j.ok||typeof r.j.p!=='string'){busy=false;no.disabled=false;sayIn(msg,errTxt(r),true);return;}
   let o=null;try{o=await unpack(r.j.z,r.j.p);}catch(e){o=null;}
   if(!o||typeof o!=='object'||Array.isArray(o)){busy=false;no.disabled=false;sayIn(msg,'อ่านเซฟไม่ได้ เบราว์เซอร์นี้อาจเก่าเกินไป ลองเปิดด้วย Chrome หรือ Safari รุ่นใหม่',true);return;}
-  try{const S=window.__auto&&window.__auto.S;if(S)S.paused=true;}catch(e){} // a tick before the reload would write the old run back
-  if(!apply(o)){busy=false;no.disabled=false;sayIn(msg,'เขียนเซฟไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์อาจเต็ม',true);return;}
+  window.__tofMoving=1; // saveRun skips while set, so a fight ending before the reload cannot write the old run back
+  if(!apply(o)){window.__tofMoving=0;busy=false;no.disabled=false;sayIn(msg,'เขียนเซฟไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์อาจเต็ม',true);return;}
   try{window.ACH&&window.ACH.onEvent&&window.ACH.onEvent('move',{dir:'in'});}catch(e){}
   sayIn(msg,'ย้ายเซฟเสร็จแล้ว กำลังโหลดเกมใหม่…');setTimeout(()=>{try{location.replace(cleanUrl());}catch(e){location.reload();}},700);};}
 // replace every tof-*/tofc-* key (except SKIP) with the incoming ones; on a storage error the old values are put back

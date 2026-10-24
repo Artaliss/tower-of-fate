@@ -218,12 +218,12 @@ function myIds(){const a=rd(K_IDS,[]);return new Set(Array.isArray(a)?a:[]);}
 function isMine(e,ids,mine){if(ids.has(e.id))return true;return mine.some(m=>m.name===e.name&&m.floor===e.floor&&m.score===e.score&&m.date===e.date);}
 function fdate(t){try{return new Date(t).toLocaleDateString('th-TH',{day:'numeric',month:'short'});}catch(e){return '';}}
 function row(e,i,me){const rk=RANKC[e.rankK]?e.rankK:'?';
- const cls0=CLSN[e.clsId]||esc(e.clsN)||'';
+ const cls0=META.clsN(e.clsId)||esc(e.clsN);
  const cls=['dsl','nec','ang'].includes(e.clsId)?`<span class="lb-hid"><em>อาชีพลับ</em>${cls0}</span>`:cls0;
  const sw=(gearIn(e.gear)||[]).includes('excal')?'<span class="lb-drg ex" title="พกดาบศักดิ์สิทธิ์ในหิน ATK +10% ตีบอสแรงขึ้น 10%">🗡</span>':'';
  const drg=e.drg==='f'?'<span class="lb-drg f" title="ไว้ชีวิตมังกรบนชั้นลับ">🐉 สหายมังกร</span>':e.drg==='s'?'<span class="lb-drg s" title="ล้มมังกรบนชั้นลับ">⚔ นักล่ามังกร</span>':'';
  const sub=[acTag(e.ac),cls+(e.form==='slime'?' (สไลม์)':''),e.village?'จาก'+esc(e.village):'','รุ่นที่ '+int(e.gen,1,9999),e.ach?`<span title="ความสำเร็จที่ปลดล็อกแล้ว ${int(e.ach,0,500)} อย่าง">🏅${int(e.ach,0,500)}</span>`:''].filter(Boolean).join(' · ');
- return `<li class="lb-row${me?' me':''}${e.won?' win':''}"><span class="no">${i==null?'':i+1}</span><span class="lb-rk" style="background:${RANKC[rk]||'#888'}">${esc(rk)}</span>
+ return `<li class="lb-row${me?' me':''}${e.won?' win':''}"><span class="no">${i==null?'':i+1}</span><span class="lb-rk" style="background:${META.rkCol(rk)}">${esc(rk)}</span>
 <span class="lb-who"><b>${esc(e.name)}${drg}${sw}${e.title?` <i>“${esc(e.title)}”</i>`:''}${me?'<span class="lb-tag">คุณ</span>':''}${e.ok===0?'<span class="lb-drg" style="border:1px solid #6f857e;color:#a3b5ad" title="รอบนี้ไม่มีตั๋วจากเซิร์ฟเวอร์ หรือจบเร็วเกินกว่าที่เล่นได้จริง">ไม่นับอันดับ</span>':''}</b><span>${sub}</span></span>
 <span class="lb-fl">${e.floor===101?'<b>🐉 101</b>':e.won?'<b>👑</b>':`<b>${int(e.floor,0,100)}</b>`}<span title="คะแนนชีวิต">${e.floor===101?'ชั้นลับ':e.won?'พิชิตยอด':'ชั้น'} · ${num(e.score).toLocaleString('en-US')} คะแนน</span></span></li>`;}
 
@@ -237,12 +237,9 @@ const LEGEND=`<details class="lb-leg"><summary>อ่านตารางยั
 <li><b>รุ่นที่</b> ลำดับรุ่นในสายตระกูล (ลูกศิษย์สืบทอดต่อกันมากี่รุ่น) · <b>F ถึง SS</b> แรงค์ตอนเกิด</li></ul></details>`;
 function msg(t,s){return `<div class="lb-msg"><b>${t}</b>${s||''}</div>`;}
 async function load(){if(cache&&Date.now()-cacheAt<30e3)return cache;
- const ac=typeof AbortController==='function'?new AbortController():null;const to=setTimeout(()=>ac&&ac.abort(),7000);
- try{const r=await fetch(API,{headers:{Accept:'application/json'},signal:ac&&ac.signal,credentials:'same-origin'});
-  let j=null;try{j=await r.json();}catch(e){}
-  if(!r.ok||!j||j.error)return {error:(j&&j.error)||('http-'+r.status)};
-  cache={top:Array.isArray(j.top)?j.top:[],recent:Array.isArray(j.recent)?j.recent:[]};cacheAt=Date.now();return cache;
- }catch(e){return {error:'offline'};}finally{clearTimeout(to);}}
+ const {st,j}=await META.api(API,null,7000,{Accept:'application/json'});
+ if(st<200||st>299||j.error||!j.top&&!j.recent)return {error:j.error||(st?'http-'+st:'offline')};
+ cache={top:Array.isArray(j.top)?j.top:[],recent:Array.isArray(j.recent)?j.recent:[]};cacheAt=Date.now();return cache;}
 
 async function show(t){if(!dlg)return;cur=t;
  dlg.querySelectorAll('[role=tab]').forEach(b=>{b.setAttribute('aria-selected',String(b.dataset.t===t));if(b.dataset.t===t){const tb=b.parentNode;tb.scrollLeft=b.offsetLeft-tb.offsetLeft-(tb.clientWidth-b.offsetWidth)/2;}});
@@ -271,12 +268,9 @@ async function show(t){if(!dlg)return;cur=t;
 const HOFN=100,HW=64,HH=32,GND=HH-4;
 let hcache=null,hcacheAt=0;
 async function loadHof(){if(hcache&&Date.now()-hcacheAt<60e3)return hcache;
- const ac=typeof AbortController==='function'?new AbortController():null;const to=setTimeout(()=>ac&&ac.abort(),7000);
- try{const r=await fetch(API+'?hof=1',{headers:{Accept:'application/json'},signal:ac&&ac.signal,credentials:'same-origin'});
-  let j=null;try{j=await r.json();}catch(e){}
-  if(!r.ok||!j||j.error||!Array.isArray(j.hof))return {error:(j&&j.error)||('http-'+r.status)};
-  hcache={hof:j.hof.filter(e=>e&&typeof e==='object'&&e.won)};hcacheAt=Date.now();return hcache;
- }catch(e){return {error:'offline'};}finally{clearTimeout(to);}}
+ const {st,j}=await META.api(API+'?hof=1',null,7000,{Accept:'application/json'});
+ if(st<200||st>299||j.error||!Array.isArray(j.hof))return {error:j.error||(st?'http-'+st:'offline')};
+ hcache={hof:j.hof.filter(e=>e&&typeof e==='object'&&e.won)};hcacheAt=Date.now();return hcache;}
 // entry เก่าไม่มี lk: ใช้ร่างจาก form แล้วสุ่มหน้าตาจากชื่อ แบบเดียวกับเซฟเก่าที่ไม่มี look
 function hofLook(e){const k=lookIn(e.lk);if(k)return {look:{form:k.f==='s'?'slime':'human',seed:k.s},pets:k.p||[]};
  return {look:{form:e.form==='slime'?'slime':'human',seed:seed32(e.name||'')},pets:[]};}
@@ -296,7 +290,7 @@ function hofDraw(cv,e){const A=window.ART;if(!A||!A.heroSpr||!A.blit||!cv||!cv.g
   A.blit(x,A.ICONS.sword,sx,sy,{noShadow:true,noAnim:true});
   x.fillStyle='#ffffff';x.fillRect(sx+9,sy-3,1,3);x.fillRect(sx+8,sy-2,3,1);x.fillRect(sx-2,sy+6,1,1);x.fillStyle='#8fe0ff';x.fillRect(sx+3,sy+9,1,1);}}
 const GEARN={excal:'🗡 เอ็กซ์คาลิเบอร์'};
-function hofCard(e,i,me){const cls0=CLSN[e.clsId]||esc(e.clsN)||'',s101=e.floor===101,pets=hofLook(e).pets;
+function hofCard(e,i,me){const cls0=META.clsN(e.clsId)||esc(e.clsN),s101=e.floor===101,pets=hofLook(e).pets;
  const P=window.CONTENT&&CONTENT.PETS||{},petN=pets.map(p=>P[p]&&P[p].n).filter(Boolean).join(', ');
  const tags=[['dsl','nec','ang'].includes(e.clsId)?'<span class="lb-drg hid">อาชีพลับ</span>':'',
   e.drg==='f'?'<span class="lb-drg f">🐉 สหายมังกร</span>':e.drg==='s'?'<span class="lb-drg s">⚔ นักล่ามังกร</span>':'',
@@ -321,26 +315,21 @@ function pstore(){const v=rd(K_P,{});const o=v&&typeof v==='object'?v:{};for(con
 function pmark(k,id){const o=pstore();if(!o[k].includes(id)){o[k].push(id);o[k]=o[k].slice(-300);wr(K_P,o);}}
 function punmark(k,id){const o=pstore();o[k]=o[k].filter(x=>x!==id);wr(K_P,o);}
 async function loadPosts(){if(pcache&&Date.now()-pcacheAt<20e3)return pcache;
- const ac=typeof AbortController==='function'?new AbortController():null;const to=setTimeout(()=>ac&&ac.abort(),7000);
- try{const r=await fetch(API_P,{headers:{Accept:'application/json'},signal:ac&&ac.signal,credentials:'same-origin'});
-  let j=null;try{j=await r.json();}catch(e){}
-  // ไม่มี function (GitHub Pages / localhost) = 404 หรือได้ HTML กลับมา, ไม่มี KV = 503 kv-not-configured
-  if(!j||typeof j!=='object'||r.status===404||r.status===405||j.error==='kv-not-configured')return {error:'off'};
-  if(!r.ok||!Array.isArray(j.posts))return {error:'net'};
-  pcache={posts:j.posts.filter(p=>p&&typeof p==='object'&&p.s&&typeof p.s==='object')};pcacheAt=Date.now();return pcache;
- }catch(e){return {error:'net'};}finally{clearTimeout(to);}}
-async function postsCall(body){if(typeof fetch!=='function')return {st:0,j:{}};
- try{const r=await fetch(API_P,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({dv:devId()},body)),credentials:'same-origin'});
-  let j=null;try{j=await r.json();}catch(e){}return {st:r.status,j:j&&typeof j==='object'?j:{}};}catch(e){return {st:0,j:{}};}}
+ const {st,j}=await META.api(API_P,null,7000,{Accept:'application/json'});
+ // ไม่มี function (GitHub Pages / localhost) = 404 หรือได้ HTML กลับมา (j ว่าง), ไม่มี KV = 503 kv-not-configured
+ if(st&&!Object.keys(j).length||st===404||st===405||j.error==='kv-not-configured')return {error:'off'};
+ if(st<200||st>299||!Array.isArray(j.posts))return {error:'net'};
+ pcache={posts:j.posts.filter(p=>p&&typeof p==='object'&&p.s&&typeof p.s==='object')};pcacheAt=Date.now();return pcache;}
+const postsCall=body=>META.api(API_P,Object.assign({dv:devId()},body));
 function ago(t){const m=Math.floor((Date.now()-num(t))/60e3);if(m<2)return 'เมื่อกี้';if(m<60)return m+' นาทีก่อน';const h=Math.floor(m/60);if(h<24)return h+' ชั่วโมงก่อน';return Math.floor(h/24)+' วันก่อน';}
 function endTxt(s){return s.f===101?'ผ่านชั้นลับมังกร':s.w?'พิชิตยอดหอ':'ล้มที่ชั้น '+int(s.f,1,100);}
 function runSum(e){return {n:e.name,r:e.rankK,c:e.clsId,o:e.form||'',f:int(e.floor,1,101),w:e.won?1:0,d:e.drg||'',ti:e.title||'',ca:e.cause||'',g:int(e.gen||1,1,9999)};}
-function sumHTML(s){const cls=CLSN[s.c]||'';
+function sumHTML(s){const cls=META.clsN(s.c);
  const sub=['แรงค์ '+esc(s.r),cls+(s.o==='slime'?' (สไลม์)':''),'รุ่นที่ '+int(s.g||1,1,9999),endTxt(s)+(s.ca&&!s.w?' · สาเหตุ: '+esc(s.ca):'')].filter(Boolean).join(' · ');
  const drg=s.d==='f'?'<span class="lb-drg f">🐉 สหายมังกร</span>':s.d==='s'?'<span class="lb-drg s">⚔ นักล่ามังกร</span>':'';
  return `<div class="lb-who"><b>${esc(s.n)}${drg}${s.ti?` <i>“${esc(s.ti)}”</i>`:''}</b><span style="white-space:normal">${sub}</span></div>`;}
 function postHTML(p,st){const s=p.s,rk=RANKC[s.r]?s.r:'?',rm=st.rm.includes(p.id),rp=st.rp.includes(p.id);
- return `<li class="lb-post" data-id="${esc(p.id)}"><span class="lb-rk" style="background:${RANKC[rk]||'#888'}">${esc(rk)}</span><div style="min-width:0">${sumHTML(s)}
+ return `<li class="lb-post" data-id="${esc(p.id)}"><span class="lb-rk" style="background:${META.rkCol(rk)}">${esc(rk)}</span><div style="min-width:0">${sumHTML(s)}
 ${p.q?`<blockquote>“${esc(p.q)}”</blockquote>`:''}<div class="lb-pf"><span>${ago(p.t)}</span>
 <button type="button" class="rm" aria-pressed="${rm}" title="ระลึกถึงชีวิตนี้"${rm?' disabled':''}>🕯 ระลึกถึง <b>${int(p.rm,0,1e9)}</b></button>
 <button type="button" class="rep"${rp?' disabled':''}>${rp?'รายงานแล้ว':'รายงาน'}</button></div></div></li>`;}

@@ -587,4 +587,37 @@ function drawWish(x,D,t){if(!D)return;t=t||0;const bob=t?Math.round(Math.sin(t/2
  blit(x,hs,88,84+bob,{key:'h'+hs.id});}
 window.ART={lookExtra,BONE,CANDLE,WREATH,STONE,funeralBg,drawCandle,mk,heroSpr,lookOf,rollLook,heroLook,HERO_ROWS,HP_,MSPR,BSPR,BOSS_ROWS,BOSS_PAL,PSPR,PROPS,NPCS,COIN,ICONS,sprCanvas,blit,BG,hash,bgImg,bgHi,bgDraw,drawTorch,drawOverlay,drawProp,compSpr,compKey};
 Object.assign(window.ART,{homeBg,drawWish,funeralDraw,homeDraw,hiDraw,isHi});
+// ---- end cinematic frames, used by the ending in auto.js and the memorial replay in memorial.js ----
+// fr={kind:'birth'|'death'|'win'|'fun'|other,f,v}; o={won,hs,gh (ghost sprite),cm:[{s,k}],pets,M (mourners),rain,deco(x,b)}
+const MAPC={fight:'#c0503a',treasure:'#e8b840',trap:'#8a4ab0',good:'#5fc06a',evil:'#6a1a2a',pet:'#ea9bbd',comp:'#4fa6e0',boss:'#ff8a2a',warp:'#7ae8f0',flee:'#8a9aa0',calm:'#4a5a60',bad:'#8a6a4a',farm:'#2a6a5a',death:'#f1e7d0'};
+function enSpr(en){if(!en)return null;if(en.cls)return{spr:heroSpr(en.cls),x:128,y:84,flip:true,key:'c'+en.cls};
+ const big=en.boss||en.big,spr=big?BSPR[en.id]:MSPR[en.id];if(!spr)return null;if(/^hoard_/.test(en.id))return{spr,x:130,y:62,flip:false,key:en.id};return{spr,x:big?118:128,y:big?70:84,flip:!big&&['wolf','sala'].indexOf(en.id)<0?false:true,key:en.id};}
+function cineVis(x,v,t,bob){if(!v)return;
+ if(v.t==='en'){const E=enSpr(v.en);if(E)blit(x,E.spr,E.x,v.en.cls?84+bob:v.en.boss?70+bob:84,{flip:E.flip,key:E.key});}
+ else if(v.t==='prop')drawProp(x,v.fb&&!NPCS[v.pr]?v.fb:v.pr,t);
+ else if(v.t==='pet'){if(PSPR[v.p])blit(x,PSPR[v.p],132,91+bob,{key:'p'+v.p});}
+ else if(v.t==='comp'){const s=v.c&&v.c.cls?{s:compSpr(v.c),k:'c'+compKey(v.c)}:{s:heroSpr(v.cls||'war'),k:'c'+(v.cls||'war')};blit(x,s.s,128,84+bob,{flip:true,key:s.k});}}
+const FUN_X=[68,108,52,124,36,140,20,156];
+function cineFrame(x,fr,o,t){if(!fr)return;const hs=o.hs,hk='h'+hs.id,won=o.won,bob=t?Math.round(Math.sin(t/260)):0;
+ if(fr.kind==='fun'){funeralDraw(x,won);
+  if(won){x.fillStyle='rgba(244,187,74,0.16)';x.fillRect(84,40,24,60);blit(x,hs,88,82+bob,{key:hk});}
+  else{blit(x,STONE,90,86,{key:'stone',noShadow:true});x.fillStyle='#1a1418';x.fillRect(93,90,6,1);blit(x,WREATH,92,93,{key:'wreath',noShadow:true});
+   [[80,94],[110,94],[84,97],[106,97]].forEach(([X,Y],i)=>drawCandle(x,X,Y,t,i));}
+  (o.M||[]).forEach((m,i)=>{const yy=m.pet?91:m.npc?88+(m.s.dy||0)+16-m.s.h:100-m.s.h,sb=t&&!m.pet?Math.round(Math.sin(t/700+i)*.6):0;
+   if(m.npc&&m.s.al)x.globalAlpha=m.s.al;blit(x,m.s,FUN_X[i],yy+sb,{flip:i%2!==0,key:m.k});x.globalAlpha=1;});
+  if(o.rain){x.fillStyle='rgba(170,190,230,0.45)';for(let i=0;i<70;i++){const X=Math.floor((hash(i)*192+(t||0)*.04)%192),Y=Math.floor((hash(i+77)*128+(t||0)*.22)%128);x.fillRect(X,Y,1,3);}
+   x.fillStyle='rgba(20,24,40,0.18)';x.fillRect(0,0,192,128);}
+  if(won){const T=t||900;for(let k=0;k<3;k++){const per=1900,tt=T+k*640,cyc=Math.floor(tt/per),q=(tt%per)/per,cx0=30+Math.floor(hash(cyc*3+k)*132),cy0=18+Math.floor(hash(cyc*5+k+1)*34),col=['#ffd04a','#ff6a8a','#7ae8f0','#b49af0'][(cyc+k)%4];
+   if(q<.22){x.fillStyle='#fff6c0';x.fillRect(cx0,Math.floor(100-(100-cy0)*(q/.22)),1,2);continue;}
+   const r=(q-.22)/.78,R0=4+r*16;x.globalAlpha=Math.max(0,1-r*1.1);x.fillStyle=col;for(let j=0;j<14;j++){const a=j/14*6.283;x.fillRect(Math.round(cx0+Math.cos(a)*R0),Math.round(cy0+Math.sin(a)*R0+r*r*6),1,1);}x.globalAlpha=1;}}
+  return;}
+ const b=fr.kind==='birth'?0:Math.max(0,Math.min(4,Math.floor(((fr.f||1)-1)/20)));
+ bgDraw(x,b);if(o.deco)o.deco(x,b);drawOverlay(x,b,t||0);
+ if(fr.kind==='birth'){x.fillStyle='rgba(244,187,74,0.14)';x.fillRect(84,0,24,100);x.fillStyle='#5a4a3a';x.fillRect(80,100,32,4);blit(x,hs,88,84+bob,{key:hk});return;}
+ if(fr.kind==='death'){blit(x,PROPS.grave,88,84);x.globalAlpha=.55;blit(x,o.gh,88,60+(t?Math.round(Math.sin(t/500)*3):0),{key:'ghost'});x.globalAlpha=1;cineVis(x,fr.v,t,bob);return;}
+ if(fr.kind==='win'){(o.cm||[]).forEach((v,i)=>blit(x,v.s,62-i*16,84+bob,{key:v.k}));(o.pets||[]).forEach((p,i)=>{if(PSPR[p])blit(x,PSPR[p],112+i*14,91,{key:'p'+p});});
+  x.fillStyle='rgba(244,187,74,0.16)';x.fillRect(84,0,24,100);blit(x,hs,88,84+bob,{key:hk});
+  for(let i=0;i<8;i++){const a=(t||0)/700+i*.785;x.fillStyle=i%2?'#fff6c0':'#ffd04a';x.fillRect(96+Math.round(Math.cos(a)*22),80+Math.round(Math.sin(a)*14),1,1);}return;}
+ blit(x,hs,52,84+bob,{key:hk});cineVis(x,fr.v,t,bob);}
+Object.assign(window.ART,{MAPC,enSpr,cineFrame});
 })();

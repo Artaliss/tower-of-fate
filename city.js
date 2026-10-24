@@ -6,7 +6,7 @@
 'use strict';
 if(!window.META)return;
 const M=window.META,esc=M.esc,C=()=>window.CONTENT||{},DECOR_MAX=16;
-const isObj=o=>!!o&&typeof o==='object'&&!Array.isArray(o);
+const isObj=M.isObj;
 const ach=id=>M.grantAch(id);
 // ---------- อาคาร ----------
 const BLD=[
@@ -46,8 +46,8 @@ function st(P){let s=P.mod.city;if(!isObj(s))s=P.mod.city={};
   s.best={f:R.reduce((a,m)=>Math.max(a,m.floor|0),0),b:0};R.forEach(m=>{if(m.kind==='hero'&&m.won&&m.cls&&!s.wc.includes(m.cls))s.wc.push(m.cls);});}
  if(!isObj(s.best))s.best={f:0,b:0};if(!isObj(s.sl))s.sl={m:P.slots.m,p:P.slots.p};s.n=s.n|0;
  if(!isObj(s.jobs))s.jobs={};if(!isObj(s.mood))s.mood={};if(!isObj(s.tr))s.tr={};if(!s.mt)s.mt=Date.now();s.fg=+s.fg||0;
- // คนที่ออกจากตระกูลไปแล้วหลุดจากงานเอง
- const ids=new Set((P.roster||[]).map(m=>m.id));JK.forEach(b=>{s.jobs[b]=(Array.isArray(s.jobs[b])?s.jobs[b]:[]).filter(id=>ids.has(id)).slice(0,jSlots(s.b[b]|0));});return s;}
+ // คนที่ออกจากตระกูลไปแล้วหลุดจากงานเอง หัวหน้าตระกูลก็ไม่ทำงาน (เซฟเก่าอาจมีหัวหน้าค้างอยู่ในงาน)
+ const ids=new Set((P.roster||[]).map(m=>m.id));JK.forEach(b=>{s.jobs[b]=(Array.isArray(s.jobs[b])?s.jobs[b]:[]).filter(id=>ids.has(id)&&id!==P.head).slice(0,jSlots(s.b[b]|0));});return s;}
 const lvOf=(P,id)=>Math.max(0,Math.min(BMAX,(st(P).b[id]|0)));
 const mem=(P,id)=>(P.roster||[]).find(m=>m.id===id);
 const workers=(P,b)=>(st(P).jobs[b]||[]).map(id=>mem(P,id)).filter(Boolean);

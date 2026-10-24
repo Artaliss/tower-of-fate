@@ -99,7 +99,7 @@ const trainCost=lv=>Math.round((20+lv*lv*.25)*BONUS('train'));
 const RKUP=[null,[150,8],[300,14],[500,20],[800,26],[1200,32],[2000,38]];
 const MASTER={lv:45,gold:3000,rb:5,stage:10};
 const xpNeed=lv=>lv*10;
-window.HARD={fight,foe,STAGES,BUFF,PETB,petB,petPow,buffs,lvUp,trainCost,RKUP,MASTER};
+window.HARD={fight,foe,BUFF,petB,buffs,RKUP,MASTER};
 if(!window.META||typeof document==='undefined')return;
 
 // ---------- ส่วน UI ----------

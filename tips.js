@@ -128,7 +128,7 @@ const INTRO=[
 ['🧬','ตายแล้วให้ลูกศิษย์สืบทอดต่อ หรือจะเกิดใหม่ก็ได้']];
 
 const ls={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=window.META.esc;
 
 // ---- styles ----
 const css=document.createElement('style');css.textContent=`
@@ -173,10 +173,7 @@ const css=document.createElement('style');css.textContent=`
 .tofintro .ti-hd .ti-s{flex:1;color:var(--dim,#7d918a);font-weight:300;font-size:12px}
 .tofintro .ti-hd .ti-c{transition:transform .15s}
 .tofintro.shut .ti-hd .ti-c{transform:rotate(-90deg)}
-.tofintro .ti-row{display:flex;flex-wrap:wrap;gap:5px;padding:0 10px 8px}
-.tofintro.shut .ti-row,.tofintro.shut .ti-body{display:none}
-.tofintro .ti-row button{background:var(--panel,#15232a);border:1px solid var(--line2,#3d5a66);border-radius:14px;padding:3px 10px;color:var(--ink,#f1e7d0);font:400 12.5px/1.4 var(--fT,system-ui)}
-.tofintro .ti-row button[aria-expanded=true]{border-color:var(--gold2,#b97a22);color:var(--gold,#f4bb4a);background:#2a2412}
+.tofintro.shut .ti-body{display:none}
 .tofintro .ti-body{margin:0 10px 8px;padding:6px 8px;border-left:2px solid var(--gold2,#b97a22);color:var(--muted,#a3b5ad);line-height:1.5}
 .tofintro .ti-body p{margin:0 0 3px}
 .tofintro .ti-l{list-style:none;margin:0;padding:0}
@@ -193,7 +190,7 @@ function setP(src,on){PS[src]=!!on;const any=PS.tip||PS.help;if(any===pausedNow)
  try{document.dispatchEvent(new CustomEvent('tof:pause',{detail:{on:any}}));}catch(e){}}
 
 // ---- tagging ----
-const SEL='.chip,.rk,.cls,.pas,.odds,.kk,.ch .s span,.inv span,.mem .d,.party h2,.vs .side,.fatebox,.omenbox .ok,.formbar .btn,.kv dt,.judge,.cdl,.legend span,.track,.tag,.ledger li,.ledger div,.lgsum,.rar,.keytag,.trait,.cstats div,.msgs li';
+const SEL='.chip,.rk,.cls,.pas,.odds,.kk,.ch .s span,.inv span,.mem .d,.party h2,.vs .side,.fatebox,.omenbox .ok,.kv dt,.judge,.cdl,.legend span,.track,.tag,.ledger li,.ledger div,.lgsum,.rar,.keytag,.trait,.cstats div,.msgs li';
 function tag(root){
  for(const id in FIXED){const el=document.getElementById(id);if(el&&!el.dataset.tip)el.dataset.tip=FIXED[id];}
  const tr=document.getElementById('track');if(tr)tr.dataset.tip='boss';

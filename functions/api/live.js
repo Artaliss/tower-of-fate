@@ -11,18 +11,17 @@
 // counted with a read and cached in this isolate for CACHE_MS. KV-only = 2 (ticket + 'live'), and a beat writes when the sid
 // was last written >= 5 min ago.
 
-import { store, tix } from './store.js';
+import { store, tix, update } from './store.js';
+import { ensureSchema, hit } from './acctlib.js';
+import { fnv, json, thDay, sameOrigin } from './util.js';
 
 const WIN_MIN = 10, BEAT_MIN = 5, TK_TTL = 3 * 86400;
 const LIVE_MIN = 20, CACHE_MS = 20e3;
 const TK_IP_MAX = 60, TK_IP_WIN = 600e3;   // tickets / IP / 10 min (D1 mode); above it the run just gets no ticket
-const SEC = { 'Content-Type': 'application/json; charset=utf-8', 'X-Content-Type-Options': 'nosniff', 'Vary': 'Origin' };
-const json = (obj, status = 200, extra = {}) =>
-  new Response(JSON.stringify(obj), { status, headers: { ...SEC, 'Cache-Control': 'no-store', ...extra } });
+const SS_IP_MAX = 20;                      // share-counter posts / IP / day (D1 mode)
 const okSid = s => typeof s === 'string' && /^[a-z0-9]{6,24}$/.test(s);
 export const okDay = d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
 export const okDv = d => typeof d === 'string' && /^[0-9a-f]{16}$/.test(d);   // device id (v2.7), random per browser
-export const thDay = now => new Date(now + 7 * 3600e3).toISOString().slice(0, 10);
 
 // share analytics: which share buttons get pressed (counts only). Sent by leaderboard.js through {a:'ss'} (v2.7); old clients still send them with a score (scores.js)
 export const SS_KEYS = ['ao', 'mo', 'bo', 'img', 'line', 'x', 'threads', 'copy', 'native', 'save', 'note'];
@@ -40,17 +39,9 @@ export function addShare(v, day, ss) {
 }
 const nowMin = () => Math.floor(Date.now() / 60000);
 
-function sameOrigin(request) {
-  const self = new URL(request.url).origin;
-  const o = request.headers.get('Origin');
-  if (o) return o === self;
-  const r = request.headers.get('Referer');
-  if (r) { try { return new URL(r).origin === self; } catch { return false; } }
-  return request.method === 'GET';
-}
-
-export async function readLive(kv) {
-  let v = null; try { v = JSON.parse(await kv.get('live') || 'null'); } catch { }
+export async function readLive(kv) { return liveOf(await kv.get('live')); }
+export function liveOf(s) {
+  let v = null; try { v = JSON.parse(s || 'null'); } catch { }
   if (!v || typeof v !== 'object') v = {};
   if (!v.u || typeof v.u !== 'object') v.u = {};
   if (!v.d || typeof v.d !== 'object') v.d = {};
@@ -66,8 +57,9 @@ export function prune(v) {
 }
 export const liveN = v => Object.keys(v.u).length;
 export const writeLive = (kv, v) => kv.put('live', JSON.stringify(v));
-export const ipKey = request => fnvIp(request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown');
-function fnvIp(s) { let h = 2166136261 >>> 0; s = 'tof-ip|' + s; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+// change 'live' without losing a change made at the same moment (store.js update)
+export const editLive = (kv, fn) => update(kv, 'live', s => { const v = prune(liveOf(s)); fn(v); return JSON.stringify(prune(v)); });
+export const ipKey = request => fnv('tof-ip|' + (request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown'));
 
 // playing now, D1 mode: read-only count, cached per isolate so a burst of birth screens costs one query
 let liveC = { n: 0, at: 0 };
@@ -98,10 +90,9 @@ export async function onRequestPost({ request, env }) {
   if (b && b.a === 'ss') {
     const ss = shareStats(b.ss);
     if (!ss) return json({ error: 'invalid', field: 'ss' }, 400);
-    const v = prune(await readLive(kv));
-    addShare(v, thDay(Date.now()), ss);
-    prune(v);
-    await writeLive(kv, v);
+    const db = env.TOF_DB, now = Date.now();
+    if (db) { await ensureSchema(db); if (await hit(db, 'ss:' + ipKey(request), 86400e3, now, SS_IP_MAX) > SS_IP_MAX) return json({ error: 'rate-limited' }, 429, { 'Retry-After': '3600' }); }
+    await editLive(kv, v => addShare(v, thDay(now), ss));
     return json({ ok: true, ss: 1 });
   }
   if (!b || !okSid(b.sid)) return json({ error: 'sid' }, 400);

@@ -7,7 +7,7 @@
 'use strict';
 if(!window.META)return;
 const M=window.META,esc=M.esc,FK='tof-wev-force',WK='tof-wev-world',WORLD_P=.03;
-const isObj=o=>!!o&&typeof o==='object'&&!Array.isArray(o);
+const isObj=M.isObj;
 const TH_M=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 // mod = ตัวคูณ R.mod ของรอบ (regen บวกเพิ่ม) · sp = ตัวคูณน้ำหนักเหตุการณ์พิเศษ · opt = ต้องกดเข้าร่วมเองในแท็บ · sh = สรุปสั้นบนแบนเนอร์
 const EVS=[

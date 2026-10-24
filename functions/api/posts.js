@@ -12,44 +12,18 @@
 // POST {a:'react', id}        -> {ok, rm, dup?}     (repeat from the same IP: no write)
 // POST {a:'report', id}       -> {ok, dup?}         (hidden once rp >= REPORT_HIDE distinct IPs)
 
-import { store } from './store.js';
+import { store, update } from './store.js';
+import { fnv, clean, json, isInt, sameOrigin, RANKS, CLS, DRG } from './util.js';
 
 const KEY = 'posts', MAX_POSTS = 200, GET_N = 50, MAX_BODY = 2048;
 const Q_MIN = 4, Q_MAX = 300;
 const POST_PER_HOUR = 3, ACT_PER_HOUR = 40, GLOBAL_POST_PER_HOUR = 40;
 const POST_PER_DAY_DEV = 8, DAY = 86400e3;   // v2.7 per device id
 const REPORT_HIDE = 3, RING = 1500;
-const RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'];
-const CLS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra', 'dsl', 'nec', 'ang'];
 const FORMS = ['slime', 'human', ''];
-const DRG = ['', 'n', 'f', 's', 'x'];
 const HOUR = 3600e3;
 
-// ---- same helpers as scores.js ----
-function fnv(s) { let h = 2166136261 >>> 0; s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
-function clean(v, max) {
-  let s = typeof v === 'string' ? v : '';
-  s = s.replace(/<[^>]*>/g, '')
-    .replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g, '')
-    .replace(/[<>"'`\\]/g, '').replace(/\s+/g, ' ').trim();
-  return Array.from(s).slice(0, max).join('').trim();
-}
-// -----------------------------------
-
-const SEC = { 'Content-Type': 'application/json; charset=utf-8', 'X-Content-Type-Options': 'nosniff', 'Vary': 'Origin' };
-const json = (obj, status = 200, extra = {}) =>
-  new Response(JSON.stringify(obj), { status, headers: { ...SEC, 'Cache-Control': 'no-store', ...extra } });
-const isInt = (v, lo, hi) => typeof v === 'number' && Number.isInteger(v) && v >= lo && v <= hi;
-const okId = s => typeof s === 'string' && /^[a-z0-9]{6,16}$/.test(s);
-
-function sameOrigin(request) {
-  const self = new URL(request.url).origin;
-  const o = request.headers.get('Origin');
-  if (o) return o === self;
-  const r = request.headers.get('Referer');
-  if (r) { try { return new URL(r).origin === self; } catch { return false; } }
-  return request.method === 'GET';
-}
+const okId = s => typeof s === 'string' && /^[a-z0-9]{6,16}$/.test(s);   // post id (not the 9-char id in util.js)
 
 // ---- crisis check (v2.7, keep identical to share.js): wanting to die or hurting oneself. Negations ("ไม่อยากตาย", "don't want to die") are dropped first ----
 const CR_SQ=/[\s\-_.,!?*~'"()[\]{}|/\\:;ๆ]+/g,CR_NEG_TH=/ไม่(ได้|เคย)?อยาก(ไป)?ตาย/g,CR_NEG_EN=/\b(do\s*n[o']?t|never|not|no)\s*(want|wanna)\s*(to\s*)?die\b|\bsuicide\s*squad\b/g;
@@ -100,8 +74,9 @@ export function summary(b) {
   return s;
 }
 
-async function read(kv, opt) {
-  let v = null; try { v = JSON.parse(await kv.get(KEY, opt) || 'null'); } catch { }
+const read = async (kv, opt) => parse(await kv.get(KEY, opt));
+function parse(s) {
+  let v = null; try { v = JSON.parse(s || 'null'); } catch { }
   if (!v || typeof v !== 'object') v = {};
   if (!Array.isArray(v.p)) v.p = [];
   for (const k of ['qp', 'qa', 'qd']) if (!v[k] || typeof v[k] !== 'object') v[k] = {};
@@ -144,47 +119,57 @@ export async function onRequestPost({ request, env }) {
     if (ql > Q_MAX || (ql > 0 && ql < Q_MIN)) return json({ error: 'len', min: Q_MIN, max: Q_MAX }, 400);
     const why = q ? (crisis(q) ? 'crisis' : screen(q)) : '';
     if (why) return json({ error: 'filtered', why }, 400);
-    const v = await read(kv);
-    pruneQ(v.qp, now); pruneQ(v.qa, now); pruneQ(v.qd, now, DAY);
-    const dv = typeof b.dv === 'string' && /^[0-9a-f]{16}$/.test(b.dv) ? fnv('tof-dv|' + b.dv) : '';
-    const myDev = dv ? v.qd[dv] || [] : [];
-    if (myDev.length >= POST_PER_DAY_DEV) {
-      const wait = Math.max(1, Math.ceil((Math.min(...myDev) + DAY - now) / 1000));
-      return json({ error: 'rate-limited', scope: 'dev', max: POST_PER_DAY_DEV, retryAfter: wait }, 429, { 'Retry-After': String(wait) });
-    }
-    const mine = v.qp[ip] || [];
-    if (mine.length >= POST_PER_HOUR) {
-      const wait = Math.max(1, Math.ceil((Math.min(...mine) + HOUR - now) / 1000));
-      return json({ error: 'rate-limited', retryAfter: wait }, 429, { 'Retry-After': String(wait) });
-    }
-    let all = 0; for (const k in v.qp) all += v.qp[k].length;
-    if (all >= GLOBAL_POST_PER_HOUR) return json({ error: 'busy' }, 429, { 'Retry-After': '600' });
-    const k = fnv(JSON.stringify(s) + '|' + q);
-    if (v.p.some(p => p && p.k === k)) return json({ error: 'dup' }, 409);
-    const post = { id: crypto.randomUUID().replace(/-/g, '').slice(0, 10), t: now, s, q, rm: 0, rp: 0, k };
-    v.p.unshift(post); v.p.length = Math.min(v.p.length, MAX_POSTS);
-    v.qp[ip] = [...mine, now];
-    if (dv) v.qd[dv] = [...myDev, now];
-    await kv.put(KEY, JSON.stringify(v));
-    return json({ ok: true, post: pub(post) });
+    // update() re-runs this on a fresh copy if someone else wrote 'posts' in between, so no react or post is lost
+    let res = null;
+    await update(kv, KEY, str => {
+      const v = parse(str);
+      pruneQ(v.qp, now); pruneQ(v.qa, now); pruneQ(v.qd, now, DAY);
+      const dv = typeof b.dv === 'string' && /^[0-9a-f]{16}$/.test(b.dv) ? fnv('tof-dv|' + b.dv) : '';
+      const myDev = dv ? v.qd[dv] || [] : [];
+      if (myDev.length >= POST_PER_DAY_DEV) {
+        const wait = Math.max(1, Math.ceil((Math.min(...myDev) + DAY - now) / 1000));
+        res = json({ error: 'rate-limited', scope: 'dev', max: POST_PER_DAY_DEV, retryAfter: wait }, 429, { 'Retry-After': String(wait) }); return null;
+      }
+      const mine = v.qp[ip] || [];
+      if (mine.length >= POST_PER_HOUR) {
+        const wait = Math.max(1, Math.ceil((Math.min(...mine) + HOUR - now) / 1000));
+        res = json({ error: 'rate-limited', retryAfter: wait }, 429, { 'Retry-After': String(wait) }); return null;
+      }
+      let all = 0; for (const k in v.qp) all += v.qp[k].length;
+      if (all >= GLOBAL_POST_PER_HOUR) { res = json({ error: 'busy' }, 429, { 'Retry-After': '600' }); return null; }
+      const k = fnv(JSON.stringify(s) + '|' + q);
+      if (v.p.some(p => p && p.k === k)) { res = json({ error: 'dup' }, 409); return null; }
+      const post = { id: crypto.randomUUID().replace(/-/g, '').slice(0, 10), t: now, s, q, rm: 0, rp: 0, k };
+      v.p.unshift(post); v.p.length = Math.min(v.p.length, MAX_POSTS);
+      v.qp[ip] = [...mine, now];
+      if (dv) v.qd[dv] = [...myDev, now];
+      res = json({ ok: true, post: pub(post) });
+      return JSON.stringify(v);
+    });
+    return res;
   }
 
   if (b.a === 'react' || b.a === 'report') {
     if (!okId(b.id)) return json({ error: 'invalid', field: 'id' }, 400);
-    const v = await read(kv);
-    const p = v.p.find(x => x && x.id === b.id);
-    if (!p || p.x) return json({ error: 'not-found' }, 404);
-    const ring = b.a === 'react' ? 'rk' : 'pk', key = ip + ':' + b.id;
-    if (v[ring].includes(key)) return json({ ok: true, dup: true, rm: p.rm | 0 }); // repeat: no write
-    pruneQ(v.qp, now); pruneQ(v.qa, now);
-    const acts = v.qa[ip] || [];
-    if (acts.length >= ACT_PER_HOUR) return json({ error: 'rate-limited', retryAfter: 600 }, 429, { 'Retry-After': '600' });
-    v.qa[ip] = [...acts, now];
-    v[ring].push(key); if (v[ring].length > RING) v[ring].splice(0, v[ring].length - RING);
-    if (b.a === 'react') p.rm = (p.rm | 0) + 1;
-    else { p.rp = (p.rp | 0) + 1; if (p.rp >= REPORT_HIDE) p.x = 1; }
-    await kv.put(KEY, JSON.stringify(v));
-    return json({ ok: true, rm: p.rm | 0 });
+    // update() re-runs this on a fresh copy if someone else wrote 'posts' in between, so no react or post is lost
+    let res = null;
+    await update(kv, KEY, str => {
+      const v = parse(str);
+      const p = v.p.find(x => x && x.id === b.id);
+      if (!p || p.x) { res = json({ error: 'not-found' }, 404); return null; }
+      const ring = b.a === 'react' ? 'rk' : 'pk', key = ip + ':' + b.id;
+      if (v[ring].includes(key)) { res = json({ ok: true, dup: true, rm: p.rm | 0 }); return null; } // repeat: no write
+      pruneQ(v.qp, now); pruneQ(v.qa, now);
+      const acts = v.qa[ip] || [];
+      if (acts.length >= ACT_PER_HOUR) { res = json({ error: 'rate-limited', retryAfter: 600 }, 429, { 'Retry-After': '600' }); return null; }
+      v.qa[ip] = [...acts, now];
+      v[ring].push(key); if (v[ring].length > RING) v[ring].splice(0, v[ring].length - RING);
+      if (b.a === 'react') p.rm = (p.rm | 0) + 1;
+      else { p.rp = (p.rp | 0) + 1; if (p.rp >= REPORT_HIDE) p.x = 1; }
+      res = json({ ok: true, rm: p.rm | 0 });
+      return JSON.stringify(v);
+    });
+    return res;
   }
   return json({ error: 'a' }, 400);
 }

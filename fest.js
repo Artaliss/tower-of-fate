@@ -64,7 +64,7 @@ function upcoming(){const d=new Date(),A=active();return FESTS.map(F=>{let s=new
  return{F,s,on:!!A&&A.F===F,days:Math.ceil((s-d)/864e5)};}).sort((x,y)=>(y.on-x.on)||(x.s-y.s));}
 
 // ---------- ข้อมูล ----------
-const isObj=o=>!!o&&typeof o==='object'&&!Array.isArray(o);
+const isObj=M.isObj;
 function st(P){if(!isObj(P.mod))P.mod={};const m=P.mod.fest=isObj(P.mod.fest)?P.mod.fest:{};['ev','own','wear'].forEach(k=>{if(!isObj(m[k]))m[k]={};});['coins','stash'].forEach(k=>{if(!Array.isArray(m[k]))m[k]=[];});return m;}
 function ev(m,inst){const e=m.ev[inst]=Object.assign({item:0,got:0,runs:0,bosses:0,maxFl:0,hard:0,buy:0,kills:0,wins:0,good:0,petRuns:0,compRuns:0,potRuns:0,clanRuns:0,curseRuns:0,bonus:0},isObj(m.ev[inst])?m.ev[inst]:{});if(!isObj(e.q))e.q={};return e;}
 const joined=m=>Object.keys(m.ev).filter(k=>(m.ev[k].got|0)>0);

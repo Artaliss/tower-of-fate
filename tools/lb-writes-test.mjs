@@ -18,21 +18,23 @@ Math.random = () => 0.5;   // no random sweeps inside a request
 
 // ---- mock D1 ----
 function mockD1() {
-  const T = { kv: new Map(), tix: new Map() };
+  const T = { kv: new Map(), tix: new Map(), lim: new Map() };
   const st = { w: 0, r: 0, sweepable: 0, d1: 0 };
   const run = (sql, a) => {
     const s = sql.replace(/\s+/g, ' ').trim();
     let m;
-    if (/^CREATE /i.test(s)) return { meta: { changes: 0 } };
-    if (s.startsWith('SELECT v, exp FROM kv WHERE k = ?')) { st.r++; const x = T.kv.get(a[0]); return { row: x ? { v: x.v, exp: x.exp } : null }; }
+    if (/^(CREATE|ALTER) /i.test(s)) return { meta: { changes: 0 } };
+    if (s.startsWith('SELECT v, exp')) { st.r++; const x = T.kv.get(a[0]); return { row: x ? { v: x.v, exp: x.exp, ver: x.ver | 0 } : null }; }
+    if (s.startsWith('UPDATE kv SET v = ?, ver = ver + 1 WHERE k = ? AND ver = ?')) { const x = T.kv.get(a[1]); if (!x || (x.ver | 0) !== a[2]) return { meta: { changes: 0 } }; x.v = a[0]; x.ver = (x.ver | 0) + 1; st.w++; st.d1 += 2; return { meta: { changes: 1 } }; }
+    if (s.startsWith('INSERT INTO kv') && s.includes('DO NOTHING')) { if (T.kv.has(a[0])) return { meta: { changes: 0 } }; T.kv.set(a[0], { v: a[1], exp: null, ver: 0 }); st.w++; st.d1 += 2; return { meta: { changes: 1 } }; }
+    if (s.startsWith('INSERT INTO acct_lim')) { const x = T.lim.get(a[0]); if (x && x.exp > a[2] && x.n > a[5]) return { row: null }; const n = x && x.exp > a[2] ? x.n + 1 : 1; T.lim.set(a[0], { n, exp: x && x.exp > a[2] ? x.exp : a[1] }); st.w++; st.d1 += 2; if (!x) st.sweepable++; return { row: { n } }; }
     if (s.startsWith('INSERT INTO kv')) { const had = T.kv.has(a[0]); T.kv.set(a[0], { v: a[1], exp: a[2] }); st.w++; st.d1 += 2; if (!had && a[2]) st.sweepable++; return { meta: { changes: 1 } }; }
     if (s.startsWith('DELETE FROM kv')) { let n = 0; for (const [k, x] of T.kv) if (x.exp != null && x.exp < a[0]) { T.kv.delete(k); n++; } st.w += n; return { meta: { changes: n } }; }
     if (s.startsWith('INSERT INTO tix')) { T.tix.set(a[0] + ':' + a[1], { t: a[0], r: a[1], ip: a[2], dv: a[3], u: 0 }); st.w++; st.d1++; st.sweepable++; return { meta: { changes: 1 } }; }
     if (s.startsWith('SELECT ip, dv, u FROM tix WHERE t = ? AND r = ?')) { st.r++; const x = T.tix.get(a[0] + ':' + a[1]); return { row: x ? { ip: x.ip, dv: x.dv, u: x.u } : null }; }
     if (s.startsWith('UPDATE tix SET u = 1 WHERE t = ? AND r = ? AND u = 0')) { const x = T.tix.get(a[0] + ':' + a[1]); if (x && x.u === 0) { x.u = 1; st.w++; st.d1++; return { meta: { changes: 1 } }; } return { meta: { changes: 0 } }; }
-    if ((m = s.match(/^SELECT COUNT\(\*\) AS n FROM tix WHERE t > \? AND (u = 0|ip = \?)$/))) {
-      let n = 0; for (const x of T.tix.values()) if (x.t > a[0] && (m[1] === 'u = 0' ? x.u === 0 : x.ip === a[1])) { n++; } st.r += n; return { row: { n } };
-    }
+    if (s === 'SELECT COUNT(*) AS n FROM tix WHERE t > ? AND u = 0') { let n = 0; for (const x of T.tix.values()) if (x.t > a[0] && x.u === 0) n++; st.r += n; return { row: { n } }; }
+    if (s === 'SELECT COUNT(*) AS n FROM tix WHERE ip = ? AND t > ?') { let n = 0; for (const x of T.tix.values()) if (x.ip === a[0] && x.t > a[1]) n++; st.r += n; return { row: { n } }; }
     if (s.startsWith('DELETE FROM tix WHERE t < ?')) { let n = 0; for (const [k, x] of T.tix) if (x.t < a[0]) { T.tix.delete(k); n++; } st.w += n; return { meta: { changes: n } }; }
     throw new Error('mock D1: unknown SQL ' + s);
   };
@@ -41,6 +43,7 @@ function mockD1() {
       const mk = a => ({ bind: (...b) => mk(b), run: async () => run(sql, a), first: async () => (run(sql, a).row ?? null), all: async () => ({ results: [run(sql, a).row].filter(Boolean) }) });
       return mk([]);
     },
+    async batch(L) { const out = []; for (const q of L) out.push(await q.run()); return out; },
   };
   return { db, st, T };
 }

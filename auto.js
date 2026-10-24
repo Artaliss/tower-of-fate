@@ -55,7 +55,6 @@ const pathOf=R=>PATHS[cid(R)]||null;
 const boneN=R=>2+(pathTier(R)>=1?1:0)+(pathTier(R)>=3?1:0);
 const bonePw=R=>(4+R.floor*.7)*1.3*(1+.12*pathTier(R));
 const pathTier=R=>{const v=R&&R.path||0;let t=0;for(const x of PATH_T)if(v>=x&&(x<PATH_T[2]||(R.pathHi||0)>=3))t++;return t;}; // v2.7: the last tier is won in a contest (crownWin)
-const pathName=R=>{const P=pathOf(R),t=pathTier(R);return P&&t?P.t[t-1]:'';};
 const pathPts=(R,tg)=>{if(!tg||!tg.length)return 0;const M=PATH_TG[cid(R)]||{};let s=0;for(const x of tg)s+=M[x]||0;return s;};
 // regex fallback for key moments without explicit tags (story arcs)
 const TG_RX=[['steal',/ขโมย|ปล้น|ล้วง|ฉก|ริบ/],['trick',/หลอก|โกง|ต้มตุ๋น/],['sneak',/แอบ|ย่อง|อ้อม|หลบ/],['fight',/สู้|ดวล|ประลอง|บุก|ท้า/],['guard',/ปกป้อง|คุ้มกัน|ขวาง/],
@@ -2080,10 +2079,10 @@ Object.assign(SPECIAL,{legpet:{w:1,ok:R=>R.floor>=61,mk(R,K){const f=R.floor,p=R
    else{R.map[f-1]='good';h.hp=h.mhp;h.luk+=2;R.karma+=2;say(R,out,`${PETS[p].n}แตะหน้าผากคุณเบาๆ ความเหนื่อยหายไปหมด พอเงยหน้าขึ้นมันก็ไม่อยู่แล้ว`,'good');}}}});
 Object.assign(TIER,{legpet:'l'});SP_BI.legpet=[3,4];
 /*SIM-END*/
-if(typeof document==='undefined'){window.AUTO_SIM={SPECIAL,ARCS,DRAMA,PATHS,pathTier,MFIT,secPrep,BFIT,DAYS,dayHit,secEn,secFight,secOpts,estimateWin,fight,SEC_K,DRG,rollHero,HZ,LX,pRoll,project,hzM,autoLife,newRun,planFloor,applyKey,mkKey,BAL,RUN_OMENS,STANCES};return;}
+if(typeof document==='undefined'){window.AUTO_SIM={rollHero,HZ,LX,pRoll,autoLife};return;}
 
 // ================= UI =================
-const {heroSpr,MSPR,BSPR,PSPR,PROPS,COIN,ICONS,sprCanvas,blit,bgImg,bgDraw,drawOverlay,drawProp,compSpr,compKey}=window.ART;
+const {heroSpr,MSPR,BSPR,PSPR,PROPS,COIN,ICONS,sprCanvas,blit,bgImg,bgDraw,drawOverlay,drawProp,compSpr,compKey,enSpr,MAPC,cineFrame}=window.ART;
 const AUDIO=window.AUDIO;
 // class special buff achievements: R.spA collects flags during the run (headless cohort lives never reach here)
 const SP_NEC=50; // sim: a necromancer life raises ~38 on average, 30 was reached by 82%
@@ -2096,7 +2095,7 @@ function spGrant(R){if(!R||!window.ACH||!window.ACH.grant)return;const L=[...(R.
  L.forEach(id=>{try{window.ACH.grant(id);}catch(e){}});}
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $=id=>document.getElementById(id);
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=window.META.esc;
 const fmt=n=>Math.round(n).toLocaleString('th-TH');
 const BASE_MS=5000; // one floor lasts 5 s at 1x (speed divides it: 16x = 0.31 s)
 const SPEEDS=[1,2,4,8,16];
@@ -2145,8 +2144,6 @@ function blink(spr,x,y,flip,ph,t){if(RM||!spr||spr.squish)return;const per=2900+
  for(const [i,yy,c] of spr._eyes){cx.fillStyle=c;cx.fillRect(Math.round(x)+(flip?spr.w-1-i:i),Math.round(y)+yy,1,1);}}
 const CSC=new Map();
 function cSpr(c){const id=c.n+'|'+c.cls+'|'+c.tr+'|'+(c.legend?1:0);let v=CSC.get(id);if(!v){v={s:compSpr(c),k:'c'+compKey(c)};if(CSC.size>40)CSC.clear();CSC.set(id,v);}return v;}
-function enSpr(en){if(!en)return null;if(en.cls)return{spr:heroSpr(en.cls),x:128,y:84,flip:true,key:'c'+en.cls};
- const big=en.boss||en.big,spr=big?BSPR[en.id]:MSPR[en.id];if(!spr)return null;if(/^hoard_/.test(en.id))return{spr,x:130,y:62,flip:false,key:en.id};return{spr,x:big?118:128,y:big?70:84,flip:!big&&['wolf','sala'].indexOf(en.id)<0?false:true,key:en.id};}
 const ePos=en=>en&&/^hoard_/.test(en.id||'')?{x:160,y:82}:en&&(en.boss||en.big)?{x:134,y:86}:{x:136,y:92};
 const FIRE=['#fff6c0','#ffd04a','#ff8a2a','#ff5a1a'];
 function sprPix(spr,flip){const k=flip?'_pxf':'_px';if(spr[k])return spr[k];const a=[];
@@ -2474,7 +2471,7 @@ function causeStat(fl,ck){const r=loadPool().r.filter(x=>x[1]!=='win');if(r.leng
 const SAVEK='tof-auto-save-v1',SAVE_V=2; // v2: stance, cohort, milestones, lineage fields (v1 saves migrate on load)
 function clearSave(){try{localStorage.removeItem(SAVEK);}catch(e){}}
 // called on every render (floor change, decision, combat, pause); timers and DOM handles are never written
-function saveRun(){if(!S)return;
+function saveRun(){if(!S||window.__tofMoving)return;
  if(S.phase==='birth'){try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:'birth',hero:S.hero,rerolled:!!S.rerolled,bo:S.bo||null}));}catch(e){}return;} // refresh cannot re-roll the hero
  if(!S.R)return;if(secOpen(S.R)){try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:'secret',runId:S.runId,t0:S.t0||0,hero:S.hero,R:S.R,frame:S.frame}));}catch(e){}return;}
  if(!S.R.alive||S.R.won){finalizeRun();return;}if(!['flow','decide','combat'].includes(S.phase))return;
@@ -2896,7 +2893,6 @@ function toEnd(){clearTimeout(dyT);if(S.phase!=='dying')return;S.phase='end';S.s
 function renderDying(){const fr=S.frame||{};card.innerHTML=`<div class="tag" style="color:var(--bad)">${esc(fr.tag||`ชั้น ${S.R.floor}`)}</div><h3>ถึงฆาตแล้ว</h3><p>${esc(S.R.cause)}</p>
  <ul class="msgs">${(fr.msgs||[]).slice(0,6).map(m=>`<li class="${m.c}">${esc(m.t)}</li>`).join('')}</ul>
  <div class="acts"><button class="btn pri" id="btnGrave" data-enter>ไปที่แผ่นจารึก<span class="kb">[Enter]</span></button></div>`;$('btnGrave').onclick=toEnd;}
-const MAPC={fight:'#c0503a',treasure:'#e8b840',trap:'#8a4ab0',good:'#5fc06a',evil:'#6a1a2a',pet:'#ea9bbd',comp:'#4fa6e0',boss:'#ff8a2a',warp:'#7ae8f0',flee:'#8a9aa0',calm:'#4a5a60',bad:'#8a6a4a',farm:'#2a6a5a',death:'#f1e7d0'};
 const MAPN={fight:'ต่อสู้',treasure:'สมบัติ',trap:'กับดัก/บาดเจ็บ',good:'กรรมดี',evil:'กรรมชั่ว',pet:'สัตว์เลี้ยง',comp:'เพื่อน',boss:'บอส',warp:'วาร์ป',flee:'หนี',calm:'สงบ',bad:'โชคร้าย/ลางร้าย',death:'จุดจบ'};
 function judge(k){for(const j of JUDGE)if(k>=j.min)return j.t;return JUDGE[JUDGE.length-1].t;}
 function fateLine(R){const gm=R.mN?Math.exp(R.mLog/R.mN):1,sh=R.fateShift;
@@ -3031,39 +3027,12 @@ function momVis(m){if(m.v)return m.v;const id=String(m.tid||''),f=m.f||1;
  if(id.startsWith('pet:')&&PSPR[id.slice(4)])return{t:'pet',p:id.slice(4)};if(id.startsWith('comp:'))return{t:'comp',cls:'war',c:{n:m.t||'',cls:'war',tr:id.slice(5)}};
  if(id.startsWith('ev:')){const E=EVENTS[+id.slice(3)];if(E)return evVis(null,E);}
  if(id==='boss')return{t:'en',en:{id:BOSSES[biome(f)].id,boss:true}};if(id==='omen')return{t:'prop',pr:'portal'};return{t:'prop',pr:'npc'};}
-function drawVis(x,v,t,bob){if(!v)return;
- if(v.t==='en'){const E=enSpr(v.en);if(!E)return;blit(x,E.spr,E.x,v.en.cls?84+bob:v.en.boss?70+bob:84,{flip:E.flip,key:E.key});}
- else if(v.t==='prop'){const N=window.ART.NPCS||{};drawProp(x,v.fb&&!N[v.pr]?v.fb:v.pr,t);}
- else if(v.t==='pet'){if(PSPR[v.p])blit(x,PSPR[v.p],132,91+bob,{key:'p'+v.p});}
- else if(v.t==='comp'){const s=v.c&&v.c.cls?cSpr(v.c):{s:heroSpr(v.cls||'war'),k:'c'+(v.cls||'war')};blit(x,s.s,128,84+bob,{flip:true,key:s.k});}}
 const clsIdOf=n=>{const c=CLASSES.find(c=>c.n===n);return c?c.id:'war';};
 function cineMourners(R){const fl=R.won?100:R.floor,M=[];
  R.comps.forEach(c=>{const v=cSpr(c);M.push({s:v.s,k:v.k,n:c.n});});
  (R.coh||[]).filter(c=>c.won||c.f>fl).forEach(c=>{const cc={n:c.n,cls:clsIdOf(c.cn),tr:CTR[shash(c.n)%CTR.length]};M.push({s:compSpr(cc),k:'cp'+compKey(cc),n:c.n,coh:1});});
  const N=window.ART.NPCS||{},seen={};[...R.hist].reverse().forEach(m=>{const v=m.v;if(v&&v.t==='prop'&&N[v.pr]&&!seen[v.pr]&&Object.keys(seen).length<2){seen[v.pr]=1;M.push({s:N[v.pr],k:'npc:'+v.pr,npc:1});}});
  const ppl=M.slice(0,6);R.pets.forEach(p=>{if(PSPR[p])ppl.push({s:PSPR[p],k:'p'+p,pet:1,n:PETS[p].n});});return ppl.slice(0,8);}
-const FUN_X=[68,108,52,124,36,140,20,156];
-function drawFuneral(x,t){const R=S.R,h=R.h,won=R.won,A=window.ART,bob=t?Math.round(Math.sin(t/260)):0;A.funeralDraw(x,won);
- const M=S.cineM||[];
- if(won){const hs=heroSpr(CLASSES[h.cls].id,look(h));x.fillStyle='rgba(244,187,74,0.16)';x.fillRect(84,40,24,60);blit(x,hs,88,82+bob,{key:'h'+hs.id});}
- else{blit(x,A.STONE,90,86,{key:'stone',noShadow:true});x.fillStyle='#1a1418';x.fillRect(93,90,6,1);blit(x,A.WREATH,92,93,{key:'wreath',noShadow:true});
-  [[80,94],[110,94],[84,97],[106,97]].forEach(([X,Y],i)=>A.drawCandle(x,X,Y,t,i));}
- M.forEach((m,i)=>{const X=FUN_X[i],left=i%2===0,yy=m.pet?91:m.npc?88+(m.s.dy||0)+16-m.s.h:100-m.s.h;const sb=t&&!m.pet?Math.round(Math.sin(t/700+i)*.6):0;
-  if(m.npc&&m.s.al){x.globalAlpha=m.s.al;}blit(x,m.s,X,yy+sb,{flip:!left,key:m.k});x.globalAlpha=1;});
- if(S.cineRain){x.fillStyle='rgba(170,190,230,0.45)';for(let i=0;i<70;i++){const X=Math.floor((hash(i)*192+(t||0)*.04)%192),Y=Math.floor((hash(i+77)*128+(t||0)*.22)%128);x.fillRect(X,Y,1,3);}
-  x.fillStyle='rgba(20,24,40,0.18)';x.fillRect(0,0,192,128);}
- if(won){const T=t||900;for(let k=0;k<3;k++){const per=1900,tt=T+k*640,cyc=Math.floor(tt/per),q=(tt%per)/per,cx0=30+Math.floor(hash(cyc*3+k)*132),cy0=18+Math.floor(hash(cyc*5+k+1)*34),col=['#ffd04a','#ff6a8a','#7ae8f0','#b49af0'][(cyc+k)%4];
-  if(q<.22){x.fillStyle='#fff6c0';x.fillRect(cx0,Math.floor(100-(100-cy0)*(q/.22)),1,2);continue;}
-  const r=(q-.22)/.78,R0=4+r*16;x.globalAlpha=Math.max(0,1-r*1.1);x.fillStyle=col;for(let j=0;j<14;j++){const a=j/14*6.283;x.fillRect(Math.round(cx0+Math.cos(a)*R0),Math.round(cy0+Math.sin(a)*R0+r*r*6),1,1);}x.globalAlpha=1;}}}
-function drawCineFrame(x,fr,t){if(!fr)return;if(fr.kind==='fun'){drawFuneral(x,t);return;}
- const R=S.R,h=R.h,b=fr.kind==='birth'?0:biome(fr.f),hs=heroSpr(CLASSES[h.cls].id,look(h)),bob=t?Math.round(Math.sin(t/260)):0;
- bgDraw(x,b);decoDraw(x,b,h);drawOverlay(x,b,t||0);
- if(fr.kind==='birth'){x.fillStyle='rgba(244,187,74,0.14)';x.fillRect(84,0,24,100);x.fillStyle='#5a4a3a';x.fillRect(80,100,32,4);blit(x,hs,88,84+bob,{key:'h'+hs.id});return;}
- if(fr.kind==='death'){blit(x,PROPS.grave,88,84);x.globalAlpha=.55;blit(x,heroSpr('ghost',look(h)),88,60+(t?Math.round(Math.sin(t/500)*3):0),{key:'ghost'});x.globalAlpha=1;if(fr.v)drawVis(x,fr.v,t,bob);return;}
- if(fr.kind==='win'){R.comps.forEach((c,i)=>{const v=cSpr(c);blit(x,v.s,62-i*16,84+bob,{key:v.k});});R.pets.forEach((p,i)=>{if(PSPR[p])blit(x,PSPR[p],112+i*14,91,{key:'p'+p});});
-  x.fillStyle='rgba(244,187,74,0.16)';x.fillRect(84,0,24,100);blit(x,hs,88,84+bob,{key:'h'+hs.id});
-  for(let i=0;i<8;i++){const a=(t||0)/700+i*.785;x.fillStyle=i%2?'#fff6c0':'#ffd04a';x.fillRect(96+Math.round(Math.cos(a)*22),80+Math.round(Math.sin(a)*14),1,1);}return;}
- blit(x,hs,52,84+bob,{key:'h'+hs.id});drawVis(x,fr.v,t,bob);}
 const cauShort=s=>String(s||'').replace(/\s*\(ชั้น \d+\)\s*$/,'');
 function cineSteps(R){const h=R.h,won=R.won,fl=won?100:R.floor,C=CLASSES[h.cls],St=[],hold=(c,u)=>Math.min(3200,2100+(String(c||'').length+String(u||'').length*.4)*20)+420;
  St.push({k:'t',a:`ชีวิตของ ${h.name}`,b:`แรงค์ ${RANKS[h.rank].k} · ${C.n} · จาก${h.village}`,d:2100});
@@ -3102,7 +3071,7 @@ function cineStrip(f,dead){const cells=CINE.el.querySelectorAll('.cstrip i'),R=S
  if(dead&&cells[f-1])cells[f-1].classList.add('dead');CINE.lit=Math.max(a,f);}
 function cineShow(s){const el=CINE.el;
  if(s.k==='t'){cineMode('t');el.querySelector('.cta').textContent=s.a;el.querySelector('.ctb').textContent=s.b||'';reanim(el.querySelector('.ct'));return;}
- if(s.k==='m'){cineMode(s.fun?'f':'m');const fr=s.fr,nx=1-CINE.cur,N=CINE.cv[nx];CINE.fr[nx]=fr;drawCineFrame(N.x,fr,performance.now());N.c.classList.add('on');CINE.cv[CINE.cur].c.classList.remove('on');CINE.cur=nx;
+ if(s.k==='m'){cineMode(s.fun?'f':'m');const fr=s.fr,nx=1-CINE.cur,N=CINE.cv[nx];CINE.fr[nx]=fr;cineFrame(N.x,fr,S.cineO,performance.now());N.c.classList.add('on');CINE.cv[CINE.cur].c.classList.remove('on');CINE.cur=nx;
   el.querySelector('.cfl').textContent=fr.kind==='fun'?(S.R.won?'ยอดหอคอย':'เชิงหอคอย'):`ชั้น ${fr.f}`;el.querySelector('.ccap').textContent=fr.cap||'';el.querySelector('.csub').textContent=fr.sub||'';
   el.querySelector('.cfr').classList.toggle('leg',fr.rar==='l');reanim(el.querySelector('.ccap'));reanim(el.querySelector('.csub'));reanim(el.querySelector('.cfl'));
   if(fr.kind!=='fun')cineStrip(fr.f,fr.kind==='death');
@@ -3118,14 +3087,14 @@ function cineTap(){if(!CINE.on||CINE.static)return;if(performance.now()-CINE.st<
 function cineSkip(){const b=CINE.el&&CINE.el.querySelector('#cSkip');if(!b)return;if(CINE.arm){cineClose();return;}
  CINE.arm=1;b.textContent='แตะอีกครั้งเพื่อข้าม';b.classList.add('arm');clearTimeout(CINE.armT);CINE.armT=setTimeout(()=>{CINE.arm=0;b.textContent='ข้าม ⏭';b.classList.remove('arm');},3000);}
 function cineLoop(t){CINE.raf=requestAnimationFrame(cineLoop);if(t-(CINE.lt||0)<50)return;CINE.lt=t;
- CINE.cv.forEach((v,i)=>{if(CINE.fr[i]&&(i===CINE.cur||t-CINE.st<500))try{drawCineFrame(v.x,CINE.fr[i],t);}catch(e){}});}
+ CINE.cv.forEach((v,i)=>{if(CINE.fr[i]&&(i===CINE.cur||t-CINE.st<500))try{cineFrame(v.x,CINE.fr[i],S.cineO,t);}catch(e){}});}
 // prefers-reduced-motion: no timers or crossfades, everything laid out as one still page
 function cineStatic(){const el=CINE.el;CINE.static=true;el.dataset.mode='s';el.classList.add('static');const st=el.querySelector('.cstage'),s=CINE.steps;
  const T=s.filter(x=>x.k==='t'),F=s.filter(x=>x.k==='m'),E=s.find(x=>x.k==='e');
  const list=document.createElement('div');list.className='cslist';
  list.innerHTML=T.map(x=>`<div class="cst"><b>${esc(x.a)}</b>${x.b?`<span>${esc(x.b)}</span>`:''}</div>`).join('')+F.map((x,i)=>`<figure class="csf"><canvas width="384" height="256" data-i="${i}"></canvas><figcaption><span class="px">${x.fr.kind==='fun'?(S.R.won?'ยอดหอคอย':'เชิงหอคอย'):'ชั้น '+x.fr.f}</span><b>${esc(x.fr.cap||'')}</b><span>${esc(x.fr.sub||'')}</span></figcaption></figure>`).join('');
  st.querySelector('.ct').remove();st.querySelector('.cm').remove();st.insertBefore(list,st.firstChild);
- list.querySelectorAll('canvas').forEach(c=>{const x=c.getContext('2d');x.setTransform(2,0,0,2,0,0);x.imageSmoothingEnabled=false;try{drawCineFrame(x,F[+c.dataset.i].fr,0);}catch(e){}});
+ list.querySelectorAll('canvas').forEach(c=>{const x=c.getContext('2d');x.setTransform(2,0,0,2,0,0);x.imageSmoothingEnabled=false;try{cineFrame(x,F[+c.dataset.i].fr,S.cineO,0);}catch(e){}});
  el.querySelector('.cel').innerHTML=E.lines.map(t=>`<div class="vis">${esc(t)}</div>`).join('');const cc=el.querySelector('.cec');cc.textContent=E.close;cc.classList.add('vis');el.querySelector('#cGo').classList.add('vis');}
 function cineKey(e){if(!CINE.on)return;const k=e.key;if(k==='Tab')return;e.stopPropagation();
  if(k==='Escape'||k==='Esc'){e.preventDefault();cineClose();return;}
@@ -3134,6 +3103,7 @@ function cineKey(e){if(!CINE.on)return;const k=e.key;if(k==='Tab')return;e.stopP
  if(/^[1-4]$/.test(k))e.preventDefault();}
 window.addEventListener('keydown',cineKey,true);
 function cineStart(){const R=S.R;if(!R)return false;S.cineM=cineMourners(R);S.cineRain=!R.won&&((R.won?100:R.floor)<30||!!SUDDEN[R.ck]||!S.cineM.length||R.karma<-8);
+ {const h=R.h;S.cineO={won:R.won,hs:heroSpr(CLASSES[h.cls].id,look(h)),gh:heroSpr('ghost',look(h)),cm:R.comps.map(cSpr),pets:R.pets,M:S.cineM,rain:S.cineRain,deco:(x,b)=>decoDraw(x,b,h)};}
  CINE.steps=cineSteps(R);CINE.i=-1;CINE.cur=0;CINE.lit=0;CINE.fr=[null,null];CINE.arm=0;CINE.static=false;CINE.on=true;S.cineOn=true;
  cineBuild();const w=document.querySelector('.wrap');if(w)w.inert=true;endBar(false);
  try{AUDIO.hush&&AUDIO.hush(true);}catch(e){}

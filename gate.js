@@ -10,7 +10,7 @@ const FL=3,CMAP={war:'war',mag:'mag',arc:'arc',pri:'pri',rog:'arc',far:'war',dra
 const st=P=>P.mod.hire=Object.assign({cur:null,n:0},P.mod.hire||{});
 const upd=f=>{const P=M.load(),r=f(P,st(P));M.save(P);M.refresh();return r;};
 const trOf=id=>(C().TRAITS||[]).find(t=>t.id===id)||null;
-const clsN=id=>{const c=(C().CLASSES||[]).find(x=>x.id===id);return c?c.n:'';};
+const clsN=M.clsN;
 const fmt=n=>Math.round(n).toLocaleString();
 // อาชีพที่โชว์: สมาชิกตระกูลโชว์อาชีพจริง ถ้าในหอต้องสู้แบบอาชีพพื้นฐานอื่นก็บอกไว้ด้วย (เช่น ชาวไร่สู้แบบนักรบ)
 const clsTxt=o=>{const a=clsN(o.mc||o.cls),b=clsN(o.cls);return o.mc&&o.mc!==o.cls&&a?`${a} (สู้แบบ${b})`:b;};

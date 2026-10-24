@@ -2,7 +2,8 @@
 // POST {id} -> {ok, c, dup?}  one candle per memorial per IP per day (Thai date), at most ACT_PER_DAY actions per IP per day
 // storage: D1 tables from migrations/0001_memorial.sql; helpers shared with ./memorial.js
 
-import { json, okId, thDay, ipOf, sameOrigin, dbErr, dbOf, bump, readBody } from './memorial.js';
+import { ipOf, dbErr, dbOf, bump, readBody } from './memorial.js';
+import { json, okId, thDay, sameOrigin } from './util.js';
 
 const MAX_BODY = 256, ACT_PER_DAY = 60, DAY = 86400e3;
 

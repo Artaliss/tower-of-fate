@@ -14,17 +14,16 @@
 //         account name is read from D1 (acct_sess JOIN acct, one read, no write) and stored on the row as 'ac' (v0.3.5); never taken
 //         from the body. Bad/expired/missing token, or no account tables yet -> no 'ac', the score is still accepted.
 
-import { store, tix } from './store.js';
-import { who, okName } from './acctlib.js';
-import { readLive, prune, writeLive, okDay, okDv, thDay, shareStats, addShare } from './live.js';
+import { store, tix, update } from './store.js';
+import { who, okName, isAdmin, ensureSchema, hit } from './acctlib.js';
+import { editLive, okDay, okDv, ipKey, shareStats, addShare } from './live.js';
+import { fnv, clean, json, isInt, thDay, sameOrigin, RANKS, CLS, DRG } from './util.js';
 const TOP_N = 100, RECENT_N = 50, HOF_N = 100;
 const RL_MAX = 10, RL_WIN = 600;          // 10 posts / 10 min / IP
 const DV_MAX = 150;                       // posts / Thai day / device, per IP row (v2.7)
 const DUP_TTL = 86400;
 const MAX_BODY = 4096;
-const RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'];
-const CLS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra', 'dsl', 'nec', 'ang'];
-const DRG = ['', 'n', 'f', 's', 'x'];   // secret dragon floor result (v2.1) — not part of canon()
+const IP_TOP = 3;                         // ok rows one IP may hold in 'top' (its best ones); the IP hash is never sent out
 const CLAN = ['', 'f', 's', 'd'];       // family dragon mark (v2.1) — not part of canon()
 const FORMS = ['slime', 'human', ''];
 // hall of fame (v0.2.8): pet ids that may appear in lk.p (append new pets here and in leaderboard.js) and gear ids
@@ -49,16 +48,8 @@ export function implausible(e) {
   return '';
 }
 
-// ---- shared with leaderboard.js (keep identical) ----
-function fnv(s) { let h = 2166136261 >>> 0; s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
-function clean(v, max) {
-  let s = typeof v === 'string' ? v : '';
-  s = s.replace(/<[^>]*>/g, '')
-    .replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g, '')
-    .replace(/[<>"'`\\]/g, '').replace(/\s+/g, ' ').trim();
-  return Array.from(s).slice(0, max).join('').trim();
-}
-function canon(e) { return [e.name, e.village, e.rankK, e.clsId, e.form, e.floor, e.won ? 1 : 0, e.title, e.score, e.karma, e.gen, e.ach, e.date].join('|'); }
+// ---- shared with leaderboard.js (keep identical; fnv and clean are in util.js, tools/sync-check.js compares them) ----
+export function canon(e) { return [e.name, e.village, e.rankK, e.clsId, e.form, e.floor, e.won ? 1 : 0, e.title, e.score, e.karma, e.gen, e.ach, e.date].join('|'); }
 // lk = {f:'s'|'h', s:uint32 seed, p?:[pet id, max 2]} (v0.2.8), gear = [gear id, max 4]; anything else -> null (field dropped)
 function lookIn(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
@@ -74,8 +65,6 @@ function gearIn(v) {
   return g.length ? g : null;
 }
 // -----------------------------------------------------
-
-const isInt = (v, lo, hi) => typeof v === 'number' && Number.isInteger(v) && v >= lo && v <= hi;
 
 export function validate(b, now = Date.now()) {
   if (!b || typeof b !== 'object' || Array.isArray(b)) return { err: 'bad-json' };
@@ -127,15 +116,21 @@ export function hofMerge(hof, top, recent) {
   return out.sort((a, b) => b.date - a.date).slice(0, HOF_N);
 }
 
-// one row per IP for posts without a D1 ticket: {t, c} = posts in the current RL_WIN window, {d, k:{devHash: n}} = posts per device today
-async function limited(kv, ip, dv, now) {
+// posts without a D1 ticket. D1: atomic counters (acctlib.js hit) per IP per RL_WIN and per device per Thai day.
+// KV-only: one row per IP, {t, c} = posts in the current RL_WIN window, {d, k:{devHash: n}} = posts per device today
+async function limited(env, kv, ip, dv, now) {
+  const dk = dv ? fnv('tof-dv|' + dv) : '', db = env.TOF_DB;
+  if (db) {
+    if (await hit(db, 'rl:' + fnv(ip), RL_WIN * 1000, now, RL_MAX) > RL_MAX) return { wait: RL_WIN };
+    if (dk && await hit(db, 'dv:' + dk + ':' + thDay(now), 2 * 86400e3, now, DV_MAX) > DV_MAX) return { wait: 3600, dev: 1 };
+    return null;
+  }
   const key = 'rl:' + fnv(ip);
   let rl = null; try { rl = JSON.parse(await kv.get(key) || 'null'); } catch { }
   if (!rl || typeof rl !== 'object' || Array.isArray(rl)) rl = {};
   if (typeof rl.t !== 'number' || typeof rl.c !== 'number' || now - rl.t >= RL_WIN * 1000) { rl.t = now; rl.c = 0; }
   if (rl.d !== thDay(now) || !rl.k || typeof rl.k !== 'object') { rl.d = thDay(now); rl.k = {}; }
   if (rl.c >= RL_MAX) return { wait: Math.max(1, Math.ceil((rl.t + RL_WIN * 1000 - now) / 1000)) };
-  const dk = dv ? fnv('tof-dv|' + dv) : '';
   if (dk && (rl.k[dk] | 0) >= DV_MAX) return { wait: 3600, dev: 1 };
   rl.c++;
   if (dk) { rl.k[dk] = (rl.k[dk] | 0) + 1; const ks = Object.keys(rl.k); if (ks.length > 64) delete rl.k[ks[0]]; }
@@ -145,26 +140,27 @@ async function limited(kv, ip, dv, now) {
 
 export const cmp = (a, b) => (b.won - a.won) || (b.floor - a.floor) || (b.score - a.score) || (a.date - b.date);
 
-const SEC = {
-  'Content-Type': 'application/json; charset=utf-8',
-  'X-Content-Type-Options': 'nosniff',
-  'Vary': 'Origin',
-};
-const json = (obj, status = 200, extra = {}) =>
-  new Response(JSON.stringify(obj), { status, headers: { ...SEC, 'Cache-Control': 'no-store', ...extra } });
-
-async function getList(kv, key) {
-  try { const v = await kv.get(key); const a = v ? JSON.parse(v) : []; return Array.isArray(a) ? a : []; } catch { return []; }
+const listOf = s => { try { const a = s ? JSON.parse(s) : []; return Array.isArray(a) ? a : []; } catch { return []; } };
+const getList = async (kv, key) => { try { return listOf(await kv.get(key)); } catch { return []; } };
+const pubRow = ({ ip, ...y }) => y;
+// 'top' with e added: sorted, cut to TOP_N, each IP keeping only its IP_TOP best rows -> the new list, or null if e did not make it
+export function addTop(top, e) {
+  if (top.some(y => y && y.id === e.id)) return null;
+  const n = {};
+  const out = [...top, e].filter(Boolean).sort(cmp).filter(y => !y.ip || (n[y.ip] = (n[y.ip] | 0) + 1) <= IP_TOP).slice(0, TOP_N);
+  return out.some(y => y.id === e.id) ? out : null;
 }
 
-// same-origin only: reject requests whose Origin/Referer belongs to another site
-function sameOrigin(request) {
-  const self = new URL(request.url).origin;
-  const o = request.headers.get('Origin');
-  if (o) return o === self;
-  const r = request.headers.get('Referer');
-  if (r) { try { return new URL(r).origin === self; } catch { return false; } }
-  return request.method === 'GET'; // POST without Origin/Referer is not from our page
+// admin only (acctlib.js isAdmin, from the signed-in account in D1): remove one row from 'top', 'recent' and 'hof'
+async function del(env, kv, request, id) {
+  let u = null; try { u = env.TOF_DB && await who(env.TOF_DB, request, Date.now()); } catch { }
+  if (!u || !isAdmin(env, u.name)) return json({ error: 'forbidden' }, 403);
+  if (typeof id !== 'string' || !/^[a-z0-9]{1,16}$/.test(id)) return json({ error: 'invalid', field: 'id' }, 400);
+  let n = 0;
+  for (const k of ['top', 'recent', 'hof']) {
+    if (await update(kv, k, s => { const a = listOf(s), b = a.filter(y => !(y && y.id === id)); return b.length < a.length ? JSON.stringify(b) : null; })) n++;
+  }
+  return json({ ok: true, n });
 }
 
 export async function onRequestGet({ request, env }) {
@@ -177,7 +173,7 @@ export async function onRequestGet({ request, env }) {
     return json({ hof: hofMerge(hof, top, recent) }, 200, { 'Cache-Control': 'public, max-age=60' });
   }
   const [top, recent] = await Promise.all([getList(kv, 'top'), getList(kv, 'recent')]);
-  return json({ top, recent }, 200, { 'Cache-Control': 'public, max-age=30' });
+  return json({ top: top.map(pubRow), recent }, 200, { 'Cache-Control': 'public, max-age=30' });
 }
 
 export async function onRequestPost({ request, env }) {
@@ -190,36 +186,41 @@ export async function onRequestPost({ request, env }) {
   const text = await request.text();
   if (text.length > MAX_BODY) return json({ error: 'too-large' }, 413);
   let body; try { body = JSON.parse(text); } catch { return json({ error: 'bad-json' }, 400); }
+  if (body && body.a === 'del') return del(env, kv, request, body.id);
 
   const { e, x, err } = validate(body);
   if (err) return json({ error: 'invalid', field: err }, 400);
 
   const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
-  const now = Date.now(), T = tix(env);
+  const now = Date.now(), T = tix(env), db = env.TOF_DB;
   // which ticket: a D1 row (tix), else a KV ticket 'tk:<id>' (KV-only mode, or issued before the D1 cut)
   let tkv = null, how = '';
   if (x.tk && T) { try { tkv = await T.get(x.tk); } catch { } if (tkv) how = 'd1'; }
   if (x.tk && !tkv) { try { tkv = JSON.parse(await kv.get('tk:' + x.tk) || 'null'); } catch { } if (tkv && typeof tkv.t0 === 'number') how = 'kv'; else tkv = null; }
 
-  const [top, recent] = await Promise.all([getList(kv, 'top'), getList(kv, 'recent')]);
   if (how === 'd1') {
     // one score per ticket: the stamp is the dedupe, and tickets are already limited per IP when issued (live.js)
     if (tkv.u || !await T.use(x.tk)) return json({ ok: true, dup: true, id: e.id });
   } else {
-    // no D1 ticket: the same entry again is a dup (0 writes), otherwise one limiter row per IP
-    if (!x.tk && (recent.some(y => y && y.id === e.id) || top.some(y => y && y.id === e.id))) return json({ ok: true, dup: true, id: e.id });
-    const lim = await limited(kv, ip, x.dv, now);
+    // no D1 ticket: the same entry again is a dup (0 writes), otherwise the per-IP limiter
+    if (!x.tk) {
+      const [top, recent] = await Promise.all([getList(kv, 'top'), getList(kv, 'recent')]);
+      if (recent.some(y => y && y.id === e.id) || top.some(y => y && y.id === e.id)) return json({ ok: true, dup: true, id: e.id });
+    }
+    if (db) await ensureSchema(db);
+    const lim = await limited(env, kv, ip, x.dv, now);
     if (lim) return json(lim.dev ? { error: 'rate-limited', scope: 'dev', retryAfter: lim.wait } : { error: 'rate-limited', retryAfter: lim.wait }, 429, { 'Retry-After': String(lim.wait) });
     if (how === 'kv') {
+      // one score per KV ticket; with D1 the counter makes two posts sent at once count as one
       const dupKey = 'dup:tk:' + x.tk;
-      if (await kv.get(dupKey)) return json({ ok: true, dup: true, id: e.id });
-      await kv.put(dupKey, '1', { expirationTtl: DUP_TTL });
+      if (db ? await hit(db, dupKey, DUP_TTL * 1000, now, 1) > 1 : await kv.get(dupKey)) return json({ ok: true, dup: true, id: e.id });
+      if (!db) await kv.put(dupKey, '1', { expirationTtl: DUP_TTL });
     }
   }
 
   // account name (v0.3.5): only from a live session in D1, cleaned like every other name; anything wrong just leaves 'ac' off
-  if (env.TOF_DB && request.headers.get('Authorization')) {
-    try { const u = await who(env.TOF_DB, request, now); const ac = u && clean(String(u.name || ''), 16); if (ac && okName(ac)) e.ac = ac; } catch { }
+  if (db && request.headers.get('Authorization')) {
+    try { const u = await who(db, request, now); const ac = u && clean(String(u.name || ''), 16); if (ac && okName(ac)) e.ac = ac; } catch { }
   }
 
   // only runs that carry a server ticket and pass the checks reach 'top'; the rest still show in 'recent' with ok:0
@@ -227,23 +228,18 @@ export async function onRequestPost({ request, env }) {
   e.ok = why ? 0 : 1;
   if (why) e.nok = why;
 
+  // every list below goes through update() (store.js), so two scores arriving together cannot wipe each other out
   let rank = null;
-  if (e.ok && !top.some(y => y && y.id === e.id)) {
-    top.push(e); top.sort(cmp); top.length = Math.min(top.length, TOP_N);
-    const i = top.findIndex(x => x.id === e.id); rank = i >= 0 ? i + 1 : null;
-    if (rank) await kv.put('top', JSON.stringify(top));
+  if (e.ok) {
+    const row = { ...e, ip: tkv.ip || ipKey(request) };   // kept on 'top' only, for the per-IP cap; GET strips it
+    await update(kv, 'top', s => { const out = addTop(listOf(s), row); rank = out ? out.findIndex(y => y.id === e.id) + 1 : null; return out && JSON.stringify(out); });
   }
-  const rec = [e, ...recent.filter(x => x && x.id !== e.id)].slice(0, RECENT_N);
-  await kv.put('recent', JSON.stringify(rec));
+  await update(kv, 'recent', s => JSON.stringify([e, ...listOf(s).filter(y => y && y.id !== e.id)].slice(0, RECENT_N)));
 
   // hall of fame (v0.2.8): only ticketed wins, so this write happens on ~3-4% of runs
   let hofOk = 0;
   if (e.won && e.ok) {
-    const hof = await getList(kv, 'hof');
-    if (!hof.some(y => y && y.id === e.id)) {
-      await kv.put('hof', JSON.stringify([hofRow(e), ...hof].slice(0, HOF_N)));
-      hofOk = 1;
-    }
+    hofOk = await update(kv, 'hof', s => { const hof = listOf(s); return hof.some(y => y && y.id === e.id) ? null : JSON.stringify([hofRow(e), ...hof].slice(0, HOF_N)); }) ? 1 : 0;
   }
 
   // the run counts toward its day's stats; KV-only mode also ends its presence in 'live'.u
@@ -252,16 +248,15 @@ export async function onRequestPost({ request, env }) {
   const dayFresh = !!x.day && Math.abs(Date.parse(x.day) - now) < 3 * 86400e3;
   if (T ? dayFresh || x.ss : x.sid || x.day) {
     try {
-      const v = prune(await readLive(kv));
-      if (x.sid) delete v.u[x.sid];
-      const fresh = dayFresh;
-      if (fresh) {
-        const d = v.d[x.day] || (v.d[x.day] = { n: 0, h: 0, w: 0, f: 0 });
-        d.n++; d.h += x.dh; d.w += e.won ? 1 : 0; d.f += e.floor; day = d;
-      }
-      if (x.ss) addShare(v, fresh ? x.day : thDay(now), x.ss);
-      prune(v);
-      await writeLive(kv, v);
+      await editLive(kv, v => {
+        day = null;
+        if (x.sid) delete v.u[x.sid];
+        if (dayFresh) {
+          const d = v.d[x.day] || (v.d[x.day] = { n: 0, h: 0, w: 0, f: 0 });
+          d.n++; d.h += x.dh; d.w += e.won ? 1 : 0; d.f += e.floor; day = d;
+        }
+        if (x.ss) addShare(v, dayFresh ? x.day : thDay(now), x.ss);
+      });
       ss = x.ss ? 1 : 0;
     } catch { }
   }

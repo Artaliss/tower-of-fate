@@ -1,7 +1,8 @@
 // Shared helpers for accounts and the paid shop (acct.js, pay/checkout.js, pay/webhook.js). Not a route of its own.
 // Tables: migrations/0003_account.sql (created on first use by ensureSchema).
 
-import { json, dbErr, fnv } from './memorial.js';
+import { dbErr } from './memorial.js';
+import { json, fnv } from './util.js';
 export { json, dbErr, fnv };
 
 export const SESS_DAYS = 30;
@@ -35,15 +36,16 @@ export const okName = s => typeof s === 'string' && NAME_RE.test(s.normalize('NF
 export const okPw = s => typeof s === 'string' && s.length >= 8 && s.length <= 72;
 
 // ---- counters (acct_lim) ----
-export async function count(db, k, now) {
-  const r = await db.prepare('SELECT n, exp FROM acct_lim WHERE k = ?').bind(k).first();
-  return r && r.exp > now ? r.n | 0 : 0;
-}
-export async function hit(db, k, win, now) {
-  await db.prepare('INSERT INTO acct_lim (k, n, exp) VALUES (?, 1, ?) ON CONFLICT(k) DO UPDATE SET n = CASE WHEN exp > ? THEN n + 1 ELSE 1 END, exp = CASE WHEN exp > ? THEN exp ELSE excluded.exp END')
-    .bind(k, now + win, now, now).run();
+// counts first and returns the count including this hit, so requests sent at once cannot all slip under the limit.
+// Once a key is over max it is no longer written (no row comes back), so a flood past the limit costs reads only.
+export async function hit(db, k, win, now, max) {
+  const r = await db.prepare('INSERT INTO acct_lim (k, n, exp) VALUES (?, 1, ?) ON CONFLICT(k) DO UPDATE SET n = CASE WHEN exp > ? THEN n + 1 ELSE 1 END, exp = CASE WHEN exp > ? THEN exp ELSE excluded.exp END WHERE acct_lim.exp <= ? OR acct_lim.n <= ? RETURNING n')
+    .bind(k, now + win, now, now, now, max).first();
   if (Math.random() < 0.02) await db.prepare('DELETE FROM acct_lim WHERE exp < ?').bind(now).run();
+  return r && typeof r.n === 'number' ? r.n : max + 1;
 }
+// gives back hits that turned out fine (a right password), so only failures stay counted
+export const unhit = (db, ...ks) => db.batch(ks.map(k => db.prepare('UPDATE acct_lim SET n = n - 1 WHERE k = ? AND n > 0').bind(k)));
 
 // ---- sessions ----
 export const tokenOf = request => {
@@ -66,8 +68,8 @@ export async function who(db, request, now) {
   return r && r.exp > now ? { uid: r.uid, name: r.name, th } : null;
 }
 
-// ---- admins: account names (comma list in env ADMIN_NAMES, default the game owner's account) that get the admin tab ----
-export const isAdmin = (env, name) => String(env && env.ADMIN_NAMES || 'edzero').split(',').map(s => nameKey(s.trim())).filter(Boolean).includes(nameKey(name || ''));
+// ---- admins: account names (comma list in env ADMIN_NAMES, set on every environment; unset = nobody) that get the admin tab ----
+export const isAdmin = (env, name) => String(env && env.ADMIN_NAMES || '').split(',').map(s => nameKey(s.trim())).filter(Boolean).includes(nameKey(name || ''));
 
 // ---- shop catalog (prices live here, never trusted from the game) ----
 // amount in satang (THB x 100). Stripe's minimum for THB is 10 baht.

@@ -4,8 +4,9 @@
 // POST {sku} + Bearer token -> {ok, url}   the game sends the player to url; Stripe returns them to /?paid=<sku> or /?paid=0
 // Nothing is granted here: only webhook.js writes the ent table, after Stripe confirms the money arrived.
 
-import { readBody, sameOrigin } from '../memorial.js';
-import { ensureSchema, json, dbErr, who, CATALOG, shopOpen, count, hit } from '../acctlib.js';
+import { readBody } from '../memorial.js';
+import { sameOrigin } from '../util.js';
+import { ensureSchema, json, dbErr, who, CATALOG, shopOpen, hit } from '../acctlib.js';
 
 const BUY_MAX = 20, BUY_WIN = 3600e3;   // 20 checkout pages / account / hour
 
@@ -29,8 +30,7 @@ export async function onRequestPost({ request, env }) {
     if (!u) return json({ error: 'auth' }, 401);
     const sku = typeof b.sku === 'string' && Object.prototype.hasOwnProperty.call(CATALOG, b.sku) ? b.sku : '';
     if (!sku) return json({ error: 'bad-sku' }, 400);
-    if (await count(db, 'buy:' + u.uid, now) >= BUY_MAX) return json({ error: 'rate-limited' }, 429);
-    await hit(db, 'buy:' + u.uid, BUY_WIN, now);
+    if (await hit(db, 'buy:' + u.uid, BUY_WIN, now, BUY_MAX) > BUY_MAX) return json({ error: 'rate-limited' }, 429);
     const c = CATALOG[sku], origin = new URL(request.url).origin;
     const f = new URLSearchParams();
     f.set('mode', 'payment');

@@ -6,7 +6,7 @@
 'use strict';
 const KEY='tof-tour-v1';
 const ls={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=window.META.esc;
 
 // q: selectors tried in order, the first one on screen gets the spotlight (none = centred bubble, whole page dimmed)
 const STEPS=[

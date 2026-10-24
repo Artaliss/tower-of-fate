@@ -92,9 +92,12 @@ ok((await A({ a: 'login', name: 'ฮีโร่ไทย', pw: 'password1' })).
 ok((await A({ a: 'login', name: 'ฮีโร่ไทย', pw: 'newpass99' })).j.ok, 'new password works');
 
 console.log('rate limits');
-let last = null; for (let i = 0; i < 9; i++) last = await A({ a: 'login', name: 'Bob_1', pw: 'nope-nope' }, { ip: '9.9.9.' + i });
-ok(last.st === 429, 'wrong passwords per name limited after 8');
-ok((await A({ a: 'login', name: 'Bob_1', pw: 'password1' }, { ip: '8.8.8.8' })).st === 429, 'even the right password waits');
+let last = null; for (let i = 0; i < 9; i++) last = await A({ a: 'login', name: 'Bob_1', pw: 'nope-nope' }, { ip: '9.9.9.9' });
+ok(last.st === 429, 'wrong passwords per name from one IP limited after 8');
+ok((await A({ a: 'login', name: 'Bob_1', pw: 'password1' }, { ip: '9.9.9.9' })).st === 429, 'even the right password waits on that IP');
+ok((await A({ a: 'login', name: 'Bob_1', pw: 'password1' }, { ip: '8.8.8.8' })).j.ok, 'another IP can still log in (no lockout by name alone)');
+const burst = await Promise.all(Array.from({ length: 20 }, () => A({ a: 'login', name: 'Bob_1', pw: 'nope-nope' }, { ip: '6.6.6.6' })));
+ok(burst.filter(r => r.st !== 429).length === 8, '20 wrong passwords sent at once: only 8 get checked');
 for (let i = 0; i < 6; i++) last = await A({ a: 'signup', name: 'spam' + i, pw: 'password1' }, { ip: '7.7.7.7' });
 ok(last.st === 429, 'sign-ups per IP limited after 5');
 

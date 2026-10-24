@@ -1,5 +1,5 @@
 // meta.js — โปรไฟล์ถาวรข้ามรอบ: สมาชิกตระกูล สัตว์เลี้ยง เหรียญเมือง ปลดล็อกเมือง/โหมดยาก
-// API: window.META = { load(), save(P), recordRun(R), open(tab), tab(id,def), addGold(n,why), grantAch(id), hasWon(), refresh() }
+// API: window.META = { load(), save(P), recordRun(R), open(tab), tab(id,def), addGold(n,why), grantAch(id), refresh() }
 // เก็บใน localStorage 'tof-meta-v1' · โมดูลอื่น (city.js, hard.js, fest.js ...) เก็บข้อมูลของตัวเองใน P.mod[ชื่อโมดูล]
 // ลงทะเบียนแท็บด้วย META.tab('city',{n:'🏘 เมือง',o:20,lock:P=>P.unlock.city?'':'ผ่านชั้น 100 ก่อน',render:(el,P,api)=>{...}})
 (function(){
@@ -7,6 +7,12 @@
 const LEG_P=['drk','drs','drg','unicorn','fairy','phoenix','griffin'];
 const KEY='tof-meta-v1',SLOT_M=10,SLOT_P=5,SLOT_M_MAX=20,SLOT_P_MAX=6;
 const isObj=o=>!!o&&typeof o==='object'&&!Array.isArray(o);
+const nf=n=>Number(n||0).toLocaleString('th-TH');
+// fetch JSON with a timeout: GET without body, POST with one · always {st:HTTP status (0 = offline/timeout), j:object}
+async function api(url,body,ms,hd){const ctl=typeof AbortController!=='undefined'?new AbortController():null;const tm=setTimeout(()=>{try{ctl&&ctl.abort();}catch(e){}},ms||15000);
+ try{const o={method:body?'POST':'GET',headers:Object.assign(body?{'Content-Type':'application/json'}:{},hd)};if(body)o.body=JSON.stringify(body);if(ctl)o.signal=ctl.signal;
+  const r=await fetch(url,o);let j=null;try{j=await r.json();}catch(e){}return{st:r.status,j:isObj(j)?j:{}};}
+ catch(e){return{st:0,j:{}};}finally{clearTimeout(tm);}}
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const C=()=>window.CONTENT||{};
 function blank(){return{v:1,gold:0,goldAll:0,wins:0,runs:0,unlock:{city:false,hard:false},roster:[],pets:[],slots:{m:SLOT_M,p:SLOT_P},head:'',statues:[],mod:{}};}
@@ -78,7 +84,6 @@ function refresh(){if(!dlg||!dlg.open)return;const P=load(),T=TABS[cur],b=$b();c
  try{T.render(b,P,API);}catch(e){b.innerHTML=`<div class="mt-lock">หน้านี้เปิดไม่ขึ้น</div>`;console.error(e);}}
 const $b=()=>dlg.querySelector('#metaBody');
 function open(k){if(!dlg)build();const P=load();if(P.newUnl){delete P.newUnl;save(P);}if(!dlg.open)dlg.showModal();show(k||cur);try{const d=document.querySelector('#btnMeta .dot');if(d)d.remove();}catch(e){}}
-function hasWon(){return load().wins>0;}
 // ---------- แท็บพื้นฐาน: สมาชิกตระกูล ----------
 function rkCol(k){const r=(C().RANKS||[]).find(x=>x.k===k);return r?r.col:(k==='Master'?'#ffffff':'#888');}
 function clsN(id){const c=(C().CLASSES||[]).find(x=>x.id===id);return c?c.n:'';}
@@ -105,6 +110,6 @@ tab('clan',{n:'👪 สมาชิกตระกูล',o:10,render(el,P){cons
 function button(){const P=load();return`<button class="btn" id="btnMeta" type="button">🏰 ตระกูลและเมือง${P.newUnl?'<span class="dot"></span>':''}</button>`;}
 function bind(){const b=document.getElementById('btnMeta');if(b)b.onclick=()=>open();}
 try{window.ACH&&window.ACH.add&&window.ACH.add([{id:'meta_head',n:'ลูกรักของตระกูล',d:'ตั้งผู้พิชิตยอดหอเป็นหัวหน้าตระกูล',icon:'👑',tier:'gold'},{id:'meta_slot',n:'บ้านหลังใหญ่ขึ้น',d:'จ่ายเหรียญเมืองเพิ่มช่องในตระกูล',icon:'🏠',tier:'bronze'}]);}catch(e){}
-const API={load,save,refresh,addGold,grantAch,open,uid,esc,clsN,rkCol};
-window.META=Object.assign(API,{recordRun,tab,onRun,hasWon,button,bind,SLOT_M_MAX,SLOT_P_MAX,hasTab:id=>!!TABS[id],tabLock:id=>{const T=TABS[id];return T&&T.lock?T.lock(load()):'';}});
+const API={load,save,refresh,addGold,grantAch,open,uid,esc,clsN,rkCol,isObj,nf,api};
+window.META=Object.assign(API,{recordRun,tab,onRun,button,bind,SLOT_M_MAX,SLOT_P_MAX,hasTab:id=>!!TABS[id],tabLock:id=>{const T=TABS[id];return T&&T.lock?T.lock(load()):'';}});
 })();

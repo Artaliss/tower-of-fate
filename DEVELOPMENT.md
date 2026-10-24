@@ -34,6 +34,8 @@
 | `auto.html` | redirect ไป `./` (ลิงก์เก่า) | — |
 | `tools/serve.js` | dev server: `node tools/serve.js` → http://localhost:8765 | — |
 | `tools/autosim.js` | จำลองเกมแบบ headless หลายพันรอบเพื่อบาลานซ์ | — |
+| `functions/api/util.js` | helper ฝั่ง server ที่ใช้ร่วมกัน: `fnv clean json isInt okId thDay sameOrigin fitsRow RANKS CLS DRG` (ไม่ใช่ route) `clean(v, max, 1)` รับตัวเลขด้วย (แบบที่ memorial.js ใช้) | — |
+| `tools/sync-check.js` | เทียบโค้ดที่ก๊อปไว้สองฝั่ง: fnv/clean/canon ของ leaderboard.js กับ util.js+scores.js และ encode/decode ของ share.js กับ `functions/s/[[path]].js` (`node tools/sync-check.js`) | — |
 | `docs/rea/*.md` | ผล reverse-engineer เว็บต้นแบบ 1in8b.life และ 1-in-65-million (มีหัวข้อ "Apply to Tower of Fate") | — |
 
 ลำดับโหลดสคริปต์ (ตาม index.html): sprites → share → achievements → leaderboard → events → audio → auto → tips → changelog
@@ -104,7 +106,7 @@
 - งบเขียนต่อรอบ (D1, ลดแล้ว 2026-10-22): ขอตั๋ว 1 (แถว tix) + ส่งคะแนน 3 (ประทับตั๋ว, `recent`, `live` สถิติของวัน) = 4 ครั้ง, ติด top +1, ชนะ +1 (`hof`) · เดิม 8-12 ครั้ง (start 2 + heartbeat 1-3 + ส่งคะแนน 5-7: rl, rd, dup, recent, live, top, hof) · ถ้านับแบบที่ D1 คิด (upsert ตาราง kv ราว 2 แถว, แถว tix 1) รอบแพ้ทั่วไปจากราว 16-20 แถวเหลือ 6 แถว ≈ 16,000 รอบ/วันบนแพ็กเกจฟรี 100,000 แถว · client เก่าที่ยังส่ง beat ไม่เสียเพิ่ม (เซิร์ฟเวอร์ตอบเฉยๆ) · นับเองได้ด้วย `node tools/lb-writes-test.mjs` (mock D1, ใส่ `--kv` เพื่อดูโหมด KV)
 - KV แผนฟรีเขียนได้แค่ 1,000 ครั้ง/วัน และหมดจริงเมื่อ 2026-10-22 (164 รอบ) เลยย้ายไป D1
 - ข้อจำกัด: เกมคำนวณฝั่งผู้เล่น
-- รายละเอียดเพิ่ม: `tools/LEADERBOARD.md` (ฟังก์ชัน fnv/clean/canon มีซ้ำใน leaderboard.js กับ scores.js ต้องแก้ให้ตรงกัน); ลบคะแนนโกงด้วย tools/lb-remove.js หรือ D1 → tower-of-fate → Console
+- รายละเอียดเพิ่ม: `tools/LEADERBOARD.md` (ฟังก์ชัน fnv/clean/canon มีซ้ำใน leaderboard.js กับ util.js/scores.js ต้องแก้ให้ตรงกัน เช็กด้วย `node tools/sync-check.js`); ลบคะแนนโกงด้วย tools/lb-remove.js, D1 → tower-of-fate → Console หรือ POST `/api/scores {a:'del', id}` พร้อม Bearer token ของบัญชีแอดมิน (ลบจาก top, recent, hof)
 
 ## วิธีพัฒนาต่อ
 
@@ -254,6 +256,15 @@
 - **v0.3.5.4**: `lookOf` มีฟิลด์ใหม่ `shape pat hair beard hcol ecol` (สุ่มจาก seed เดิม หน้าตาเดิมของตาและปากไม่เปลี่ยน) · สไลม์ใช้ `SL_SHAPES` (round drop wide tall cat) ถ้าตัวอยู่ต่ำกว่าแถว 5 หมวกอาชีพเลื่อนลงตาม · ทรงผม/เคราใช้เฉพาะอาชีพใน `HAIR_CLS` เพราะ `h` ของ mag rog far เป็นหมวก · ความสำเร็จ `look_cat look_drop look_afro look_beard` ปลดใน renderBirth
 - **v0.3.5.5**: `rollLook` ออก seed ที่ `seed&1023===777` (`isV2`) เฉพาะ seed แบบนี้ที่สุ่มได้ตา 8-11 และปาก 7-9 ที่ต่อท้าย `EYES`/`MOUTHS` หน้าสไลม์ตัวเก่าเลยไม่เปลี่ยน และใช้ได้กับอันดับหรือหน้าอนุสรณ์ที่เก็บแค่ seed · `lookOf` เพิ่ม `acc` (แว่น ผ้าปิดตา แผลเป็น กระ ทุกอาชีพยกเว้นผี) และ `rr` (ตัวสุ่มของหายาก ดู `slRare`/`huRare`) · `ART.lookExtra(L,cls)` คืน `{n:[ชื่อลักษณะ],p,rare}` ซึ่ง `lookInfo` ใน auto.js เอาไปต่อชื่อและคูณอัตรา · ความสำเร็จ `look_crystal look_shadow look_goldsl look_hetero look_flame look_patch look_glasses look_heart look_star`
 - **v0.3.5.6**: การ์ดตัดสินใจระดับตำนานใช้คลาส `lgcard` (เดิม `legend` ชนกับ `.legend{flex-wrap:wrap}` ของแผนที่ ปุ่มเลยหลุดไปคอลัมน์ที่สองนอกการ์ด) ระวังอย่าตั้งชื่อคลาสให้การ์ดหรือปุ่มซ้ำกับคลาสทั่วไปอย่าง `.legend` `.w` `.g` `.b` · element ที่มี `display:flex/block` ต้องมีกฎ `[hidden]{display:none}` คู่กัน · สัตว์เลี้ยงไม่ซ้ำตัวเดิม (`addPet` ขายตัวซ้ำ) · `R.nBuy` นับของที่ซื้อทั้งรอบให้ wevent
+- **v0.3.5.7** (แก้ตามรีวิวและ audit, เช็กลิสต์ `docs/fix-checklist-v0.3.5.7.md`):
+  - นำเข้าเซฟ: savemove.js และ account.js ตั้ง `window.__tofMoving=1` ก่อน apply (ล้างถ้า apply ล้ม) แล้ว `saveRun` ข้ามการเขียนตอนธงนี้เปิด ฉากสู้ที่จบเองก่อนรีโหลดเลยเขียนรอบเก่าทับไม่ได้ ไม่ใช้ `S.paused=true` แล้ว
+  - ตาราง kv มีคอลัมน์ `ver` (เพิ่มเองตอนใช้ครั้งแรก, `migrations/0005_kv_ver.sql`) `update(kv, k, fn)` ใน store.js อ่าน แก้ แล้วเขียนด้วย `WHERE k = ? AND ver = ?` ถ้ามีคนเขียนแทรกก็อ่านใหม่ (3 รอบ) ใช้กับ `top recent hof live posts` และโค้ดย้ายเซฟ (`take` ได้เซฟเฉพาะคนที่เขียน '0' สำเร็จ)
+  - `top`: แถว ok:1 เก็บ `ip` (hash IP จากตั๋ว) IP เดียวมีได้ 3 แถว (`addTop`, เก็บ 3 แถวที่ดีสุด) GET ตัด `ip` ออกก่อนส่ง · `{a:'del', id}` ลบแถว เช็ก `isAdmin` จาก session
+  - ตัวนับจำกัดความถี่ใช้ `hit(db, k, win, now, max)` ใน acctlib.js ตัวเดียว (ตาราง acct_lim): นับก่อนแล้วคืนค่า n ยิงพร้อมกันก็ผ่านได้ไม่เกิน max และพอเกินแล้วไม่เขียนแถวซ้ำอีก ใช้กับล็อกอิน สมัคร เปลี่ยนรหัส checkout `/api/live {a:'ss'}` (20 ครั้ง/IP/วัน) ตัวจำกัดของ scores.js และ move.js (โหมด D1) และ dedupe ตั๋ว KV · ล็อกอินผิดนับ 3 ตัว: ชื่อ+IP 8, ชื่ออย่างเดียว 200, IP 40 ต่อ 15 นาที รหัสถูกแล้วคืน hit (`unhit`)
+  - index `tix_ip ON tix (ip, t)` · สุ่มอนุสรณ์ใช้ id สุ่มแล้ว `id >= ?` (ไม่เจอก็ `id < ?`) แทน `ORDER BY RANDOM()` · เซฟเกิน 1.9 MB (UTF-8) ตอบ 413 `too-large` ทั้ง acct และ move
+  - city.js: `st()` ไม่ให้ `P.head` อยู่ในงานไหนเลย (เซฟเก่าเคยใส่ไว้)
+  - ฉากจบ: `ART.cineFrame(x, fr, o, t)`, `ART.MAPC`, `ART.enSpr` ใน sprites.js ใช้ทั้ง auto.js และ memorial.js (สี calm ใช้ของ auto.js)
+  - client: `META.esc isObj nf api(url, body, ms, headers)` ใช้แทนตัวที่เขียนซ้ำ, leaderboard.js วาดด้วย `META.rkCol/clsN`, `AUTO_SIM` เหลือ `rollHero HZ LX pRoll autoLife` ลบโค้ดตายตามเช็กลิสต์ข้อ C3 และ tools/orig.html, split.js, sim.js, สำเนา rea ใน tools/
 - **v0.3.5 (2026-10-24)**:
   - `wevent.js` (`window.WEV`, `WEV.force(id|null)`, `WEV.world()`): อีเวนต์ประจำสัปดาห์ 8 แบบ (gold, boss[ต้องกดเข้าร่วม], pet, bazaar, rift, treasure, calm, rally) เลือกตาม ISO week เวลาไทย ไม่ซ้ำสองสัปดาห์ติด · ตัวคูณใส่ลงรอบตอนเริ่มผ่าน event `tof:run-start` {R,say} ที่เพิ่มใน `startRun` (`R.mod`, `R.wsp`, `R.wev` ไปกับเซฟรอบ) และ `genSpecial` คูณน้ำหนักด้วย `R.wsp[x]` · ภารกิจ 3 ข้อ/สัปดาห์ รางวัลเหรียญเมือง ครบได้ตรา · ดาวหางผ่านหอ ~3% ต่อรอบ · เก็บที่ `P.mod.wev` ย้อนหลัง 12 สัปดาห์ · แท็บ META ลำดับ 36 · แบนเนอร์หน้าเกิด ช่วงเทศกาลเป็นป้ายเล็กในแบนเนอร์เทศกาล · ความสำเร็จ `wev_join wev_q wev_badge wev_4 wev_all wev_boss wev_market wev_world` · ยังไม่ได้ลอง: อารมณ์สัตว์ +8, ประตูมิติ, ภารกิจหีบกลางทาง
   - `guide.js` (`window.GUIDE.open(tab)`): คู่มือ อาชีพ / สัตว์เลี้ยง / แรงค์ / มอนสเตอร์ ตัวเลขอ่านจาก `CONTENT`, `window.HARD`, `CONTENT.TUNE` (auto.js เพิ่ม `CONTENT.TUNE={necK,angK,ssGold,secP,SPB}`) · ค่าที่พิมพ์ไว้เองในคู่มือ (ต้องแก้ตามถ้าเปลี่ยนในเกม): สัตว์ตำนานเริ่มชั้น 61, พาสัตว์ 2 ตัว, Master +15%, ไข่ชั้นลับ 50% ลูกมังกร · ทางเข้า ☰ อื่นๆ, ❓, แท็บท้ายของหน้าต่างตระกูล · ความสำเร็จ `guide_all`
@@ -299,7 +310,7 @@
 
 ### แอดมิน (`admin.js`)
 
-- บัญชีที่ชื่ออยู่ใน env `ADMIN_NAMES` (คั่นด้วยจุลภาค ไม่ตั้ง = `edzero` บัญชีของเจ้าของเกม) ได้ `admin:true` จาก `{a:'me'}` แล้วแท็บ `🛠 แอดมิน` (o:95) โผล่ในหน้าต่างตระกูล
+- บัญชีที่ชื่ออยู่ใน env `ADMIN_NAMES` (คั่นด้วยจุลภาค ต้องตั้งทุก environment ตั้งแต่ v0.3.5.7 ไม่ตั้ง = ไม่มีใครเป็นแอดมิน) ได้ `admin:true` จาก `{a:'me'}` แล้วแท็บ `🛠 แอดมิน` (o:95) โผล่ในหน้าต่างตระกูล
 - เซฟแอดมินแยกจากเซฟปกติ: `tofadm-mode` = normal/admin, ชุดคีย์ที่ไม่ได้ใช้อยู่เก็บใน `tofadm-normal` / `tofadm-admin` สลับด้วย `MOVE.collect/apply` แล้วรีโหลด ครั้งแรกคัดลอกจากเซฟปกติ
 - ในเซฟแอดมิน: `LB.submit`, `LB.live`, `MEMO.create` กลายเป็น no-op, account.js ไม่อัปโหลดและไม่ให้โหลดจากคลาวด์ (`ADMIN.on`) มีป้ายแดงมุมซ้ายล่างให้กลับเซฟปกติได้แม้ไม่ได้ล็อกอิน
 - เสกได้: ปลดล็อกทุกอย่าง, ความสำเร็จทั้งหมด/ล้าง, เหรียญเมือง, เหรียญรุ้ง, สัตว์ทุกชนิด, บังคับแรงค์/อาชีพ/ร่าง/หน้าตาหายากของฮีโร่ที่จะเกิด (`ADMIN.force` อ่านใน `rollHero` เฉพาะตอนเกิดจริง ที่ส่ง `unl` มา, เก็บใน sessionStorage), ระหว่างรอบ เติมเลือด ยา ทอง ค่าพลัง x2 ข้ามชั้น, ตั้งอีเวนต์ประจำสัปดาห์/เทศกาล (`WEV.force`/`FEST.force`)

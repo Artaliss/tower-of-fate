@@ -11,11 +11,13 @@
 //                                         has moved on since (another browser uploaded), 409 {error:'conflict', at, m}. No base = overwrite.
 // POST {a:'load'}                      -> {ok, at, z, p, m} | 404 {error:'no-save'}
 
-import { readBody, sameOrigin } from './memorial.js';
-import { ensureSchema, json, dbErr, ipOf, iterOf, okName, okPw, nameKey, pbkdf2, hex, rand, same, count, hit, newSession, who, ents, shopOpen, isAdmin } from './acctlib.js';
+import { readBody } from './memorial.js';
+import { sameOrigin, fitsRow } from './util.js';
+import { ensureSchema, json, dbErr, ipOf, iterOf, okName, okPw, nameKey, pbkdf2, hex, rand, same, hit, unhit, newSession, who, ents, shopOpen, isAdmin } from './acctlib.js';
 
 const MAX_BODY = 1200000, MAX_P = 1100000;
-const FAIL_NAME = 8, FAIL_IP = 40, FAIL_WIN = 15 * 60e3;   // wrong passwords: 8 per name, 40 per IP, per 15 min
+const FAIL_NAME = 8, FAIL_IP = 40, FAIL_WIN = 15 * 60e3;   // wrong passwords: 8 per name from one IP, 40 per IP, per 15 min
+const FAIL_NAME_ALL = 200;                                 // per name from all IPs, so nobody can lock someone else out with 8 tries
 const SIGNUP_IP = 5, SIGNUP_WIN = 3600e3;                  // 5 new accounts / IP / hour
 const SAVE_GAP = 15e3;                                     // at most one upload per 15 s per account
 
@@ -44,8 +46,7 @@ export async function onRequestPost({ request, env }) {
     if (b.a === 'signup') {
       if (!okName(b.name)) return json({ error: 'bad-name' }, 400);
       if (!okPw(b.pw)) return json({ error: 'bad-pw' }, 400);
-      if (await count(db, 'su:' + ip, now) >= SIGNUP_IP) return wait(SIGNUP_WIN);
-      await hit(db, 'su:' + ip, SIGNUP_WIN, now);
+      if (await hit(db, 'su:' + ip, SIGNUP_WIN, now, SIGNUP_IP) > SIGNUP_IP) return wait(SIGNUP_WIN);
       const name = b.name.normalize('NFC'), nk = nameKey(name);
       if (await db.prepare('SELECT id FROM acct WHERE nk = ?').bind(nk).first()) return json({ error: 'taken' }, 409);
       const salt = hex(rand(16)), iter = iterOf(env), hash = await pbkdf2(b.pw, salt, iter);
@@ -61,10 +62,14 @@ export async function onRequestPost({ request, env }) {
     if (b.a === 'login') {
       if (!okName(b.name) || typeof b.pw !== 'string' || b.pw.length > 200) return json({ error: 'bad-login' }, 401);
       const nk = nameKey(b.name);
-      if (await count(db, 'fn:' + nk, now) >= FAIL_NAME || await count(db, 'fi:' + ip, now) >= FAIL_IP) return wait(FAIL_WIN);
+      // every try is counted before the password check; a right password gives its hits back
+      const ks = ['fn:' + nk + ':' + ip, 'fn:' + nk, 'fi:' + ip], max = [FAIL_NAME, FAIL_NAME_ALL, FAIL_IP];
+      const ns = await Promise.all(ks.map((k, i) => hit(db, k, FAIL_WIN, now, max[i])));
+      if (ns.some((n, i) => n > max[i])) return wait(FAIL_WIN);
       const a = await db.prepare('SELECT id, name, salt, hash, iter FROM acct WHERE nk = ?').bind(nk).first();
       const ok = !!a && same(await pbkdf2(b.pw, a.salt, a.iter), a.hash);
-      if (!ok) { await hit(db, 'fn:' + nk, FAIL_WIN, now); await hit(db, 'fi:' + ip, FAIL_WIN, now); return json({ error: 'bad-login' }, 401); }
+      if (!ok) return json({ error: 'bad-login' }, 401);
+      await unhit(db, ...ks);
       const s = await newSession(db, a.id, now);
       return json({ ok: true, name: a.name, tok: s.tok, exp: s.exp });
     }
@@ -79,9 +84,10 @@ export async function onRequestPost({ request, env }) {
     if (b.a === 'passwd') {
       if (!okPw(b.npw)) return json({ error: 'bad-pw' }, 400);
       if (typeof b.pw !== 'string' || b.pw.length > 200) return json({ error: 'bad-login' }, 401);
-      if (await count(db, 'fu:' + u.uid, now) >= FAIL_NAME) return wait(FAIL_WIN);
+      if (await hit(db, 'fu:' + u.uid, FAIL_WIN, now, FAIL_NAME) > FAIL_NAME) return wait(FAIL_WIN);
       const a = await db.prepare('SELECT salt, hash, iter FROM acct WHERE id = ?').bind(u.uid).first();
-      if (!a || !same(await pbkdf2(b.pw, a.salt, a.iter), a.hash)) { await hit(db, 'fu:' + u.uid, FAIL_WIN, now); return json({ error: 'bad-login' }, 401); }
+      if (!a || !same(await pbkdf2(b.pw, a.salt, a.iter), a.hash)) return json({ error: 'bad-login' }, 401);
+      await unhit(db, 'fu:' + u.uid);
       const salt = hex(rand(16)), iter = iterOf(env), hash = await pbkdf2(b.npw, salt, iter);
       await db.prepare('UPDATE acct SET salt = ?, hash = ?, iter = ?, pw_at = ? WHERE id = ?').bind(salt, hash, iter, now, u.uid).run();
       await db.prepare('DELETE FROM acct_sess WHERE uid = ?').bind(u.uid).run();
@@ -94,7 +100,7 @@ export async function onRequestPost({ request, env }) {
       return json({ ok: true, name: u.name, save: sv ? { at: sv.at, m } : null, ent: await ents(db, u.uid), shop: shopOpen(env), admin: isAdmin(env, u.name) || undefined });
     }
     if (b.a === 'save') {
-      if (typeof b.p !== 'string' || !b.p.length || b.p.length > MAX_P) return json({ error: 'too-large' }, 413);
+      if (typeof b.p !== 'string' || !b.p.length || b.p.length > MAX_P || !fitsRow(b.p)) return json({ error: 'too-large' }, 413);
       const z = b.z === 'gz' ? 'gz' : '';
       if (z ? !/^[A-Za-z0-9+/]+={0,2}$/.test(b.p) : b.p[0] !== '{') return json({ error: 'invalid', field: 'p' }, 400);
       const base = b.base == null ? null : Number(b.base);

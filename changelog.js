@@ -3,6 +3,14 @@
 'use strict';
 // newest first. v: version, d: date (YYYY-MM-DD), t: headline, i: items
 const LOG=[
+{v:'0.3.5.7',d:'2026-10-24',t:'แก้บัคเซฟและกระดานอันดับ',i:[
+ '💾 รับเซฟจากเครื่องอื่นหรือโหลดเซฟคลาวด์ระหว่างที่กำลังสู้ รอบเก่าจะไม่กลับมาเขียนทับเซฟใหม่อีก',
+ '🏆 ผลรอบที่ส่งเข้ากระดานอันดับพร้อมกันไม่หายแล้ว และแต่ละเครือข่ายมีชื่อติดอันดับรวมได้ไม่เกิน 3 แถว',
+ '🔐 ใส่รหัสผ่านผิดหลายครั้งจะโดนพักเฉพาะเครื่องที่ใส่ผิด เจ้าของบัญชีที่เข้าจากที่อื่นยังเข้าได้ตามปกติ',
+ '📦 โค้ดย้ายเซฟใช้ได้ครั้งเดียวจริงแม้กดสองเครื่องพร้อมกัน และถ้าเซฟใหญ่เกินจะขึ้นบอกว่าเซฟใหญ่เกินไป',
+ '👑 หัวหน้าตระกูลที่ค้างอยู่ในงานเมืองจากเซฟเก่าจะออกจากงานเอง',
+ '🕯 ฉากย้อนชีวิตในหน้าอนุสรณ์ใช้ภาพชุดเดียวกับในเกม มีพลุบนยอดหอและคนมาร่วมงานศพเหมือนกัน',
+ '🔧 ปุ่มสุ่มอนุสรณ์เร็วขึ้น และเก็บกวาดโค้ดเก่าที่ไม่ได้ใช้']},
 {v:'0.3.5.6',d:'2026-10-24',t:'แก้ปุ่มหายในเรื่องระดับตำนาน',i:[
  '⚑ จุดเปลี่ยนชะตาระดับตำนานโชว์ปุ่มให้เลือกครบแล้ว เมื่อก่อนบนมือถือกับไอแพดปุ่มหลุดออกไปนอกการ์ด ทำให้เกมค้าง',
  '🐾 ไม่ได้สัตว์เลี้ยงตัวซ้ำกับที่มีอยู่อีก ถ้าเจอตัวซ้ำจะขายได้ทองแทน',
@@ -240,7 +248,7 @@ const LOG=[
 {v:'0.1.0',d:'2026-10-19',t:'เปิดหอ',i:[
  '🗼 หอคอย 100 ชั้น 5 ด่าน ร่างคนกับร่างสไลม์ เพลงชิปทูน']}];
 const CUR=LOG[0].v,KEY='tof-seen-ver';
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=window.META.esc;
 const get=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
 const set=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
 // v0.x (2026-10-22): every version got a leading 0. because the game isn't finished; old saved values have no prefix, so compare without it
@@ -309,5 +317,5 @@ function init(){
  if(!old&&!seen){set(KEY,CUR);return;} // brand-new player: nothing to compare with
  setTimeout(open,700);}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
-window.CHANGELOG={open,LOG,version:CUR};
+window.CHANGELOG={open};
 })();

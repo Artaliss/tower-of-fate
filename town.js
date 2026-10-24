@@ -388,6 +388,6 @@ function bindMini(){const b=document.getElementById('twMini');if(!b||b._tw)retur
 const ob=M.button,obd=M.bind;
 M.button=function(){return ob.apply(this,arguments)+mini();};
 M.bind=function(){obd.apply(this,arguments);try{bindMini();}catch(e){}};
-window.TOWN={DECOR,WEAR,mini,bindMini,W,H,BLD,scene,tapper,hud,hudSync,clanName,go,tabOf,tabLk,css,spOf};
+window.TOWN={DECOR,WEAR,mini,W,H,BLD,scene,tapper,hud,hudSync,clanName,go,tabOf,tabLk,css,spOf};
 window.TOWN.grants=grants; // gate.js: หน้าเมืองตอนเปิดเกมปลดความสำเร็จของลานแบบเดียวกับแท็บล็อบบี้
 })();

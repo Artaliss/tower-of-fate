@@ -11,7 +11,7 @@ const MK='tofadm-mode',SK=m=>'tofadm-'+m;
 const rd=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
 const wr=(k,v)=>{try{localStorage.setItem(k,v);return true;}catch(e){return false;}};
 const pj=s=>{try{return JSON.parse(s);}catch(e){return null;}};
-const isObj=o=>!!o&&typeof o==='object'&&!Array.isArray(o);
+const isObj=window.META.isObj;
 const mode=()=>rd(MK)==='admin'?'admin':'normal';
 const A=window.ADMIN={on:mode()==='admin',ok:false,force:null,open:()=>{if(window.META)window.META.open('admin');}};
 const M=()=>window.META,C=()=>window.CONTENT||{};

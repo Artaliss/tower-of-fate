@@ -8,9 +8,9 @@
 'use strict';
 if(typeof document==='undefined'||!window.META)return;
 const M=window.META,KEY='tof-acct-v1',GAP=90e3;   // ซิงก์อัตโนมัติไม่ถี่กว่าทุก 90 วินาที
-const esc=M.esc,isObj=o=>!!o&&typeof o==='object'&&!Array.isArray(o);
+const esc=M.esc,isObj=M.isObj;
 const NAME_RE=/^[a-zA-Z0-9_ก-๎]{3,16}$/;
-const nf=n=>Number(n||0).toLocaleString('th-TH');
+const nf=M.nf;
 const baht=a=>(a/100).toLocaleString('th-TH',{maximumFractionDigits:2});
 const dateTxt=t=>{try{return new Date(t).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return'';}};
 const fnv=s=>{let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return(h>>>0).toString(36);};
@@ -24,12 +24,9 @@ let me0=null,shop=null,busy=false,msg={t:'',bad:false},pend=null;   // pend = �
 function say(t,bad){msg={t,bad:!!bad};M.refresh();}
 
 // ---------- เครือข่าย ----------
-async function call(url,body,auth){const ctl=typeof AbortController!=='undefined'?new AbortController():null;const tm=setTimeout(()=>{try{ctl&&ctl.abort();}catch(e){}},30000);
- try{const h={'Content-Type':'application/json'},s=st();if(auth&&s.tok)h.Authorization='Bearer '+s.tok;
-  const o={method:body?'POST':'GET',headers:h};if(body)o.body=JSON.stringify(body);if(ctl)o.signal=ctl.signal;
-  const r=await fetch(url,o);let j=null;try{j=await r.json();}catch(e){}j=isObj(j)?j:{};
-  if(auth&&r.status===401&&j.error==='auth'){put(null);me0=null;}   // โทเคนหมดอายุหรือถูกออกจากระบบที่เครื่องอื่น
-  return{st:r.status,j};}catch(e){return{st:0,j:{}};}finally{clearTimeout(tm);}}
+async function call(url,body,auth){const s=st(),r=await M.api(url,body,30000,auth&&s.tok?{Authorization:'Bearer '+s.tok}:null);
+ if(auth&&r.st===401&&r.j.error==='auth'){put(null);me0=null;}   // โทเคนหมดอายุหรือถูกออกจากระบบที่เครื่องอื่น
+ return r;}
 const acct=(b,auth=true)=>call('/api/acct',b,auth);
 function errTxt(r){const e=r.j.error;if(r.st===0)return'ต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้งนะ';
  if(e==='rate-limited'){const m=Math.ceil((r.j.retryAfter||60)/60);return`ลองบ่อยเกินไปแล้ว รออีกราว ${m} นาทีค่อยลองใหม่`;}
@@ -127,7 +124,7 @@ function renderIn(el,P){const s=st(),sv=me0&&me0.save,mv=MV();
   <p class="ac-warn">เซฟในเครื่องนี้จะหายทั้งหมด ถ้ายังอยากเก็บไว้ ให้กด "บันทึกขึ้นคลาวด์" ก่อน (เซฟบนคลาวด์จะถูกทับแทน)</p>
   <div class="ac-act"><button class="mt-btn pri" data-a="yes">แทนที่เซฟเครื่องนี้</button><button class="mt-btn" data-a="no">ยกเลิก</button></div></div>${msgHTML()}`;
   el.querySelector('[data-a=no]').onclick=()=>{pend=null;say('');};
-  el.querySelector('[data-a=yes]').onclick=()=>{const o=pend.o,at=pend.at;pend=null;try{const S=window.__auto&&window.__auto.S;if(S)S.paused=true;}catch(e){}if(!mv.apply(o)){say('เขียนเซฟไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์อาจเต็ม',true);return;}
+  el.querySelector('[data-a=yes]').onclick=()=>{const o=pend.o,at=pend.at;pend=null;window.__tofMoving=1;if(!mv.apply(o)){window.__tofMoving=0;say('เขียนเซฟไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์อาจเต็ม',true);return;}
    last={at:Date.now(),h:hashOf(mv.collect()),b:at||0};clash=null;keepLast();say('โหลดเซฟเสร็จแล้ว กำลังเปิดเกมใหม่…');setTimeout(()=>location.reload(),600);};
   return;}
  el.innerHTML=`<p>เข้าสู่ระบบเป็น <b>${esc(s.name)}</b></p>

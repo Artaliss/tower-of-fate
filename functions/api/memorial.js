@@ -13,46 +13,18 @@
 // candles: functions/api/candle.js (uses the helpers exported here)
 
 import { screen } from './posts.js';
+import { fnv, clean as cl, json, isInt, okId, thDay, sameOrigin, RANKS, CLS, DRG } from './util.js';
 
 // MAX_BODY stays large so old clients (up to ~390 KB image) still get through; their image is just not stored.
 const MAX_BODY = 460000, MAX_IMG = 160000, MAX_D = 16000;
 const CREATE_PER_DAY = 6, ACT_PER_DAY = 60, REPORT_HIDE = 3;
 const DAY = 86400e3;
 export const WORDS = 5;
-const RANKS = 8;
-const CLS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra', 'dsl', 'nec', 'ang'];
 const MAPK = ['fight', 'treasure', 'trap', 'good', 'evil', 'pet', 'comp', 'boss', 'warp', 'flee', 'calm', 'bad', 'farm', 'death'];
-const DRG = ['', 'n', 'f', 's', 'x'];
-
-// ---- same helpers as scores.js ----
-export function fnv(s) { let h = 2166136261 >>> 0; s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
-function clean(v, max) {
-  let s = typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '';
-  s = s.replace(/<[^>]*>/g, '')
-    .replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g, '')
-    .replace(/[<>"'`\\]/g, '').replace(/\s+/g, ' ').trim();
-  return Array.from(s).slice(0, max).join('').trim();
-}
-// -----------------------------------
-
-const SEC = { 'Content-Type': 'application/json; charset=utf-8', 'X-Content-Type-Options': 'nosniff', 'Vary': 'Origin' };
-export const json = (obj, status = 200, extra = {}) =>
-  new Response(JSON.stringify(obj), { status, headers: { ...SEC, 'Cache-Control': 'no-store', ...extra } });
-const isInt = (v, lo, hi) => typeof v === 'number' && Number.isInteger(v) && v >= lo && v <= hi;
+const clean = (v, max) => cl(v, max, 1);   // memorial fields may be numbers
 const int = (v, lo, hi, d = 0) => typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : d;
-export const okId = s => typeof s === 'string' && /^[a-z2-9]{9}$/.test(s);
 const okTok = s => typeof s === 'string' && /^[a-z0-9_:-]{1,24}$/i.test(s);
-export const thDay = now => new Date(now + 7 * 3600e3).toISOString().slice(0, 10);
 export const ipOf = request => fnv('m|' + (request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown'));
-
-export function sameOrigin(request) {
-  const self = new URL(request.url).origin;
-  const o = request.headers.get('Origin');
-  if (o) return o === self;
-  const r = request.headers.get('Referer');
-  if (r) { try { return new URL(r).origin === self; } catch { return false; } }
-  return request.method === 'GET';
-}
 
 // D1 errors -> polite JSON (a missing table means migrations/0001_memorial.sql has not been run yet)
 export function dbErr(e) {
@@ -150,7 +122,7 @@ const arr = (v, n) => Array.isArray(v) ? v.slice(0, n) : [];
 
 export function cleanMemo(b, now = Date.now()) {
   if (!b || typeof b !== 'object' || Array.isArray(b)) return null;
-  if (!CLS.includes(b.ck) || !isInt(b.rk, 0, RANKS - 1) || !isInt(b.f, 1, 101)) return null;
+  if (!CLS.includes(b.ck) || !isInt(b.rk, 0, RANKS.length - 1) || !isInt(b.f, 1, 101)) return null;
   const w = b.w ? 1 : 0, f = b.f;
   if (w && f < 100) return null;
   const fr = arr(b.fr, 9).map(frame).filter(Boolean);
@@ -201,7 +173,9 @@ export async function onRequestGet({ request, env, waitUntil }) {
   try {
     if (q.get('random')) {
       const not = okId(q.get('not')) ? q.get('not') : '';
-      const r = await db.prepare('SELECT id FROM memorial WHERE hid = 0 AND id <> ? ORDER BY RANDOM() LIMIT 1').bind(not).first();
+      // a random id and the next one after it (wrapping round): an index seek instead of sorting the whole table
+      const at = randCode(), pick = op => db.prepare(`SELECT id FROM memorial WHERE hid = 0 AND id ${op} ? AND id <> ? ORDER BY id LIMIT 1`).bind(at, not).first();
+      const r = await pick('>=') || await pick('<');
       return r ? json({ ok: true, id: r.id }) : json({ error: 'empty' }, 404);
     }
     const id = q.get('id');
