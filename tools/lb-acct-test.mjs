@@ -86,12 +86,14 @@ R = await rows();
 ok(x.r.j.ok && x.r.j.v === 1 && acOf(R.recent, x.id) === undefined, 'expired session -> accepted, no ac');
 
 console.log('no account tables yet');
-{ const sql2 = new DatabaseSync(':memory:'); sql2.exec('CREATE TABLE kv (k TEXT PRIMARY KEY, v TEXT NOT NULL, exp INTEGER)');   // store.js creates kv once per module, not per db
+// store.js and acctlib.js ensureSchema() create their tables once per module, not per db, so this db gets kv and the limiter's
+// acct_lim by hand (scores.js needs it for a post without a ticket) and no acct / acct_sess: who() fails and the score still counts
+{ const sql2 = new DatabaseSync(':memory:'); sql2.exec('CREATE TABLE kv (k TEXT PRIMARY KEY, v TEXT NOT NULL, exp INTEGER, ver INTEGER NOT NULL DEFAULT 0); CREATE TABLE acct_lim (k TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 1, exp INTEGER NOT NULL)');
   const db2 = { prepare(q) { let a = []; const s = { bind(...b) { a = b; return s; }, async first() { return sql2.prepare(q).get(...a) || null; }, async all() { return { results: sql2.prepare(q).all(...a) }; }, async run() { const r = sql2.prepare(q).run(...a); return { meta: { changes: Number(r.changes) } }; } }; return s; } };
   const e = { name: 'ไร้บัญชี', village: '', rankK: 'B', clsId: 'war', clsN: '', form: 'human', floor: 3, won: false, title: '', score: 5, karma: 0, gen: 1, ach: 0, date: Date.now(), v: 'tof-1' };
   e.h = fnv('tof-v1|' + canon(e));
   const r = await scores.onRequestPost({ request: req('/api/scores', e, tok), env: { TOF_DB: db2 } }); const j = await r.json();
-  ok(r.status === 200 && j.ok, 'acct table missing -> score still accepted'); }
+  ok(r.status === 200 && j.ok && !(sql2.prepare('SELECT v FROM kv WHERE k = ?').get('recent').v.includes('"ac"')), 'acct table missing -> score still accepted, no ac'); }
 
 console.log(fails ? `\n${fails} failed` : '\nall passed');
 process.exit(fails ? 1 : 0);

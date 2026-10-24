@@ -38,7 +38,7 @@ export async function onRequestPost({ request, env }) {
   if (!s || typeof s.id !== 'string') return json({ error: 'bad-event' }, 400);
   // PromptPay can finish later: completed + unpaid now, async_payment_succeeded when the money arrives
   if (s.payment_status !== 'paid') return json({ ok: true, skip: 'unpaid' });
-  const md = s.metadata || {}, sku = md.sku, uid = parseInt(md.uid || s.client_reference_id, 10), c = CATALOG[sku];
+  const md = s.metadata || {}, sku = md.sku, uid = parseInt(md.uid || s.client_reference_id, 10), c = typeof sku === 'string' && Object.prototype.hasOwnProperty.call(CATALOG, sku) ? CATALOG[sku] : null;
   // Stripe keeps retrying on a non-2xx answer; a session we cannot use is logged and acknowledged
   if (!c || !uid || uid < 1) { console.log('pay: unknown session', s.id, sku, uid); return json({ ok: true, skip: 'unknown' }); }
   if ((s.currency || '').toLowerCase() !== 'thb' || (s.amount_total | 0) < c.amt) { console.log('pay: amount mismatch', s.id, s.amount_total, s.currency); return json({ ok: true, skip: 'amount' }); }

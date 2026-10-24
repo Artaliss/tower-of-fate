@@ -248,6 +248,7 @@ function draw(c,D,t){c.imageSmoothingEnabled=false;c.drawImage(bg(),0,0);bldAnim
 const LIVE=new Set();
 function scene(cv,P,mini){const off=mini?document.createElement('canvas'):cv;if(mini){off.width=W;off.height=H;}const c=off.getContext('2d'),D=build(P),S={cv,D,run:false,last:0};
  function frame(now){if(!S.run)return;const dl=cv.closest('dialog');if(!cv.isConnected){S.run=false;LIVE.delete(S);return;}if((dl&&!dl.open)||document.hidden){S.run=false;return;}
+  {const cov=document.querySelector('#townGate,#metaDlg[open]');if(cov&&!cov.contains(cv)){requestAnimationFrame(frame);return;}} // hidden under a full-screen window: skip drawing
   if(S.last&&now-S.last<40){requestAnimationFrame(frame);return;} // 25fps พอสำหรับพิกเซลอาร์ต ประหยัดแบตมือถือ
   const dt=S.last?Math.min(.1,(now-S.last)/1000):0;S.last=now;if(!RMQ)step(D,dt);draw(c,D,now);
   if(mini){const m=cv.getContext('2d');m.imageSmoothingEnabled=false;m.drawImage(off,0,MINI_Y,W,MINI_H,0,0,W,MINI_H);}

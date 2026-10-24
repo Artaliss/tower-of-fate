@@ -11,7 +11,7 @@ if(typeof document==='undefined')return;
 const ORIGIN='https://tower-of-fate.pages.dev';
 // pending queues, caches and per-device counters: not part of what moves
 // tof-acct-v1 = login token of account.js: it stays with this browser
-const SKIP=['tof-lb-queue-v1','tof-share-stat-v1','tof-auto-birth-v1','tofc-auto-birth-v1','tof-causes-v1','tof-help-tab','tof-acct-v1'];
+const STAMP='tof-move-stamp',SKIP=[STAMP,'tof-lb-queue-v1','tof-share-stat-v1','tof-auto-birth-v1','tofc-auto-birth-v1','tof-causes-v1','tof-help-tab','tof-acct-v1'];
 const mine=k=>typeof k==='string'&&(k.startsWith('tof-')||k.startsWith('tofc-'))&&!SKIP.includes(k);
 const fT="'Mitr','Kanit','Noto Sans Thai',system-ui,sans-serif";
 const okCode=s=>typeof s==='string'&&/^[a-z2-9]{9}$/.test(s);
@@ -27,7 +27,7 @@ function summary(o){const m={keys:Object.keys(o).length};
  const lin=pj(o['tof-lineage-v1']);m.lines=lin&&Array.isArray(lin.lines)?lin.lines.length:0;
  const a=pj(o['tof-ach-v1']);m.ach=a&&a.got&&typeof a.got==='object'?Object.keys(a.got).length:0;
  const u=pj(o['tof-unlock-v1']);m.unl=u&&typeof u==='object'?Object.keys(u).length:0;
- const run=(k,h,r)=>{const sv=pj(o[k]);if(sv&&sv.hero&&typeof sv.hero.name==='string'){m[h]=sv.hero.name.slice(0,24);if(sv.R&&typeof sv.R.floor==='number')m[r]=Math.max(0,Math.min(101,Math.floor(sv.R.floor)));}};
+ const run=(k,h,r)=>{const sv=pj(o[k]);if(sv&&sv.phase!=='over'&&sv.hero&&typeof sv.hero.name==='string'){m[h]=sv.hero.name.slice(0,24);if(sv.R&&typeof sv.R.floor==='number')m[r]=Math.max(0,Math.min(101,Math.floor(sv.R.floor)));}};
  run('tof-auto-save-v1','hero','run');run('tofc-auto-save-v1','chero','crun');
  return m;}
 function sumLines(m){const L=[];L.push(`สุสาน ${nf(m.memo||0)} ชีวิต · สายตระกูล ${nf(m.lines||0)} สาย · ความสำเร็จ ${nf(m.ach||0)} อย่าง`);
@@ -47,7 +47,7 @@ async function unpack(z,p){if(z!=='gz')return JSON.parse(p);if(typeof Decompress
 
 // ---------- network ----------
 const api=body=>window.META.api('/api/move',body,30000);
-function errTxt(r){if(r.st===0)return'ต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้งนะ';if(r.st===429)return'ลองบ่อยเกินไปแล้ว รอสักครู่ค่อยลองใหม่';
+function errTxt(r){if(r.st===0)return'ต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้งนะ';if(r.st===429){const w=+r.j.retryAfter||0;return w>=3600?`วันนี้สร้างหรือใช้โค้ดครบจำนวนแล้ว ลองใหม่ในอีกราว ${Math.ceil(w/3600)} ชั่วโมง`:'ลองบ่อยเกินไปแล้ว รอสักครู่ค่อยลองใหม่';}
  if(r.j.error==='used')return'โค้ดนี้ใช้ไปแล้ว ขอโค้ดใหม่จากเครื่องเดิมนะ';if(r.j.error==='not-found')return'ไม่พบโค้ดนี้ อาจพิมพ์ผิดหรือหมดอายุแล้ว (โค้ดมีอายุ 3 วัน)';
  if(r.j.error==='invalid'||r.j.error==='too-large')return'เซฟในเครื่องนี้ใหญ่เกินกว่าจะย้ายด้วยโค้ดได้';
  return'ตอนนี้ระบบย้ายเซฟยังไม่เปิด ลองใหม่ทีหลังนะ';}
@@ -157,8 +157,10 @@ function confirmIn(code,info){const here=summary(collect()),there=info.m||{};
   try{window.ACH&&window.ACH.onEvent&&window.ACH.onEvent('move',{dir:'in'});}catch(e){}
   sayIn(msg,'ย้ายเซฟเสร็จแล้ว กำลังโหลดเกมใหม่…');setTimeout(()=>{try{location.replace(cleanUrl());}catch(e){location.reload();}},700);};}
 // replace every tof-*/tofc-* key (except SKIP) with the incoming ones; on a storage error the old values are put back
+// incoming text is untrusted and much of it ends up in innerHTML: strip <>"'& from every string; STAMP makes other open tabs reload instead of writing their old run back
+const clean=v=>{const f=x=>String(x).replace(/[<>"'&]/g,'');try{return JSON.stringify(JSON.parse(v,(k,x)=>typeof x==='string'?f(x):x&&typeof x==='object'&&!Array.isArray(x)?Object.fromEntries(Object.entries(x).map(([q,y])=>[f(q),y])):x));}catch(e){return f(v);}};
 function apply(o){const old=collect(),ks=Object.keys(o).filter(k=>mine(k)&&typeof o[k]==='string');
- try{Object.keys(old).forEach(k=>localStorage.removeItem(k));ks.forEach(k=>localStorage.setItem(k,o[k]));return true;}
+ try{Object.keys(old).forEach(k=>localStorage.removeItem(k));ks.forEach(k=>localStorage.setItem(k,clean(o[k])));localStorage.setItem(STAMP,String(Date.now()));return true;}
  catch(e){try{ks.forEach(k=>localStorage.removeItem(k));Object.keys(old).forEach(k=>localStorage.setItem(k,old[k]));}catch(e2){}return false;}}
 function cleanUrl(){const L=location,q=new URLSearchParams(L.search);q.delete('move');const qs=q.toString();return L.pathname+(qs?'?'+qs:'')+L.hash;}
 
@@ -170,5 +172,6 @@ function panel(){const memo=document.getElementById('memo'),sec=memo&&memo.close
 function boot(){panel();let code=null;try{code=new URLSearchParams(location.search).get('move');}catch(e){}
  if(code){code=code.toLowerCase().replace(/[^a-z0-9]/g,'');try{history.replaceState(history.state,'',cleanUrl());}catch(e){}if(okCode(code))setTimeout(()=>inp(code),300);}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+addEventListener('storage',e=>{if(e.key===STAMP){window.__tofMoving=1;location.reload();}});
 window.MOVE={out,in:inp,collect,summary,sumLines,pack,unpack,apply,dateTxt};
 })();

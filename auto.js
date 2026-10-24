@@ -383,7 +383,7 @@ const evVis=(ev,T)=>T.pr?{t:'prop',pr:T.pr}:autoVis(evS(ev,T.t),evS(ev,T.x));
 const evPr=T=>T.pr||autoProp(T.t,T.x);
 const chRisk=(R,ch)=>riskAdj(R,ch.p)*(cid(R)==='mag'&&pathTier(R)>=3&&ch.tg&&ch.tg.includes('curse')?.5:1);
 function chDis(R,ch){const c=ch.c?Math.round(ch.c*scl(R.floor)):0;if(c&&R.h.gold<c)return`ทองไม่พอ ขาด ${Math.ceil(c-R.h.gold)}`;if(ch.req==='pot'&&R.potions<1)return'ไม่มียา';return'';}
-function estCached(R,ev,n){const k=Math.round(R.h.hp)+'|'+Math.round(R.h.atk)+'|'+R.comps.length+'|'+R.pets.join();if(ev.ek!==k){ev.ek=k;ev.est=estimateWin(R,ev.en,n);ev.sw=sneakWin(R,ev.en,n);}return ev.est;}
+function estCached(R,ev,n){const k=Math.round(R.h.hp)+'|'+Math.round(R.h.atk)+'|'+R.comps.length+'|'+R.pets.join();if(ev.ek!==k){ev.ek=k;ev.est=estimateWin(R,ev.en,n);if(ev.kind==='boss')ev.sw=sneakWin(R,ev.en,n);}return ev.est;}
 function choicesOf(R,ev){const h=R.h,f=R.floor,s=scl(f);
  if(ev.kind==='ev')return EVENTS[ev.ti].c.map(ch0=>{const ch=Object.assign({},ch0,{t:evS(ev,ch0.t)});if(ch.cl&&ch.cl!==cid(R))return{t:ch.t,P:[],dis:true,hide:true};const P=[];if(ch.c)P.push({t:`−${Math.round(ch.c*s)} ทอง`,c:'w'});
   if(ch.p){const pp=Math.round(chRisk(R,ch)*100);
@@ -482,7 +482,7 @@ const STAT_CD=10;
 function statFloor(R,out,hf0){const h=R.h,f=R.floor,s=scl(f),sn=R.sn||(R.sn={});
  R.lowN=hf0<.35?(R.lowN||0)+1:0;R.fitN=hf0>=.9?(R.fitN||0)+1:0;R.soloN=R.comps.length+R.pets.length?0:(R.soloN||0)+1;
  const L=eLuk(R),rules=[
-  ['low',()=>R.lowN>=2&&!R.quiet&&!R.pend,()=>{if(h.gold>=Math.round(4*s))R.pend='bandage'; // spending gold is always the player's call
+  ['low',()=>R.lowN>=2&&!R.quiet&&!R.pend&&f%10!==0,()=>{if(h.gold>=Math.round(4*s))R.pend='bandage'; // spending gold is always the player's call
    else say(R,out,'แผลยังไม่หาย แต่ไม่มีเงินซื้อผ้าพันแผล ชั้นนี้เลยเสี่ยงกว่าปกติ (HP ต่ำ)','bad');}],
   ['fit',()=>R.fitN>=3,()=>{const x=Math.round(3+.4*f);gainExp(R,x,out);say(R,out,`ร่างกายพร้อม เดินเร็วจนเหลือเวลาซ้อมท่า +${x} EXP (HP เต็มมาหลายชั้น)`,'good');}],
   ['lucky',()=>L>=20+f*.15&&rnd()<.08,()=>{const g=Math.round(5*s*gMul(R));h.gold+=g;say(R,out,`เตะโดนถุงเงินที่ใครทำตกไว้ +${g} ทอง (LUK ${Math.round(L)})`,'good');}],
@@ -1272,7 +1272,7 @@ Object.assign(SPECIAL,{
    const fightIt=()=>{R.map[f-1]='fight';if(doFight(R,en,out,{rw:1.8,cause:`ถูกเงาในกระจกของตัวเองฆ่าตาย (ชั้น ${f})`})){const a=1.5+f*.08,d=1+f*.05;h.atk+=a;h.def+=d;nwA(R,'mirror');
     say(R,out,`เงาแตกเป็นเสี่ยงๆ ก่อนหายไปมันกระซิบบอกช่องโหว่ในท่าฟันของคุณ (ATK +${a.toFixed(1)} · DEF +${d.toFixed(1)})`,'good');}};
    if(i===0)fightIt();
-   else if(i===1){h.luk-=2;if(rnd()<p){R.map[f-1]='calm';say(R,out,'กระจกแตกโพละ เงานั้นกรีดร้อง แล้วเหลือแต่กรอบเปล่า (LUK −2)','info');}
+   else if(i===1){h.luk=Math.max(0,h.luk-2);if(rnd()<p){R.map[f-1]='calm';say(R,out,'กระจกแตกโพละ เงานั้นกรีดร้อง แล้วเหลือแต่กรอบเปล่า (LUK −2)','info');}
     else{hurt(R,.2);say(R,out,'เงาก้าวออกมาได้ทั้งตัวก่อนกระจกจะแตก เศษแก้วบาดแขนคุณเป็นทาง (HP −20%)','bad');fightIt();}}
    else if(rnd()<.5){R.map[f-1]='good';xp(R,out,15,1.2);h.luk+=3;nwA(R,'mirror');say(R,out,'เงานั่งลงคุยด้วยเกือบชั่วโมง มันจำทุกเรื่องที่คุณลืมไปแล้วได้หมด พอคุยจบก็โบกมือแล้วถอยกลับเข้ากระจก (LUK +3)','good');}
    else{say(R,out,'เงายื่นมือมาจับไหล่คุณ แล้วพยายามดันคุณเข้าไปในกระจกแทน','bad');fightIt();}}},
@@ -1752,7 +1752,8 @@ function mkKey(R,type,ev){const f=R.floor,K={type,ev,tag:'',title:'',text:'',vis
    {t:'เก็บทองไว้ก่อน',P:[{t:'แค่พักฟื้นให้เต็ม',c:''}]}];K.ai=0;}
  else if(type==='arc')mkArcKey(R,K,ev);
  else{const S=SPECIAL[type];S.mk(R,K);K.tid='sp:'+type;K.rar=TIER[type]||'c';}
- if(cid(R)==='nec'&&type!=='shop')K.ch.forEach(c=>{if(!c.dis&&/จ้าง|ร่วมทีม|เข้าทีม|ตามมา|ตามไปด้วย|ชวนมา|ศิษย์|พาไปด้วย|แลกตัว/.test(c.t)){c.dis=true;c.P=[{t:'(เนโครแมนเซอร์จ้างใครไม่ได้)',c:'b'}];}});
+ {const re=/จ้าง|ร่วมทีม|เข้าทีม|ตามมา|ตามไปด้วย|ชวนมา|ศิษย์|พาไปด้วย|แลกตัว/; // lock hiring only while another choice stays open (addComp refuses necros anyway), or the card has no way out
+ if(cid(R)==='nec'&&type!=='shop'&&K.ch.some(c=>!c.dis&&!re.test(c.t)))K.ch.forEach(c=>{if(!c.dis&&re.test(c.t)){c.dis=true;c.P=[{t:'(เนโครแมนเซอร์จ้างใครไม่ได้)',c:'b'}];}});}
  if(!K.vis)K.vis=autoVis(K.title,K.text);
  {const KT=KEY_TG[type];K.ch.forEach((c,i)=>{if(!c.tg)c.tg=KT?KT[i]||[]:type==='arc'?tgOf(c.t):[];if(c.hide)return;
   if(c.cl)c.P.unshift({t:`✦ เฉพาะ${clsName(c.cl)}`,c:'pt'});else if(type!=='promo'&&pathPts(R,c.tg)>0)c.P.push({t:`✦ ${pathOf(R).n}`,c:'pt'});});}
@@ -1786,7 +1787,7 @@ function applyKey(R,K,i,auto){const f=R.floor;if(!K.ch[i]||K.ch[i].dis)return nu
  R.sinceKey=0;R.keyGap=keyGap(R);if(auto==='same')R.sameN++;else if(auto==='plain')R.plainN++;else R.keys++;
  R.kt[K.type]=(R.kt[K.type]||0)+1;R.used[K.tid]=(R.used[K.tid]||0)+1;if(!NO_WAY[K.type]){R.way[K.tid]=i;R.way[sigOf(K)]=i;}
  if(K.type!=='shop')R.hist.push({f,t:K.title,c:K.ch[i].t,rar:K.rar,tid:K.tid,q:auto||'',res:(out.msgs.find(m=>m.c!=='info')||out.msgs[out.msgs.length-1]||{t:''}).t});
- finishFloor(R,out);return out;}
+ if(!(K.pre&&f%10===0))finishFloor(R,out);return out;} // surviving the roll on a boss floor still leaves the boss to fight
 function quietFarm(R,out){let n=0;const g0=R.h.gold,l0=R.h.lv;R.quiet=true;
  while(R.alive&&n<2&&R.h.hp/R.h.mhp>.6){const o=farm(R);n++;aiPotion(R);if(o.saved){R.quiet=false;say(R,out,o.msgs[o.msgs.length-1].t,'lv');R.quiet=true;}}
  R.quiet=false;if(n)say(R,out,`ล่ามอนสเตอร์แถวนั้นต่ออีก ${n} ตัว ได้ทอง ${Math.round(R.h.gold-g0)}${R.h.lv>l0?` · เลเวลอัปเป็น Lv.${R.h.lv}`:''}`,'info');}
@@ -1829,7 +1830,7 @@ function planFloor(R){const P=planFloor0(R);
 function planFloor0(R){
  if(R.pend){const p=R.pend;R.pend=null;return{type:'key',K:mkKey(R,p)};}
  if(R.farmLeft>0)return{type:'farm'};
- if(rollFloor(R))return brinkOk(R)?{type:'key',K:mkKey(R,'brink')}:{type:'death'};
+ if(rollFloor(R))return brinkOk(R)?{type:'key',K:Object.assign(mkKey(R,'brink'),{pre:1})}:{type:'death'}; // pre: rolled before the floor's event
  if(omenDue(R))return{type:'key',K:mkKey(R,'omen')};
  {const tk=towerKey(R);if(tk)return{type:'key',K:mkKey(R,tk)};} // v2.7: faction vote / tower-wide event
  if(R.floor%10!==0){
@@ -1889,10 +1890,10 @@ SPECIAL.brink={w:0,ok:()=>false,mk(R,K){const f=R.floor,h=R.h,c=fateCause(R),n=(
   else if(i===1){const ix=R.comps.findIndex(x=>x.n===D.cp);const n=ix>=0?R.comps.splice(ix,1)[0].n:D.cp;say(R,out,`${n}ผลักคุณออกไปแล้วรับทุกอย่างไว้แทน ก่อนสิ้นใจยังหันมายิ้มให้`,'lv');}
   else if(i===2){h.gold-=D.g;say(R,out,`เหรียญ ${D.g} เหรียญร่วงกระจายลงบันได ชะตาก้มลงเก็บ แล้วปล่อยคุณไปอีกครั้ง`,'lv');}
   else{R.kctx='แลกชีวิตด้วยบุญเก่า';R.karma-=12;R.kctx='';say(R,out,'บุญที่ทำมาทั้งชีวิตลุกเป็นแสงสว่างวาบเดียวแล้วดับไป คุณยังหายใจอยู่','lv');}
-  say(R,out,'หอคอยจำหน้าคุณได้แล้ว ชั้นต่อจากนี้จะเสี่ยงขึ้นอีกนิด','bad');try{window.ACH&&window.ACH.onEvent('brink',{n:R.brink});}catch(e){}}};
+  say(R,out,'หอคอยจำหน้าคุณได้แล้ว ชั้นต่อจากนี้จะเสี่ยงขึ้นอีกนิด','bad');if(!R.sim)try{window.ACH&&window.ACH.onEvent('brink',{n:R.brink});}catch(e){}}};
 // headless full life with AI everywhere (used for balance checks)
 // R.tk = floor-story units shown in the UI (each lasts 5 s / speed); paused key moments add 15 s of real time each
-function autoLife(h){const R=newRun(h||rollHero());let g=0;R.tk=0;
+function autoLife(h){const R=newRun(h||rollHero());let g=0;R.tk=0;R.sim=1; // sim: background lives grant no achievements
  while(R.alive&&g++<5000){R.st=aiStance(R);const P=planFloor(R);R.tk+=P.type==='quiet'?1.6:P.type==='autokey'&&!P.how?1.3:1;
   if(P.type==='death'){deathTick(R);if(!R.alive)break;continue;}
   if(P.type==='farm')farmTick(R);else if(P.type==='auto')autoTick(R,P.ev);else if(P.type==='quiet')quietTick(R,P.n);else if(P.type==='autokey'){applyKey(R,P.K,P.i!==undefined?P.i:P.K.ai,P.how||true);if(!R.alive&&!R.won)R.death=R.death||'boss';}else if(P.type==='drama'){R.lastDramaId=P.D.id;dramaTick(R,P.D);}else{R.timeouts++;applyKey(R,P.K,P.K.pick);if(!R.alive&&!R.won)R.death=R.death||'boss';}}
@@ -2073,7 +2074,7 @@ const LEG_TXT={fairy:{t:'แฟรี่หลงทาง',x:'แสงสี�
  unicorn:{t:'ยูนิคอนกลางหอ',x:'ยูนิคอนตัวเล็กยืนอยู่กลางลานหิน รอบกีบมีดอกไม้ขึ้นเป็นวง เห็นคุณแล้วมันก็ไม่หนี แค่ก้มหัวลงนิดหนึ่งแล้วยืนรอ'}};
 Object.assign(SPECIAL,{legpet:{w:1,ok:R=>R.floor>=61,mk(R,K){const f=R.floor,p=R.pets.includes('fairy')?'unicorn':R.pets.includes('unicorn')?'fairy':rnd()<.5?'fairy':'unicorn',P=PETS[p];K.data={p};K.tag=`ชั้น ${f} · สัตว์ตำนาน`;K.title=LEG_TXT[p].t;K.text=LEG_TXT[p].x;K.vis={t:'pet',p};
    K.ch=[CH(R.pets.length<2?'ยื่นมือให้มัน':`ยื่นมือให้มัน แล้วปล่อย${PETS[R.pets[0]].n}กลับป่า`,[{t:P.d,c:'g'},{t:'สัตว์ตำนาน',c:'g'}]),
-    CH('ขอพรแล้วปล่อยมันไป',[{t:'HP เต็ม',c:'g'},{t:'LUK +2',c:'g'},kk(2)])];K.ai=0;legAch('leg_meet');},
+    CH('ขอพรแล้วปล่อยมันไป',[{t:'HP เต็ม',c:'g'},{t:'LUK +2',c:'g'},kk(2)])];K.ai=0;if(!R.sim)legAch('leg_meet');},
   res(R,K,i,out){const f=R.floor,p=K.data.p,h=R.h;
    if(i===0){R.map[f-1]='pet';if(R.pets.length>=2){say(R,out,`ปล่อย${PETS[R.pets[0]].n}กลับป่า`,'info');R.pets.shift();}addPet(R,p,out);}
    else{R.map[f-1]='good';h.hp=h.mhp;h.luk+=2;R.karma+=2;say(R,out,`${PETS[p].n}แตะหน้าผากคุณเบาๆ ความเหนื่อยหายไปหมด พอเงยหน้าขึ้นมันก็ไม่อยู่แล้ว`,'good');}}}});
@@ -2390,7 +2391,7 @@ function montage(R){const H=R.hist.filter(m=>!sens(m));if(!H.length)return[];con
  return out;}
 // memorial: entries are never deleted. Near the storage quota only bulky optional fields of the oldest entries are dropped.
 const OLDMKEY='tof-memorial-v1';
-function loadMemo(){try{const v=JSON.parse(localStorage.getItem(MKEY)||'[]');return Array.isArray(v)?v:[];}catch(e){return[];}}
+function loadMemo(){try{const v=JSON.parse(localStorage.getItem(MKEY)||'[]');return Array.isArray(v)?v.filter(x=>x&&typeof x==='object'):[];}catch(e){return[];}}
 function loadOldMemo(){try{const v=JSON.parse(localStorage.getItem(OLDMKEY)||'[]');return Array.isArray(v)?v.filter(isObj).map(m=>Object.assign({},m,{old:1})):[];}catch(e){return[];}}
 const MEMO_BULK=['eu','cohN','cert','gen','house','stance'];
 function saveMemo(e){const a=loadMemo();a.unshift(e);
@@ -2403,7 +2404,7 @@ function renderMemo(){const a=[...loadMemo(),...loadOldMemo()].sort((x,y)=>(y.t|
  try{memoGw(show);}catch(e){}}
 // ---- lineage (สายตระกูล): every life is appended to its line; apprentices continue the line, rebirth starts a new one ----
 const LKEY='tof-lineage-v1';
-function loadLin(){try{const v=JSON.parse(localStorage.getItem(LKEY)||'null');if(isObj(v)&&isArr(v.lines))return{v:1,lines:v.lines.filter(x=>isObj(x)&&isArr(x.lives))};}catch(e){}return{v:1,lines:[]};}
+function loadLin(){try{const v=JSON.parse(localStorage.getItem(LKEY)||'null');if(isObj(v)&&isArr(v.lines))return{v:1,lines:v.lines.filter(x=>isObj(x)&&isArr(x.lives)).map(x=>(x.lives=x.lives.filter(isObj),x))};}catch(e){}return{v:1,lines:[]};}
 function saveLin(L){for(let n=L.lines.length;n>=1;n=Math.floor(n*.7)){try{localStorage.setItem(LKEY,JSON.stringify({v:1,lines:L.lines.slice(0,n)}));return;}catch(e){}}}
 const newLinId=()=>'L'+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36);
 // ---- dragon family (v2.1): mark, curse counter, unhatched egg, family pet, hidden-class unlock; one per player, survives rebirth ----
@@ -2450,7 +2451,7 @@ function addLife(R){const h=R.h,L=loadLin();if(!h.lin){h.lin=newLinId();h.house=
  saveLin(L);}
 function renderLineage(){const el=$('lineage');if(!el||!S)return;const L=loadLin(),h=S.R?S.R.h:S.hero,cur=h&&L.lines.find(x=>x.id===h.lin);
  const life=x=>`<span class="lv"><span class="px" style="color:${RANKS[x.rank]?RANKS[x.rank].col:'#fff'}">${esc(RANKS[x.rank]?RANKS[x.rank].k:'?')}</span> รุ่นที่ ${x.gen} ${esc(x.name)} · ${x.won?'👑 ':''}ชั้น ${x.floor}${x.d==='f'?' 🐉':x.d==='s'?' ⚔':''}</span>`;
- const alive=S.phase!=='end'&&h?`<span class="lv now"><span class="px" style="color:${RANKS[h.rank].col}">${RANKS[h.rank].k}</span> รุ่นที่ ${h.gen||1} ${esc(h.name)} · ${S.R?`กำลังไต่ ชั้น ${S.R.floor}`:'เพิ่งเกิด'}</span>`:'';
+ const alive=!['end','dying'].includes(S.phase)&&h?`<span class="lv now"><span class="px" style="color:${RANKS[h.rank].col}">${RANKS[h.rank].k}</span> รุ่นที่ ${h.gen||1} ${esc(h.name)} · ${S.R?`กำลังไต่ ชั้น ${S.R.floor}`:'เพิ่งเกิด'}</span>`:'';
  let html='';
  if(cur||h){const lives=cur?cur.lives.slice(-8):[];const CM=loadClan().m;html+=`<div class="linehd">สาย${esc((cur&&cur.house)||(h&&h.house)||h.name)}${CLAN_T[CM]?` · <span data-tip="clan">${CLAN_T[CM]}</span>`:''}${cur&&cur.lives.length>8?` <span class="dim">(แสดง 8 รุ่นล่าสุดจาก ${cur.lives.length})</span>`:''}</div><div class="chain">${[...lives.map(life),alive].filter(Boolean).join('<span class="ar">→</span>')}</div>`;}
  const others=L.lines.filter(x=>x!==cur).slice(0,3);
@@ -2475,13 +2476,13 @@ function saveRun(){if(!S||window.__tofMoving)return;
  if(S.phase==='birth'){try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:'birth',hero:S.hero,rerolled:!!S.rerolled,bo:S.bo||null}));}catch(e){}return;} // refresh cannot re-roll the hero
  if(!S.R)return;if(secOpen(S.R)){try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:'secret',runId:S.runId,t0:S.t0||0,hero:S.hero,R:S.R,frame:S.frame}));}catch(e){}return;}
  // run over: keep it as 'over' so a reload still reaches the end screen (results sent once via fin/sent) and the heir; newBirth drops it
- if(!S.R.alive||S.R.won){try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:'over',runId:S.runId,t0:S.t0||0,hero:S.hero,R:S.R,fin:!!S.fin,sent:!!S.sent,cd:!!S.cineDone}));}catch(e){}return;}
+ if(!S.R.alive||S.R.won){try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:'over',runId:S.runId,t0:S.t0||0,hero:S.hero,R:S.R,fin:!!S.fin,sent:!!S.sent,cd:!!S.cineDone,end:S.saved?{fresh:S.fresh,title:S.title,mont:S.mont,lg:S.lg,eu:S.eu}:null}));}catch(e){}return;}
  if(!['flow','decide','combat'].includes(S.phase))return;
  try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:S.phase,paused:!!S.paused,runId:S.runId,t0:S.t0||0,hero:S.hero,R:S.R,K:S.phase==='decide'?S.K:null,frame:S.frame}));}catch(e){}}
 // the run is over: write the memorial once (FINK = last finalized runId, so a second tab on the same run counts nothing twice)
-const FINK='tof-auto-fin-v1';
+const FINK='tof-auto-fin-v1'; // comma list of the last 20
 function finalizeRun(){if(!S||!S.R||S.fin||window.__tofMoving)return; // a save being imported must not get this run's death written over it
-S.fin=1;try{if(localStorage.getItem(FINK)===String(S.runId)){S.sent=true;return;}localStorage.setItem(FINK,String(S.runId));}catch(e){}const R=S.R,h=R.h,fl=R.won?100:R.floor;
+S.fin=1;try{const L=String(localStorage.getItem(FINK)||'').split(',');if(L.includes(String(S.runId))){S.sent=true;return;}localStorage.setItem(FINK,[S.runId,...L.slice(0,19)].join(','));}catch(e){}const R=S.R,h=R.h,fl=R.won?100:R.floor;
  try{addLife(R);S.hero.lin=h.lin;S.hero.house=h.house;S.hero.gen=h.gen;}catch(e){}
  try{clanApply(R);}catch(e){}
  try{unlApply(R);}catch(e){}
@@ -2517,7 +2518,8 @@ function resumeRun(){let d=null;try{d=JSON.parse(localStorage.getItem(SAVEK)||'n
   S={phase:'flow',hero,rerolled:true,R,K:null,cb:null,cmp:null,saved:false,runId:d.runId||Date.now(),t0:+d.t0||Date.now(),speed:loadSpeed(),paused:!!d.paused,tm:0,
    frame:isObj(d.frame)&&isArr(d.frame.msgs)?d.frame:{f:R.floor,tag:`ชั้น ${R.floor}`,title:'',text:'',msgs:[]}};
   snap=null;VIS.coins=[];VIS.show=S.frame.vis||null;VIS.walk0=performance.now();
-  if(over){Object.assign(S,{phase:'end',fin:!!d.fin,sent:!!d.sent,cineDone:!!d.cd});S.themeId=heroTheme(R.h);render();return true;}
+  if(over){Object.assign(S,{phase:'end',fin:!!d.fin,sent:!!d.sent,cineDone:!!d.cd});const E=d.end; // the rolled score/title stay what was already shown and sent
+   if(isObj(E)&&isObj(E.title)&&isArr(E.mont)&&isObj(E.lg)&&isArr(E.lg.rows)&&isObj(E.eu))Object.assign(S,{fresh:+E.fresh||0,title:E.title,mont:E.mont,lg:E.lg,eu:E.eu,saved:true});S.themeId=heroTheme(R.h);render();return true;}
   if(isObj(R.net)&&typeof R.net.sid==='string')setTimeout(liveBeat,1500);else R.net=null;
   S.themeId=heroTheme(R.h);if(!R.theme)R.theme=S.themeId;const lead={t:'กลับมาเดินต่อจากที่ค้างไว้',c:'lv'};R.log.unshift({f:R.floor,t:lead.t,c:lead.c});
   if(sec){S.phase='secret';render();return true;}
@@ -3299,7 +3301,9 @@ function memoData(R){const h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.floor,T
   kr:R.karma,sc:S.lg?S.lg.score:0,lv:h.lv,kl:R.kills,bo:R.bosses,od:Math.max(1,Math.round(h.odds||1)),pt:pt?{c:pt.code,n:pt.n}:null,eu:eu.who,el:eu.line,jd:judge(R.karma),
   mp:R.map.slice(0,100),hp:isArr(R.hpF)?R.hpF.slice(0,100):[],pets:R.pets.slice(0,4),cm:R.comps.slice(0,4).map(c=>({n:c.n,cls:c.cls,tr:c.tr||'',legend:!!c.legend})),
   rain:(S.cineRain!=null?S.cineRain:!won&&(fl<30||!!SUDDEN[R.ck]||R.karma<-8))?1:0,fr:fr.slice(0,9),dt:Date.now()};}
-function memoBtn(){const R=S.R,M=window.MEMO;if(!R||!M||!M.create)return;const rows=card.querySelectorAll('.endacts'),row=rows[1]||rows[0];if(!row)return;
+// memorial.js loads after this file: an end screen restored at boot gets its button once the page has loaded
+addEventListener('load',()=>{if(S&&S.phase==='end')try{memoBtn();}catch(e){}});
+function memoBtn(){const R=S.R,M=window.MEMO;if(!R||!M||!M.create||document.getElementById('btnMemo'))return;const rows=card.querySelectorAll('.endacts'),row=rows[1]||rows[0];if(!row)return;
  const b=document.createElement('button');b.type='button';b.className='btn';b.id='btnMemo';
  const set=()=>{b.textContent=R.memo?'🕯 ดูอนุสรณ์ของชีวิตนี้':'🕯 ตั้งอนุสรณ์ออนไลน์';};set();
  b.onclick=()=>{if(R.memo){M.open(R.memo);return;}let d=null;try{d=memoData(R);}catch(e){d=null;}if(!d)return;M.create(d,{onDone:id=>{R.memo=id;set();saveRun();}});};row.appendChild(b);}
@@ -3336,7 +3340,7 @@ document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.d
  // game hotkeys (1–4, Space, Enter) stay out while the sheet is open
  d.addEventListener('keydown',e=>{if(e.key!=='Escape')e.stopPropagation();});
  window.MORE={open,close};})();
-document.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;if(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return;const k=e.key;
+document.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;if(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return;if(document.querySelector('dialog[open],#townGate'))return;const k=e.key; // keys belong to whatever window is on top
  if(/^[1-5]$/.test(k)){const b=actQ(`button[data-k="${k}"]`);if(b&&!b.disabled){e.preventDefault();b.click();}}
  else if(k===' '||k==='Spacebar'){if(['flow','decide','combat'].includes(S.phase)){e.preventDefault();togglePause();}}
  else if(k==='Enter'){if(document.activeElement&&document.activeElement.tagName==='BUTTON'&&inActs(document.activeElement))return;const b=actQ('[data-enter]');if(b&&!b.disabled){e.preventDefault();b.click();}}});

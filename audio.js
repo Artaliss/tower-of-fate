@@ -203,7 +203,8 @@ const PW={};
 function pulse(c,duty){if(PW[duty]&&PW[duty].c===c)return PW[duty].w;const n=32,re=new Float32Array(n),im=new Float32Array(n);
  for(let k=1;k<n;k++)re[k]=2/(k*Math.PI)*Math.sin(k*Math.PI*duty);
  const w=c.createPeriodicWave(re,im);PW[duty]={c,w};return w;}
-if(typeof document!=="undefined"){const go=()=>{A.init();if(A.ctx){document.removeEventListener("keydown",go,true);document.removeEventListener("pointerdown",go,true);}};document.addEventListener("keydown",go,true);document.addEventListener("pointerdown",go,true);}
+// phones only count click/touchend as a user gesture, so keep listening until the context is really running
+if(typeof document!=="undefined"){const EV=["keydown","pointerdown","click","touchend"],go=()=>{A.init();const c=A.ctx;if(!c)return;if(c.state!=="running"&&!A.muted)c.resume().catch(()=>{});if(c.state==="running")EV.forEach(k=>document.removeEventListener(k,go,true));};EV.forEach(k=>document.addEventListener(k,go,true));}
 if(typeof document!=="undefined"){
  const css=document.createElement("style");css.textContent=".volpop{position:fixed;z-index:70;background:var(--panel,#15232a);border:2px solid var(--gold2,#b97a22);border-radius:4px;padding:10px 12px;box-shadow:0 4px 0 #0008;display:flex;flex-direction:column;gap:8px;min-width:200px;max-width:calc(100vw - 16px);box-sizing:border-box;font:300 13px var(--fT,system-ui);color:var(--ink,#f1e7d0)}.volpop[hidden]{display:none!important}.volpop .row{display:flex;align-items:center;gap:8px}.volpop input[type=range]{flex:1;accent-color:var(--gold,#f4bb4a)}.volpop .pct{font-family:var(--fP,monospace);min-width:3ch;text-align:right;color:var(--gold,#f4bb4a)}.volpop button{background:var(--panel2,#1c2e36);border:2px solid var(--line2,#3d5a66);border-radius:3px;color:var(--ink,#f1e7d0);padding:5px 10px;font:inherit;cursor:pointer}";
  document.head.appendChild(css);

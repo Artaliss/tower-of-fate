@@ -200,7 +200,7 @@ M.tab('hard',{n:'🔥 ดันเจี้ยนโหมดยาก',o:40,loc
  ${bt?`<div class="hd-log" id="hdLog" aria-live="polite">${bt.log.slice(0,bt.n).map(s=>`<div>${esc(s)}</div>`).join('')}</div>${going?'<button class="mt-btn" id="hdSkip">ข้ามไปดูผล</button>':resHTML(bt.res)}`:''}`;
  el.querySelectorAll('[data-pk]').forEach(c=>{const go=()=>{const id=c.dataset.pk;if(id===P.head)return;upd((Q,hh)=>{const i=hh.party.indexOf(id);if(i>=0){hh.party.splice(i,1);return;}
   const TT=team(Q,hh),m=Q.roster.find(x=>x.id===id);if(!m||TT.length>=4||injLeft(hh,id)||busy(id))return;if(m.cls&&TT.filter(x=>x.cls===m.cls).length>=2)return;hh.party=hh.party.filter(x=>x!==Q.head&&Q.roster.some(r=>r.id===x));hh.party.push(id);});};
-  c.onclick=ev=>{if(ev.target.closest('[data-heal]'))return;go();};c.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();go();}};});
+  c.onclick=ev=>{if(ev.target.closest('[data-heal]'))return;go();};c.onkeydown=ev=>{if(ev.target!==c)return;if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();go();}};});
  el.querySelectorAll('[data-heal]').forEach(b=>b.onclick=()=>upd((Q,hh)=>{if(Q.gold<100)return;Q.gold-=100;delete hh.inj[b.dataset.heal];}));
  const ps=el.querySelector('#hdPet');if(ps)ps.onchange=()=>upd((Q,hh)=>{hh.pet=ps.value;});
  el.querySelectorAll('[data-sg]').forEach(b=>b.onclick=()=>{sel=+b.dataset.sg;M.refresh();});

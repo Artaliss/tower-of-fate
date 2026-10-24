@@ -32,8 +32,8 @@ export function store(env) {
       const exp = o && o.expirationTtl ? Date.now() + o.expirationTtl * 1000 : null;
       await db.prepare('INSERT INTO kv (k, v, exp) VALUES (?, ?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v, exp = excluded.exp, ver = kv.ver + 1')
         .bind(k, String(v), exp).run();
-      // expired rate-limit / dedupe / ticket rows are swept now and then
-      if (Math.random() < 0.01) await db.prepare('DELETE FROM kv WHERE exp IS NOT NULL AND exp < ?').bind(Date.now()).run();
+      // expired rows (move codes up to MAX_SAVE each) are swept on 1 put in 20; the kv table stays small, so the scan is cheap
+      if (Math.random() < 0.05) await db.prepare('DELETE FROM kv WHERE exp IS NOT NULL AND exp < ?').bind(Date.now()).run();
     },
     async update(k, fn) {
       await init(db);

@@ -230,6 +230,10 @@ const M = (b, ip) => call(move, '/api/move', b, { ip });
   ok((await M({ a: 'put', p: thai(MAX_SAVE) }, '90.0.0.5')).st === 200, 'put of MAX_SAVE Thai chars (1.2 MB UTF-8) accepted');
   const pr = await Promise.all(Array.from({ length: 20 }, () => M({ a: 'put', p: '{}' }, '91.0.0.1')));
   ok(count(pr, r => r.st === 200) === 6, '20 puts at once from one IP -> 6 codes: ' + sts(pr));
+  off += 2 * 3600e3;
+  ok((await M({ a: 'put', p: '{}' }, '91.0.0.1')).st === 429, 'put limit lasts a day, not an hour');
+  off += 23 * 3600e3;
+  ok((await M({ a: 'put', p: '{}' }, '91.0.0.1')).st === 200, 'and opens again the next day');
   const gr = await Promise.all(Array.from({ length: 40 }, (_, i) => M({ a: i % 2 ? 'take' : 'peek', code: 'zzzzzzzzz' }, '92.0.0.1')));
   ok(count(gr, r => r.st !== 429) === 30, '40 peeks/takes at once from one IP -> 30 checked: ' + sts(gr));
 }
@@ -333,6 +337,51 @@ ok(clean(1234, 10) === '', 'clean(number, max) does not');
   ok(d && d.lk.seed === 987654, 'cleanMemo keeps a numeric seed');
   const d2 = memo.cleanMemo({ ck: 'war', rk: 2, f: 10, fr: [{ k: 'b', f: 3 }], lk: { seed: 'abc<b>' } });
   ok(d2 && d2.lk.seed === 'abc', 'cleanMemo still cleans a string seed');
+}
+
+// ---- 9. v0.3.5.10 server pass ----
+console.log('error paths answer JSON');
+{ hook = async q => { if (/kv/.test(q)) throw new Error('D1 down'); };
+  const r1 = await P({ a: 'post', s: sum, q: 'ทดสอบตอนฐานข้อมูลล่ม' }, '120.0.0.1');
+  const r2 = await call(live, '/api/live', { a: 'ss', ss: { x: 1 } }, { ip: '120.0.0.2' });
+  hook = null;
+  ok(r1.st === 503 && r1.j.error === 'busy', 'posts: storage failure -> 503 busy, not a crash: ' + r1.st);
+  ok(r2.st === 503 && r2.j.error === 'busy', 'live ss: storage failure -> 503 busy: ' + r2.st);
+  hook = async q => { if (/acct_lim/.test(q)) throw new Error('D1 down'); };
+  const r3 = await S(entry(), '120.0.0.3');
+  hook = null;
+  ok(r3.st === 503 && r3.j.error === 'busy', 'scores without ticket: limiter failure -> 503 busy: ' + r3.st);
+}
+console.log('sign-up with a taken name');
+{ await AC({ a: 'signup', name: 'taken1', pw: 'password1' }, { ip: '121.0.0.1' });
+  const t = []; for (let i = 0; i < 6; i++) t.push(await AC({ a: 'signup', name: 'TAKEN1', pw: 'password1' }, { ip: '121.0.0.2' }));
+  ok(t.every(r => r.st === 409), '6 tries of a taken name -> 409 each: ' + sts(t));
+  ok((await AC({ a: 'signup', name: 'fresh1', pw: 'password1' }, { ip: '121.0.0.2' })).st === 200, 'and the IP can still sign up (taken names do not use the day limit)');
+}
+console.log('indexes for the sweeps');
+ok(['acct_lim_exp', 'acct_sess_exp'].every(n => sql.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?").get(n)), 'acct_lim and acct_sess have an exp index');
+console.log('pay');
+{ const envS = { ...ENV, STRIPE_SECRET_KEY: 'sk_test_dummy', STRIPE_WEBHOOK_SECRET: 'whsec_dummy' };
+  const co = await imp('pay/checkout.js'), wh = await imp('pay/webhook.js'), log = console.log;
+  const bt = (await AC({ a: 'signup', name: 'buyer2', pw: 'password1' }, { ip: '122.0.0.1' })).j.tok;
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: { message: 'Invalid API Key provided: sk_live_****abcd' } }), { status: 401 });
+  console.log = () => { };
+  const r = await call(co, '/api/pay/checkout', { sku: 'gold_s' }, { tok: bt }, envS);
+  console.log = log;
+  ok(r.st === 502 && !JSON.stringify(r.j).includes('sk_'), 'checkout: Stripe error text is not sent to the player: ' + JSON.stringify(r.j));
+  const pay = async (sku, id) => {
+    const raw = JSON.stringify({ type: 'checkout.session.completed', data: { object: { id, payment_status: 'paid', currency: 'thb', amount_total: 999999, metadata: { sku, uid: '1' } } } });
+    const t = Math.floor(Date.now() / 1000), k = await crypto.subtle.importKey('raw', new TextEncoder().encode('whsec_dummy'), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const sig = [...new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(t + '.' + raw)))].map(b => b.toString(16).padStart(2, '0')).join('');
+    console.log = () => { };
+    const res = await wh.onRequestPost({ request: new Request(ORIGIN + '/api/pay/webhook', { method: 'POST', headers: { 'Stripe-Signature': `t=${t},v1=${sig}` }, body: raw }), env: envS });
+    console.log = log;
+    return { st: res.status, j: await res.json(), row: sql.prepare('SELECT sku FROM ent WHERE id = ?').get(id) };
+  };
+  const good = await pay('gold_s', 'cs_ok_1');
+  ok(good.st === 200 && good.row && good.row.sku === 'gold_s', 'webhook: signed paid session for a real sku -> granted');
+  const bad = await Promise.all(['constructor', 'toString', '__proto__'].map((s, i) => pay(s, 'cs_bad_' + i)));
+  ok(bad.every(x => x.st === 200 && x.j.skip === 'unknown' && !x.row), 'webhook: sku from Object.prototype -> nothing granted');
 }
 
 console.log(fails ? `\n${passes} passed, ${fails} failed` : `\nall ${passes} passed`);

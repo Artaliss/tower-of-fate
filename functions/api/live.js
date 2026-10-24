@@ -87,9 +87,11 @@ export async function onRequestPost({ request, env }) {
     const ss = shareStats(b.ss);
     if (!ss) return json({ error: 'invalid', field: 'ss' }, 400);
     const db = env.TOF_DB, now = Date.now();
-    await ensureSchema(db);
-    if (await hit(db, 'ss:' + ipKey(request), 86400e3, now, SS_IP_MAX) > SS_IP_MAX) return json({ error: 'rate-limited' }, 429, { 'Retry-After': '3600' });
-    await editLive(kv, v => addShare(v, thDay(now), ss));
+    try {
+      await ensureSchema(db);
+      if (await hit(db, 'ss:' + ipKey(request), 86400e3, now, SS_IP_MAX) > SS_IP_MAX) return json({ error: 'rate-limited' }, 429, { 'Retry-After': '3600' });
+      await editLive(kv, v => addShare(v, thDay(now), ss));
+    } catch { return json({ error: 'busy' }, 503, { 'Retry-After': '5' }); }
     return json({ ok: true, ss: 1 });
   }
   if (!b || !okSid(b.sid)) return json({ error: 'sid' }, 400);
@@ -98,7 +100,7 @@ export async function onRequestPost({ request, env }) {
     const ip = ipKey(request), now = Date.now();
     let many = false; try { many = await T.byIp(ip, now - TK_IP_WIN) >= TK_IP_MAX; } catch { }
     if (many) return json({ n: await openN(T) });
-    const tk = await T.issue(ip, okDv(b.dv) ? b.dv : '');
+    let tk; try { tk = await T.issue(ip, okDv(b.dv) ? b.dv : ''); } catch { return json({ n: await openN(T) }); }   // no ticket, the run still plays
     liveC.n++;
     return json({ tk, n: await openN(T) });
   }

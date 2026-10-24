@@ -142,7 +142,7 @@ function gateOpen(){const T=TW(),P=M.load();T.css();css();
  const cv=gate.querySelector('.tw-cv');T.tapper(cv,gate.querySelector('.tw-pop'),T.scene(cv,P),P,T.hud(gate.querySelector('.tw-wrap'),P,{portal:gateClose}));gateSync();
  // auto.js กด Enter/1-4 แล้วเข้าหอทันที: กันไว้ตอนหน้าเมืองเปิดอยู่ ปุ่มที่โฟกัสยังกดได้ตามปกติ
  keyH=e=>{if(!gate)return;const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return;const dl=document.getElementById('metaDlg');
-  if(e.key==='Escape'&&!(dl&&dl.open)){e.preventDefault();gateClose();return;}if(e.key==='Enter'||e.key===' '||/^[1-4]$/.test(e.key))e.stopPropagation();};
+  if(e.key==='Escape'&&!(dl&&dl.open)&&!document.querySelector('dialog[open]')){e.preventDefault();gateClose();return;}if(e.key==='Enter'||e.key===' '||/^[1-4]$/.test(e.key))e.stopPropagation();};
  window.addEventListener('keydown',keyH,true);try{gate.querySelector('#tgGo').focus({preventScroll:true});}catch(e){}
  try{if(T.grants)T.grants(P);else M.grantAch('town_open');}catch(e){}}
 function boot(){try{if(gateOk())gateOpen();}catch(e){console.error(e);}}

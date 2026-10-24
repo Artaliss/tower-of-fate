@@ -88,6 +88,9 @@ function pruneQ(q, now, win = HOUR) {
   for (const k in q) { const a = Array.isArray(q[k]) ? q[k].filter(t => now - t < win) : []; if (a.length) q[k] = a; else delete q[k]; }
 }
 const pub = p => ({ id: p.id, t: p.t, s: p.s, q: p.q, rm: p.rm | 0 });
+// update() that answers false instead of throwing when D1 stays busy or fails, so the player gets a JSON 503, not a crash page
+const edit = (kv, fn) => update(kv, KEY, fn).then(() => true, () => false);
+const BUSY = () => json({ error: 'busy' }, 503, { 'Retry-After': '5' });
 
 export async function onRequestGet({ request, env }) {
   const kv = store(env);
@@ -121,7 +124,7 @@ export async function onRequestPost({ request, env }) {
     if (why) return json({ error: 'filtered', why }, 400);
     // update() re-runs this on a fresh copy if someone else wrote 'posts' in between, so no react or post is lost
     let res = null;
-    await update(kv, KEY, str => {
+    if (!await edit(kv, str => {
       const v = parse(str);
       pruneQ(v.qp, now); pruneQ(v.qa, now); pruneQ(v.qd, now, DAY);
       const dv = typeof b.dv === 'string' && /^[0-9a-f]{16}$/.test(b.dv) ? fnv('tof-dv|' + b.dv) : '';
@@ -145,7 +148,7 @@ export async function onRequestPost({ request, env }) {
       if (dv) v.qd[dv] = [...myDev, now];
       res = json({ ok: true, post: pub(post) });
       return JSON.stringify(v);
-    });
+    })) return BUSY();
     return res;
   }
 
@@ -153,7 +156,7 @@ export async function onRequestPost({ request, env }) {
     if (!okId(b.id)) return json({ error: 'invalid', field: 'id' }, 400);
     // update() re-runs this on a fresh copy if someone else wrote 'posts' in between, so no react or post is lost
     let res = null;
-    await update(kv, KEY, str => {
+    if (!await edit(kv, str => {
       const v = parse(str);
       const p = v.p.find(x => x && x.id === b.id);
       if (!p || p.x) { res = json({ error: 'not-found' }, 404); return null; }
@@ -168,7 +171,7 @@ export async function onRequestPost({ request, env }) {
       else { p.rp = (p.rp | 0) + 1; if (p.rp >= REPORT_HIDE) p.x = 1; }
       res = json({ ok: true, rm: p.rm | 0 });
       return JSON.stringify(v);
-    });
+    })) return BUSY();
     return res;
   }
   return json({ error: 'a' }, 400);

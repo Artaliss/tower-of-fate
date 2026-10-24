@@ -12,7 +12,7 @@ import { ipHash, json, sameOrigin, fitsRow, saveMeta, MAX_SAVE as MAX_P } from '
 
 const TTL = 3 * 86400;
 const MAX_BODY = MAX_P + 10000;
-const PUT_MAX = 6, PUT_WIN = 3600;       // 6 codes / hour / IP
+const PUT_MAX = 6, PUT_WIN = 86400;      // 6 codes / day / IP: each may hold MAX_SAVE for 3 days, so one IP keeps at most ~7 MB in D1
 const GET_MAX = 30, GET_WIN = 600;       // 30 peeks or takes / 10 min / IP (guessing a 9-char code is hopeless anyway)
 const okCode = s => typeof s === 'string' && /^[a-z2-9]{9}$/.test(s);
 

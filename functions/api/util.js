@@ -23,7 +23,7 @@ export const okId = s => typeof s === 'string' && /^[a-z2-9]{9}$/.test(s);
 // a D1 row holds at most 2 MB; the save string is stored as UTF-8 (Thai letters take 3 bytes)
 export const fitsRow = s => new TextEncoder().encode(s).length <= 1900000;
 // longest save string /api/acct and /api/move take. A gzip save grows ~110 chars a life (memorial + lineage), so this fits
-// ~3,000 lives; it keeps one IP from filling D1's 500 MB fast (acct: 5 accounts a day, move: 6 codes an hour, 3 days each).
+// ~3,000 lives; it keeps one IP from filling D1's 500 MB fast (acct: 5 accounts a day, move: 6 codes a day, 3 days each).
 export const MAX_SAVE = 400000;
 export const thDay = now => new Date(now + 7 * 3600e3).toISOString().slice(0, 10);
 // hash of the caller's IP for rate limits. IPv6 keeps only the /64 (one home gets 2^64 addresses), IPv4 is used as-is so

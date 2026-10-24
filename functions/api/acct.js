@@ -35,9 +35,10 @@ export async function onRequestPost({ request, env }) {
     if (b.a === 'signup') {
       if (!okName(b.name)) return json({ error: 'bad-name' }, 400);
       if (!okPw(b.pw)) return json({ error: 'bad-pw' }, 400);
-      if (await hit(db, 'su:' + ip, SIGNUP_WIN, now, SIGNUP_IP) > SIGNUP_IP) return wait(SIGNUP_WIN);
       const name = b.name.normalize('NFC'), nk = nameKey(name);
+      // a taken name is answered before the count, so trying a few names does not use up the day's 5 sign-ups
       if (await db.prepare('SELECT id FROM acct WHERE nk = ?').bind(nk).first()) return json({ error: 'taken' }, 409);
+      if (await hit(db, 'su:' + ip, SIGNUP_WIN, now, SIGNUP_IP) > SIGNUP_IP) return wait(SIGNUP_WIN);
       const salt = hex(rand(16)), iter = iterOf(env), hash = await pbkdf2(b.pw, salt, iter);
       let r;
       try { r = await db.prepare('INSERT INTO acct (name, nk, salt, hash, iter, at, pw_at, ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(name, nk, salt, hash, iter, now, now, ip).run(); }

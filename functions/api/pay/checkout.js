@@ -55,7 +55,8 @@ export async function onRequestPost({ request, env }) {
       body: f.toString(),
     });
     let j = null; try { j = await r.json(); } catch { }
-    if (!r.ok || !j || typeof j.url !== 'string') return json({ error: 'stripe', detail: (j && j.error && j.error.message || '').slice(0, 200) }, 502);
+    // Stripe's message can name the key or account, so it goes to the log, not to the player
+    if (!r.ok || !j || typeof j.url !== 'string') { console.log('pay: checkout failed', r.status, j && j.error && j.error.message); return json({ error: 'stripe' }, 502); }
     return json({ ok: true, url: j.url });
   } catch (e) { return dbErr(e); }
 }

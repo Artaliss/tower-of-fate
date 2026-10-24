@@ -1,2 +1,3 @@
 # nothing ignored: whole folder is versioned for multi-machine dev
 .claude/worktrees/
+.wrangler/

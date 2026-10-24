@@ -49,7 +49,7 @@ const GIVE={slot_m5:P=>{P.slots.m=Math.min(MAXM,P.slots.m+5);},slot_p1:P=>{P.slo
 function canBuy(sku,P){const a=ast(P);if(sku==='slot_m5')return P.slots.m+5<=MAXM;if(sku==='slot_p1')return P.slots.p<MAXP;
  if(sku.indexOf('wear_')===0)return!a.own[sku.slice(5)];return true;}
 async function loadShop(){if(shop)return shop;const r=await call('/api/pay/checkout');
- shop=r.st===200&&isObj(r.j.items)?{open:!!r.j.open,items:r.j.items}:{open:false,items:{}};return shop;}
+ const s=r.st===200&&isObj(r.j.items)?{open:!!r.j.open,items:r.j.items}:{open:false,items:{}};if(r.st===200)shop=s;return s;}
 
 // ---------- แฟชั่นพิเศษ (วาดในล็อบบี้ผ่าน TOWN.WEAR · ใส่ทับ P.mod.fest.wear ที่ town.js อ่านอยู่แล้ว) ----------
 function px(c,x,y,w,h,col){c.fillStyle=col;c.fillRect(Math.round(x),Math.round(y),w,h);}
@@ -66,7 +66,8 @@ const MV=()=>window.MOVE&&window.MOVE.collect?window.MOVE:null;
 let last={at:0,h:'',b:0},timer=0,clash=null;try{const s=st();if(isObj(s.last)){last=s.last;if(typeof last.b!=='number')last.b=last.at||0;}}catch(e){}
 function keepLast(){const s=st();if(s.tok){s.last=last;put(s);}}
 const hashOf=o=>fnv(JSON.stringify(o));
-async function upload(force,over){const mv=MV();if(!mv||!name())return{st:0,j:{error:'auth'}};if(window.ADMIN&&window.ADMIN.on)return{st:0,j:{error:'admin'}}; // admin test save never goes to the cloud
+// another tab may have synced since: storage is shared, so its cloud base is ours too
+async function upload(force,over){const mv=MV();if(!mv||!name())return{st:0,j:{error:'auth'}};{const s0=st();if(isObj(s0.last)&&s0.last.b>last.b)last=s0.last;}if(window.ADMIN&&window.ADMIN.on)return{st:0,j:{error:'admin'}}; // admin test save never goes to the cloud
  const o=mv.collect(),h=hashOf(o);if(!force&&h===last.h)return{st:200,j:{ok:true,same:true}};
  let pk=null;try{pk=await mv.pack(o);}catch(e){}if(!pk)return{st:413,j:{error:'too-large'}};
  const m=Object.assign(mv.summary(o),{h}),b={a:'save',z:pk.z,p:pk.p,m};if(!over)b.base=last.b||0;
@@ -80,7 +81,8 @@ function soon(){if(!name()||st().auto===false||clash)return;clearTimeout(timer);
  timer=setTimeout(async()=>{if(busy)return soon();const r=await upload(false);if(r.j.ok&&!r.j.same)M.refresh();
   if(r.j.error==='conflict')M.refresh();
   if(r.j.error==='rate-limited'){last.at=Date.now();soon();}},d);}
-async function me(){if(!name())return null;const r=await acct({a:'me'});if(!r.j.ok)return null;me0=r.j;
+// offline or server error: fetched=false so the next time the tab opens asks again
+async function me(){if(!name())return null;const r=await acct({a:'me'});if(!r.j.ok){fetched=false;return null;}me0=r.j;
  const s=st();if(s.tok&&s.name!==r.j.name){s.name=r.j.name;put(s);}
  // เทียบเซฟบนคลาวด์กับที่เครื่องนี้รู้จัก: ถ้าเป็นข้อมูลชุดเดียวกับในเครื่องก็ถือว่าตรงกัน ไม่งั้นรอให้ผู้เล่นเลือก
  const sv=r.j.save,mv=MV();

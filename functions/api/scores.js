@@ -185,20 +185,21 @@ export async function onRequestPost({ request, env }) {
 
   if (how === 'd1') {
     // one score per ticket: the stamp is the dedupe, and tickets are already limited per IP when issued (live.js)
-    if (tkv.u || !await T.use(x.tk)) return json({ ok: true, dup: true, id: e.id });
+    let used = false; try { used = !tkv.u && await T.use(x.tk); } catch { return json({ error: 'busy' }, 503, { 'Retry-After': '5' }); }
+    if (!used) return json({ ok: true, dup: true, id: e.id });
   } else {
     // no D1 ticket: the same entry again is a dup (0 writes), otherwise the per-IP limiter
     if (!x.tk) {
       const [top, recent] = await Promise.all([getList(kv, 'top'), getList(kv, 'recent')]);
       if (recent.some(y => y && y.id === e.id) || top.some(y => y && y.id === e.id)) return json({ ok: true, dup: true, id: e.id });
     }
-    await ensureSchema(db);
-    const lim = await limited(db, ip, x.dv, now);
-    if (lim) return json(lim.dev ? { error: 'rate-limited', scope: 'dev', retryAfter: lim.wait } : { error: 'rate-limited', retryAfter: lim.wait }, 429, { 'Retry-After': String(lim.wait) });
-    if (how === 'kv') {
+    try {
+      await ensureSchema(db);
+      const lim = await limited(db, ip, x.dv, now);
+      if (lim) return json(lim.dev ? { error: 'rate-limited', scope: 'dev', retryAfter: lim.wait } : { error: 'rate-limited', retryAfter: lim.wait }, 429, { 'Retry-After': String(lim.wait) });
       // one score per old ticket: the counter makes two posts sent at once count as one
-      if (await hit(db, 'dup:tk:' + x.tk, DUP_TTL * 1000, now, 1) > 1) return json({ ok: true, dup: true, id: e.id });
-    }
+      if (how === 'kv' && await hit(db, 'dup:tk:' + x.tk, DUP_TTL * 1000, now, 1) > 1) return json({ ok: true, dup: true, id: e.id });
+    } catch { return json({ error: 'busy' }, 503, { 'Retry-After': '5' }); }
   }
 
   // account name (v0.3.5): only from a live session in D1, cleaned like every other name; anything wrong just leaves 'ac' off

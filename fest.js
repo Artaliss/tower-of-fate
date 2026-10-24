@@ -197,6 +197,7 @@ function fxSize(){const cv=FX.cv,w=Math.max(1,Math.ceil(cv.clientWidth/FXS)),h=M
 function fxDraw(t,dt){const c=FX.cv.getContext('2d'),c2=FX.top.getContext('2d'),K=FXK[FX.id],w=FX.w,h=FX.h;c.clearRect(0,0,w,h);c2.clearRect(0,0,w,h);if(K.bg)K.bg(c,w,h,t);
  FX.P.forEach((p,i)=>{if(dt&&!K.step(p,dt,w,h,t))FX.P[i]=p=K.mk(i,w,h,false);K.draw(i%3===1?c2:c,p,t,i%3===1);});}
 function fxFrame(now){if(!FX||!FX.run)return;if(!FX.cv.isConnected||document.hidden){FX.run=false;return;}
+ {const cov=document.querySelector('#townGate,#metaDlg[open]');if(cov&&!cov.contains(FX.cv)){requestAnimationFrame(fxFrame);return;}}
  if(now-FX.last>=40){const dt=FX.last?Math.min(.1,(now-FX.last)/1000):0;FX.last=now;if(now-FX.chk>1000){FX.chk=now;fxSize();}fxDraw(now,dt);}
  requestAnimationFrame(fxFrame);}
 function fxGo(){if(!FX)return;fxSize();if(RMQ){fxDraw(performance.now(),0);return;}if(FX.run)return;FX.run=true;FX.last=0;requestAnimationFrame(fxFrame);}
