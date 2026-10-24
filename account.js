@@ -45,7 +45,7 @@ function ast(P){if(!isObj(P.mod))P.mod={};const a=P.mod.acct=isObj(P.mod.acct)?P
 function applyEnts(list){if(!Array.isArray(list)||!list.length)return 0;const P=M.load(),a=ast(P);let n=0;
  list.forEach(e=>{if(!e||!e.id||a.ap[e.id])return;const g=GIVE[e.sku];if(!g)return;
   for(let i=0;i<Math.max(1,e.qty|0);i++)g(P,a);a.ap[e.id]=1;n++;});
- if(n){M.save(P);M.grantAch('acct_vip');M.refresh();}return n;}
+ if(n){const c=P.mod&&P.mod.city;if(c&&c.sl&&typeof c.sl==='object')c.sl={m:P.slots.m,p:P.slots.p};M.save(P);M.grantAch('acct_vip');M.refresh();}return n;}
 const GIVE={slot_m5:P=>{P.slots.m=Math.min(MAXM,P.slots.m+5);},slot_p1:P=>{P.slots.p=Math.min(MAXP,P.slots.p+1);},
  gold_s:P=>{P.gold+=3000;},gold_l:P=>{P.gold+=10000;},wear_halo:(P,a)=>{a.own.halo=1;},wear_drhelm:(P,a)=>{a.own.drhelm=1;}};
 // ซื้อได้ไหม (ช่องเต็มแล้ว/มีชุดแล้ว = ไม่ต้องซื้อ)
@@ -127,7 +127,7 @@ function renderIn(el,P){const s=st(),sv=me0&&me0.save,mv=MV();
   <p class="ac-warn">เซฟในเครื่องนี้จะหายทั้งหมด ถ้ายังอยากเก็บไว้ ให้กด "บันทึกขึ้นคลาวด์" ก่อน (เซฟบนคลาวด์จะถูกทับแทน)</p>
   <div class="ac-act"><button class="mt-btn pri" data-a="yes">แทนที่เซฟเครื่องนี้</button><button class="mt-btn" data-a="no">ยกเลิก</button></div></div>${msgHTML()}`;
   el.querySelector('[data-a=no]').onclick=()=>{pend=null;say('');};
-  el.querySelector('[data-a=yes]').onclick=()=>{const o=pend.o,at=pend.at;pend=null;if(!mv.apply(o)){say('เขียนเซฟไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์อาจเต็ม',true);return;}
+  el.querySelector('[data-a=yes]').onclick=()=>{const o=pend.o,at=pend.at;pend=null;try{const S=window.__auto&&window.__auto.S;if(S)S.paused=true;}catch(e){}if(!mv.apply(o)){say('เขียนเซฟไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์อาจเต็ม',true);return;}
    last={at:Date.now(),h:hashOf(mv.collect()),b:at||0};clash=null;keepLast();say('โหลดเซฟเสร็จแล้ว กำลังเปิดเกมใหม่…');setTimeout(()=>location.reload(),600);};
   return;}
  el.innerHTML=`<p>เข้าสู่ระบบเป็น <b>${esc(s.name)}</b></p>

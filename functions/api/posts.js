@@ -20,7 +20,7 @@ const POST_PER_HOUR = 3, ACT_PER_HOUR = 40, GLOBAL_POST_PER_HOUR = 40;
 const POST_PER_DAY_DEV = 8, DAY = 86400e3;   // v2.7 per device id
 const REPORT_HIDE = 3, RING = 1500;
 const RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'];
-const CLS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra', 'dsl'];
+const CLS = ['war', 'mag', 'arc', 'pri', 'rog', 'far', 'dra', 'dsl', 'nec', 'ang'];
 const FORMS = ['slime', 'human', ''];
 const DRG = ['', 'n', 'f', 's', 'x'];
 const HOUR = 3600e3;

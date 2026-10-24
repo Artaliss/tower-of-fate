@@ -464,6 +464,7 @@ const CSS=`
 .shs-pri:hover{filter:brightness(1.06)}.shs-pri:active{transform:translateY(1px)}
 .shs-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .shs-grid button,.shs-mini button{font:500 14.5px ${fT};color:#f1e7d0;background:#1c2e36;border:2px solid #3d5a66;border-radius:6px;padding:10px 8px;cursor:pointer;min-height:46px;display:flex;align-items:center;justify-content:center;gap:7px}
+.shs-grid button[hidden]{display:none}
 .shs-grid button:hover,.shs-mini button:hover{border-color:#b97a22}
 .shs-grid .ln{background:#06c755;border-color:#048a3b;color:#fff}
 .shs-grid .ln:hover{border-color:#fff}

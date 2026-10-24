@@ -71,7 +71,7 @@ function css(){if(document.getElementById('hireCss'))return;const s=document.cre
 .tp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
 .tp-it{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:8px;border:1px solid var(--line,#2c3a36);background:rgba(255,255,255,.03)}
 .tp-it .ic{font-size:20px;flex:none}.tp-it b{display:block;font-size:13px}.tp-it small{display:block;font-size:11.5px;color:var(--dim,#8aa39a)}
-.tp-it.gold{border-color:#f4bb4a}.tp-it.legend{border-color:#ff7a5a}.tp-it.silver{border-color:#c8d0d8}.tp-it.bronze{border-color:#c0804a}.tp-it.off{opacity:.45;border-color:var(--line,#2c3a36)}
+.tp-it.gold{border-color:#f4bb4a}.tp-it.tp-leg{border-color:#ff7a5a}.tp-it.silver{border-color:#c8d0d8}.tp-it.bronze{border-color:#c0804a}.tp-it.off{opacity:.45;border-color:var(--line,#2c3a36)}
 .tp-row{display:flex;flex-wrap:wrap;gap:6px}.tp-coin{padding:4px 9px;border-radius:999px;border:1px solid var(--gold,#f4bb4a);font-size:12.5px}
 `;document.head.appendChild(s);}
 function card(o,P,btn,cur){const T=trOf(o.tr),m=o.mid&&P.roster.find(x=>x.id===o.mid);
@@ -154,7 +154,7 @@ M.tab('trophy',{n:'🏆 ห้องรางวัล',o:6,render(el,P){css();l
  const fs=((P.mod.fest||{}).coins)||[],FS=(window.FEST&&window.FEST.list)?window.FEST.list():[],cp=((P.mod.city||{}).perm)||{};let PQ=[];try{PQ=window.CITY.perm().filter(q=>!q.hard||P.unlock.hard);}catch(e){}
  const coin=c=>{const i=c.lastIndexOf('-'),F=FS.find(f=>f.id===c.slice(0,i));return`<span class="tp-coin">${F?`${F.ic} ${esc(F.coin||F.n)}`:'🎖 '+esc(c.slice(0,i))} ${esc(c.slice(i+1))}</span>`;};
  el.innerHTML=`<p class="mt-dim" style="margin-top:0">ของที่ตระกูลสะสมมาทั้งหมดอยู่ในห้องนี้</p>
- <h3>🏅 ความสำเร็จของตระกูล ${got}/${L.length}</h3><div class="tp-grid">${L.map(a=>{const sh=a.got||!a.hid;return`<div class="tp-it ${a.got?esc(a.tier||''):'off'}"><span class="ic" aria-hidden="true">${sh?esc(a.icon||'🏅'):'❔'}</span><span><b>${sh?esc(a.n):'???'}</b><small>${sh?esc(a.d):'ยังเป็นความลับ'}</small></span></div>`;}).join('')||'<span class="mt-dim">ยังไม่มี</span>'}</div>
+ <h3>🏅 ความสำเร็จของตระกูล ${got}/${L.length}</h3><div class="tp-grid">${L.map(a=>{const sh=a.got||!a.hid;return`<div class="tp-it ${a.got?esc(a.tier==='legend'?'tp-leg':(a.tier||'')):'off'}"><span class="ic" aria-hidden="true">${sh?esc(a.icon||'🏅'):'❔'}</span><span><b>${sh?esc(a.n):'???'}</b><small>${sh?esc(a.d):'ยังเป็นความลับ'}</small></span></div>`;}).join('')||'<span class="mt-dim">ยังไม่มี</span>'}</div>
  <h3>🎖 เหรียญตราเทศกาล ${fs.length}</h3>${fs.length?`<div class="tp-row">${fs.map(coin).join('')}</div>`:'<p class="mt-dim">ยังไม่มี ทำภารกิจเทศกาลให้ครบแล้วจะได้เหรียญประจำปีมาเก็บไว้ที่นี่</p>'}
  <h3>🏆 โล่รางวัลเควส</h3>${PQ.length?`<div class="tp-grid">${PQ.map(q=>{const n=Math.min(q.st,cp[q.id]|0);return`<div class="tp-it ${n>=q.st?'gold':n?'silver':'off'}"><span class="ic" aria-hidden="true">${esc(q.ic)}</span><span><b>${esc(q.n)}</b><small>${'🏆'.repeat(n)}${'▫️'.repeat(q.st-n)} ส่งแล้ว ${n}/${q.st} ขั้น</small></span></div>`;}).join('')}</div>`:'<p class="mt-dim">กระดานเควสยังไม่เปิด</p>'}`;}});
 window.HIRE={take,offers,open:()=>M.open('merc'),gate:gateOpen,closeGate:gateClose};

@@ -295,7 +295,7 @@ function estimateWin(R,en,n,o){let w=0;for(let i=0;i<n;i++)if(fight(R,en,Object.
 function gainExp(R,x,out){const h=R.h;if(cid(R)==='far')x*=1.25;x*=MD(R,'xp',1);h.exp+=x;const C=CLASSES[h.cls],m=RANKS[h.rank].m;
  while(h.exp>=need(h.lv)){h.exp-=need(h.lv);h.lv++;h.mhp+=C.g.hp*m;h.atk+=C.g.atk*m;h.def+=C.g.def*m;h.luk+=C.g.luk;h.mmp+=C.g.mp*m;h.hp=Math.min(h.mhp,h.hp+h.mhp*.3);h.mp=h.mmp;
   out&&say(R,out,`เลเวลอัป! ตอนนี้ Lv.${h.lv}`,'lv');}}
-function addPet(R,p,out){if(R.pets.length>=2){R.h.gold+=Math.round(20*scl(R.floor));say(R,out,`ไม่มีที่ว่างเลี้ยง${PETS[p].n} เลยขายต่อได้ทองมา`,'info');return;}R.pets.push(p);say(R,out,`${PETS[p].n} เข้าร่วมปาร์ตี้! (${PETS[p].d})`,'good');}
+function addPet(R,p,out){if(R.pets.length>=2||R.pets.includes(p)){R.h.gold+=Math.round(20*scl(R.floor));say(R,out,R.pets.includes(p)?`มี${PETS[p].n}อยู่แล้ว เลยขายตัวนี้ต่อได้ทองมา`:`ไม่มีที่ว่างเลี้ยง${PETS[p].n} เลยขายต่อได้ทองมา`,'info');return;}R.pets.push(p);say(R,out,`${PETS[p].n} เข้าร่วมปาร์ตี้! (${PETS[p].d})`,'good');}
 function addComp(R,c,out){if(R.comps.length>=2)return;if(cid(R)==='nec'){say(R,out,`${c.n}เห็นโครงกระดูกรอบตัวคุณแล้วถอยกรูด ไม่ยอมมาด้วย`,'info');return;}R.comps.push(c);const T=trOf(c);say(R,out,`${c.n} (${clsName(c.cls)}${T?' · '+T.n:''}) เข้าร่วมทีม!`,'good');if(c.tr==='mouth'){const kc=R.kctx;R.kctx=`${c.n}ปากเสีย ด่าพ่อค้าจนร้องไห้`;R.karma-=1;R.kctx=kc;say(R,out,`${c.n}เดินไปด่าพ่อค้าแถวนั้นจนเขาร้องไห้`,'bad');}}
 const clsName=id=>CLASSES.find(c=>c.id===id).n;
 function fxParts(R,fx){const s=scl(R.floor),P=[],f=R.floor;if(!fx)return P;
@@ -358,7 +358,7 @@ function spSay(R,en,res,out){const id=cid(R),L=R.spL||(R.spL={});
 // np: no pet/companion encounters (floors nobody gets to answer)
 function genEvent(R,np){const f=R.floor;if(f%10===0){const en=modMon(R,mkBoss(f),MD(R,'boss',1)),k=BLATE[f]||1;en.hp*=k;en.mhp=en.hp;en.atk*=k;return{kind:'boss',en:bossFit(R,en,BFIT.t)};}
  let r=rnd();if(r<.3)return{kind:'mon',en:genMonster(f,R)};r-=.3;
- const hk=R.st==='help'?1.3:1,pr=.05*MD(R,'pet',1)*hk;if(r<pr&&!np&&R.pets.length<2)return{kind:'pet',pet:pick(PETK)};r-=pr;
+ const hk=R.st==='help'?1.3:1,pr=.05*MD(R,'pet',1)*hk;if(r<pr&&!np&&R.pets.length<2)return{kind:'pet',pet:pick(PETK.filter(p=>!R.pets.includes(p)))};r-=pr;
  if(r<.06*hk&&!np&&R.comps.length<2)return{kind:'comp',comp:genComp(f,R)};
  const b=biome(f),okE=(e,i)=>(Array.isArray(e.b)?e.b.includes(b):e.b===b||e.b===-1)&&evW(R,e)>0&&!(np&&payEv(i));let pool=[];EVENTS.forEach((e,i)=>{if(okE(e,i)&&!R.seen.includes(i))pool.push(i);});
  if(!pool.length)EVENTS.forEach((e,i)=>{if(okE(e,i))pool.push(i);});
@@ -392,7 +392,7 @@ function choicesOf(R,ev){const h=R.h,f=R.floor,s=scl(f);
    else{P.push(...fxParts(R,ch.g),{t:`· ${pp}% ${ch.pn}`,c:'b'});}}else P.push(...fxParts(R,ch.g));
   if(!P.length)P.push({t:'ไม่มีอะไรเปลี่ยน',c:''});const d=chDis(R,ch);if(d)P.push({t:`(${d})`,c:'b'});return{t:ch.t,P,dis:!!d,tg:ch.tg,cl:ch.cl};});
  if(ev.kind==='mon'){const w=Math.round(estCached(R,ev,60)*100),en=ev.en;
-  const ex=Math.round(BAL.ex0+BAL.ex1*f),gd=Math.round(BAL.g0+BAL.g1*f);const can=en.pet&&R.pets.length<2;
+  const ex=Math.round(BAL.ex0+BAL.ex1*f),gd=Math.round(BAL.g0+BAL.g1*f);const can=en.pet&&R.pets.length<2&&!R.pets.includes(en.pet);
   return[{t:'สู้!',P:[{t:`โอกาสชนะ ~${w}%`,c:w>=70?'g':w>=40?'w':'b'},{t:`+${ex} EXP`,c:'g'},{t:`+~${gd} ทอง`,c:'g'}]},
    {t:'หนี',P:[{t:`${Math.round(fleeCh(R)*100)}% หนีรอด`,c:'w'},{t:'พลาด = โดนตีก่อนแล้วต้องสู้',c:'b'}]},
    {t:'จับมาเลี้ยง',dis:!can,P:can?[{t:`${Math.round(tameCh(R)*100)}% สำเร็จ`,c:'w'},{t:`ได้${PETS[en.pet].n}`,c:'g'},{t:'พลาด = มันคลั่ง',c:'b'}]:[{t:en.pet?'(สัตว์เลี้ยงเต็ม 2 ตัวแล้ว)':'(ตัวนี้เชื่องไม่ได้)',c:'b'}]}];}
@@ -520,7 +520,7 @@ function shopList(R){const f=R.floor,h=R.h,b=R.buys,s=scl(f),inc=k=>Math.pow(1.3
  if(cid(R)==='far'&&pathTier(R))L.forEach(x=>x.cost=Math.round(x.cost*(1-.08*pathTier(R))));
  {const pk=hzF(R,'p');if(pk!==1)L.forEach(x=>x.cost=Math.round(x.cost*pk));} // v2.7 tower mods: shop prices
  return L.map(x=>Object.assign(x,{dis:h.gold<x.cost||(x.id==='heal'&&h.hp>=h.mhp-.5&&h.mp>=h.mmp-.5)}));}
-function buy(R,id){const it=shopList(R).find(x=>x.id===id);if(!it||it.dis)return false;const h=R.h,f=R.floor;h.gold-=it.cost;R.buys[id]=(R.buys[id]||0)+1;
+function buy(R,id){const it=shopList(R).find(x=>x.id===id);if(!it||it.dis)return false;const h=R.h,f=R.floor;h.gold-=it.cost;R.buys[id]=(R.buys[id]||0)+1;R.nBuy=(R.nBuy|0)+1;
  if(id==='heal'){h.hp=h.mhp;h.mp=h.mmp;R.buys.heal=0;}else if(id==='pot'){R.potions++;R.buys.pot=0;}else if(id==='warp'){R.warps++;R.buys.warp=0;}
  else if(id==='atk')h.atk+=1.5+f*.1;else if(id==='def')h.def+=1+f*.07;else if(id==='mhp'){h.mhp*=1.1;h.hp+=h.mhp*.1/1.1;}else if(id==='luk')h.luk+=3;
  else if(id==='rank'){const q=RANKS[h.rank+1].m/RANKS[h.rank].m;h.rank++;h.mhp*=q;h.hp*=q;h.atk*=q;h.def*=q;h.mmp*=q;}
@@ -529,7 +529,7 @@ function buy(R,id){const it=shopList(R).find(x=>x.id===id);if(!it||it.dis)return
 function aiPick(R,ev){const h=R.h,hf=h.hp/h.mhp;
  if(ev.kind==='ev'){let best=0,bs=-1e9;EVENTS[ev.ti].c.forEach((ch,i)=>{if(chDis(R,ch)||(ch.cl&&ch.cl!==cid(R)))return;let s=rnd()+(pathPts(R,ch.tg)>0?.15:0)+(ch.cl?.15:0);{const kv=(ch.g&&ch.g.k||0)+(ch.b&&ch.b.k||0)*(ch.p||0);if(kv)s+=Math.sign(kv)*kLean(R)*1.2;}if(ch.p)s-=ch.p*(hf<.5?3:.8);
   if(ch.g&&ch.g.hp>0&&hf<.6)s+=1.2;if(ch.g&&ch.g.hp<0&&hf<.5)s-=1;if(s>bs){bs=s;best=i;}});return best;}
- if(ev.kind==='mon'){const w=estimateWin(R,ev.en,24);if(w>=.75)return 0;if(ev.en.pet&&R.pets.length<2&&w>=.5&&rnd()<.5)return 2;return 1;}
+ if(ev.kind==='mon'){const w=estimateWin(R,ev.en,24);if(w>=.75)return 0;if(ev.en.pet&&R.pets.length<2&&!R.pets.includes(ev.en.pet)&&w>=.5&&rnd()<.5)return 2;return 1;}
  if(ev.kind==='pet')return kLean(R)<-.4&&rnd()<-kLean(R)?2:0;
  if(ev.kind==='comp'){if(R.comps.length>=2||cid(R)==='nec')return 2;if(h.gold>=compCost(R,ev.comp)+20)return 0;return hf>.6?1:2;}
  if(ev.kind==='boss')return aiBoss(R,ev);
@@ -613,7 +613,7 @@ const SPECIAL={
     else say(R,out,`"ถ้ายังเดินแบบนี้ ชะตาของเจ้าจะขาดแถวชั้น ${pj.a} ถึง ${pj.b}" พูดจบนางก็ดับไฟแล้วหายไปในความมืด`,'lv');}
    else if(i===1){R.h.luk+=2;R.karma+=1;R.map[f-1]='good';say(R,out,'นางเอานิ้วแตะหน้าผากคุณ รู้สึกโล่งขึ้นมาทันที','good');}
    else say(R,out,'เสียงหัวเราะแหบๆ ไล่หลังคุณขึ้นบันไดไป','info');}},
- rpet:{w:2,mk(R,K){const f=R.floor,p=pick(PETK),P=PETS[p];K.data={p};K.tag=`ชั้น ${f} · สัตว์หายาก`;K.title=`${P.n}เผือก`;K.vis={t:'pet',p};
+ rpet:{w:2,mk(R,K){const f=R.floor,p=pick(PETK.filter(x=>!R.pets.includes(x))),P=PETS[p];K.data={p};K.tag=`ชั้น ${f} · สัตว์หายาก`;K.title=`${P.n}เผือก`;K.vis={t:'pet',p};
    K.text=`${P.n}ขนขาวทั้งตัว ตาสีทอง ยืนรอคุณอยู่ตรงบันได ชาวบ้านเชื่อกันว่าตัวเผือกจะเลือกเจ้านายเอง`;
    K.ch=[{t:R.pets.length<2?'รับมันเข้าปาร์ตี้':`รับมันแทน${PETS[R.pets[0]].n}`,P:[{t:P.d,c:'g'},{t:'LUK +3',c:'g'},{t:'HP สูงสุด +5%',c:'g'}]},
     {t:'ปล่อยให้มันกลับป่า',P:[kk(3)]}];K.ai=0;},
@@ -1720,7 +1720,7 @@ function quietTick(R,n){const out=mkOut(),f0=R.floor,g0=R.h.gold,l0=R.h.lv,k0=R.
  if(k)say(R,out,`${fresh(R,'qt',QUIET)} ผ่านไป ${k} ชั้นรวด (ชั้น ${f0}–${f0+k-1}) · สู้ ${dk} ครั้ง · ทอง ${dg>=0?'+':''}${dg}${R.h.lv>l0?` · เลเวล ${l0}→${R.h.lv}`:''}`,'info');
  keep.forEach(m=>say(R,out,m.t,m.c));if(dead){if(brinkOk(R)){R.pend='brink';say(R,out,'ลมหายใจสะดุดกลางทาง ชะตากำลังจะขาด','bad');}else{const d=deathTick(R);out.msgs.push(...d.msgs);out.vis=d.vis;}}out.quietN=Math.max(1,k);out.f0=f0;out.qb=qb;return out;}
 function dramaTick(R,D){const out=mkOut();R.drama++;R.lastDrama=R.floor;D.run(R,out);if(R.alive&&R.h.hp<=0)mortal(R,out,out.cause);finishFloor(R,out);return out;}
-function hatch(R,out){R.egg=null;if(R.pets.length<2){const p=pick(PETK);R.pets.push(p);R.h.luk+=2;say(R,out,`ไข่ฟักแล้ว! ${PETS[p].n}ตัวน้อยมองคุณเป็นแม่ทันที (${PETS[p].d})`,'good');}
+function hatch(R,out){R.egg=null;if(R.pets.length<2){const p=pick(PETK.filter(x=>!R.pets.includes(x)));R.pets.push(p);R.h.luk+=2;say(R,out,`ไข่ฟักแล้ว! ${PETS[p].n}ตัวน้อยมองคุณเป็นแม่ทันที (${PETS[p].d})`,'good');}
  else{R.h.luk+=4;say(R,out,'ไข่ฟักออกมาเป็นนกไฟตัวจิ๋ว มันบินวนรอบหัวคุณสามรอบแล้วหายไป ทิ้งโชคไว้ให้ (LUK +4)','good');}}
 // where a key moment fits the tower (biome index: 0 grass 1-20, 1 crystal cave, 2 cursed forest, 3 volcano, 4 star realm); unlisted = anywhere
 const SP_BI={starfall:[4],dragon:[1,2,3,4],bard:[0,1,2,3],hunter:[0,1,2,3],noble:[0,1,2],cultist:[2,3,4],imp:[2,3,4],healer:[0,1,2],bridge:[1,2,3],
@@ -2072,7 +2072,7 @@ const legAll=()=>{try{const P=window.META&&window.META.load();if(P&&Array.isArra
 // v0.3 legendary pet in the tower: fairy or unicorn, floor 61+, added after TIER_N so other legendaries keep their share
 const LEG_TXT={fairy:{t:'แฟรี่หลงทาง',x:'แสงสีเขียวลอยวนอยู่กลางบันได เข้าไปใกล้ถึงเห็นว่าเป็นแฟรี่ตัวจิ๋ว เธอเอียงคอมองคุณอยู่นาน เหมือนกำลังชั่งใจว่าจะไว้ใจคนตรงหน้าดีไหม'},
  unicorn:{t:'ยูนิคอนกลางหอ',x:'ยูนิคอนตัวเล็กยืนอยู่กลางลานหิน รอบกีบมีดอกไม้ขึ้นเป็นวง เห็นคุณแล้วมันก็ไม่หนี แค่ก้มหัวลงนิดหนึ่งแล้วยืนรอ'}};
-Object.assign(SPECIAL,{legpet:{w:1,ok:R=>R.floor>=61,mk(R,K){const f=R.floor,p=rnd()<.5?'fairy':'unicorn',P=PETS[p];K.data={p};K.tag=`ชั้น ${f} · สัตว์ตำนาน`;K.title=LEG_TXT[p].t;K.text=LEG_TXT[p].x;K.vis={t:'pet',p};
+Object.assign(SPECIAL,{legpet:{w:1,ok:R=>R.floor>=61,mk(R,K){const f=R.floor,p=R.pets.includes('fairy')?'unicorn':R.pets.includes('unicorn')?'fairy':rnd()<.5?'fairy':'unicorn',P=PETS[p];K.data={p};K.tag=`ชั้น ${f} · สัตว์ตำนาน`;K.title=LEG_TXT[p].t;K.text=LEG_TXT[p].x;K.vis={t:'pet',p};
    K.ch=[CH(R.pets.length<2?'ยื่นมือให้มัน':`ยื่นมือให้มัน แล้วปล่อย${PETS[R.pets[0]].n}กลับป่า`,[{t:P.d,c:'g'},{t:'สัตว์ตำนาน',c:'g'}]),
     CH('ขอพรแล้วปล่อยมันไป',[{t:'HP เต็ม',c:'g'},{t:'LUK +2',c:'g'},kk(2)])];K.ai=0;legAch('leg_meet');},
   res(R,K,i,out){const f=R.floor,p=K.data.p,h=R.h;
@@ -2535,7 +2535,7 @@ function partsHTML(P){return P.map(p=>{const k=chipKey(p);return`<span class="${
 const actQ=sel=>card.querySelector(sel)||(S&&S.phase==='end'&&!$('sceneActs').hidden?$('sceneActs').querySelector(sel):null);
 const inActs=el=>card.contains(el)||$('sceneActs').contains(el);
 function focusPrimary(){const b=actQ('[data-enter]')||card.querySelector('button:not(:disabled)');if(b&&document.activeElement&&document.activeElement!==document.body&&!inActs(document.activeElement))return;if(b)try{b.focus({preventScroll:true});}catch(e){}}
-function render(){if(S.phase!=='decide')card.classList.remove('legend');if(S.phase!=='birth')document.querySelectorAll('.nmset.onsc').forEach(x=>x.remove());cardMode(S.phase);$('formBox').hidden=S.phase!=='birth';if(S.phase!=='end')$('sceneActs').hidden=true;renderHUD();renderParty();renderLog();renderCtl();renderLineage();saveRun();
+function render(){if(S.phase!=='decide')card.classList.remove('lgcard');if(S.phase!=='birth')document.querySelectorAll('.nmset.onsc').forEach(x=>x.remove());cardMode(S.phase);$('formBox').hidden=S.phase!=='birth';if(S.phase!=='end')$('sceneActs').hidden=true;renderHUD();renderParty();renderLog();renderCtl();renderLineage();saveRun();
  const ph=S.phase;
  if(ph==='birth')renderBirth();else if(ph==='flow'){renderFlow();revealArm();}else if(ph==='decide')renderDecide();else if(ph==='combat')renderCombat();else if(ph==='dying')renderDying();else if(ph==='end')renderEnd();else if(ph==='secret')renderSecret();
  if(ph!=='end')endBar(false);try{window.SHARE&&window.SHARE.onPhase&&window.SHARE.onPhase(ph);}catch(e){}
@@ -2798,7 +2798,7 @@ function renderDecide(){const K=S.K,R=S.R;
  card.innerHTML=`<div class="cs"><div class="tag keytag">⚑ จุดเปลี่ยนชะตา · ${esc(K.tag)} ${rt}</div><h3>${esc(K.title)}</h3><p>${esc(K.text)}</p>${vs}</div>
  <div class="cpin">${fk?`<div class="fkhint" id="fkHint" role="note" title="${esc(fkText())}">${esc(fkText())}</div>`:''}<div class="cd" role="timer" aria-label="เวลาตัดสินใจ"><i id="cdBar"></i></div><div class="cdl" id="cdTxt"></div>
  <div class="chs">${K.ch.map((c,i)=>c.hide?'':`<button class="ch${i===K.pick?' ai':''}${c.cl?' cl':''}" data-i="${i}" data-k="${K.ch.slice(0,i+1).filter(x=>!x.hide).length}" ${c.dis?'disabled':''}><span class="k">${K.ch.slice(0,i+1).filter(x=>!x.hide).length}</span><span><span class="t">${esc(c.t)}</span><span class="s">${partsHTML(c.dis?c.P.filter((p,j)=>j!==disWhy(R,c).j):c.P)}</span>${c.dis?`<span class="lock">🔒 ${esc(disWhy(R,c).w)}</span>`:''}${i===K.pick?`<span class="aitag">ถ้าหมดเวลา ${esc(R.h.name)} (${esc(PERS[R.h.pers].n)}) จะเลือกข้อนี้</span>`:''}</span></button>`).join('')}</div></div>`;
- card.querySelectorAll('button.ch').forEach(b=>b.addEventListener('click',()=>choose(+b.dataset.i,false)));card.classList.toggle('legend',K.rar==='l');card.classList.toggle('fk',fk);updCd();}
+ card.querySelectorAll('button.ch').forEach(b=>b.addEventListener('click',()=>choose(+b.dataset.i,false)));card.classList.toggle('lgcard',K.rar==='l');card.classList.toggle('fk',fk);updCd();}
 // first fate turn of a player's first life: pulse the card and say plainly that the game waits for a pick (or how long the timer runs)
 const FKK='tof-fk-v1';
 function fkOn(){try{if(localStorage.getItem(FKK))return false;}catch(e){return false;}return!loadMemo().length&&!loadOldMemo().length;}
@@ -3360,7 +3360,7 @@ document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.d
  d.addEventListener('keydown',e=>{if(e.key!=='Escape')e.stopPropagation();});
  window.MORE={open,close};})();
 document.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;if(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return;const k=e.key;
- if(/^[1-4]$/.test(k)){const b=actQ(`button[data-k="${k}"]`);if(b&&!b.disabled){e.preventDefault();b.click();}}
+ if(/^[1-5]$/.test(k)){const b=actQ(`button[data-k="${k}"]`);if(b&&!b.disabled){e.preventDefault();b.click();}}
  else if(k===' '||k==='Spacebar'){if(['flow','decide','combat'].includes(S.phase)){e.preventDefault();togglePause();}}
  else if(k==='Enter'){if(document.activeElement&&document.activeElement.tagName==='BUTTON'&&inActs(document.activeElement))return;const b=actQ('[data-enter]');if(b&&!b.disabled){e.preventDefault();b.click();}}});
 document.querySelectorAll('canvas.ico').forEach(c=>{const s=ICONS[c.dataset.ico];if(s)c.getContext('2d').drawImage(sprCanvas(s,false,false,'i'+c.dataset.ico),0,0);});

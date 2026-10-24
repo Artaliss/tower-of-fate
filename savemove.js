@@ -154,6 +154,7 @@ function confirmIn(code,info){const here=summary(collect()),there=info.m||{};
   if(!r.j.ok||typeof r.j.p!=='string'){busy=false;no.disabled=false;sayIn(msg,errTxt(r),true);return;}
   let o=null;try{o=await unpack(r.j.z,r.j.p);}catch(e){o=null;}
   if(!o||typeof o!=='object'||Array.isArray(o)){busy=false;no.disabled=false;sayIn(msg,'อ่านเซฟไม่ได้ เบราว์เซอร์นี้อาจเก่าเกินไป ลองเปิดด้วย Chrome หรือ Safari รุ่นใหม่',true);return;}
+  try{const S=window.__auto&&window.__auto.S;if(S)S.paused=true;}catch(e){} // a tick before the reload would write the old run back
   if(!apply(o)){busy=false;no.disabled=false;sayIn(msg,'เขียนเซฟไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์อาจเต็ม',true);return;}
   try{window.ACH&&window.ACH.onEvent&&window.ACH.onEvent('move',{dir:'in'});}catch(e){}
   sayIn(msg,'ย้ายเซฟเสร็จแล้ว กำลังโหลดเกมใหม่…');setTimeout(()=>{try{location.replace(cleanUrl());}catch(e){location.reload();}},700);};}

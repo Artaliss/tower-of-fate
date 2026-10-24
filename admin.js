@@ -30,7 +30,7 @@ function swap(to,fresh){const mv=window.MOVE;if(!mv||!mv.collect||!mv.apply){ale
 
 // ---------- กันข้อมูลทดสอบหลุดออกไปข้างนอก ----------
 function guard(){if(!A.on)return;
- const L=window.LB;if(L){L.submit=()=>null;if(L.live){L.live.start=()=>{};L.live.beat=()=>{};}}
+ const L=window.LB;if(L){L.submit=()=>null;if(L.live){L.live.start=()=>Promise.resolve(null);L.live.beat=()=>Promise.resolve(null);}}
  const MM=window.MEMO;if(MM&&MM.create)MM.create=()=>alert('อยู่ในเซฟแอดมิน ตั้งอนุสรณ์ไม่ได้ สลับกลับเซฟปกติก่อน');}
 
 // ---------- ป้ายมุมจอตอนอยู่ในเซฟแอดมิน ----------

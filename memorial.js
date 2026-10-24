@@ -185,7 +185,7 @@ function css(){if(cssDone)return;cssDone=true;const st=el('style');st.textConten
 .mmc h2{margin:0;font-size:19px;font-weight:600;color:#f4bb4a}
 .mmc p{margin:0;font-size:14px;line-height:1.6;color:#d8cdb4}
 .mmc .dim{color:#8fa39b;font-size:12.5px}
-.mmc img{width:100%;height:auto;aspect-ratio:600/315;border-radius:6px;border:1px solid #3d5a66;background:#0f1a1f;display:block}
+.mmc img[hidden]{display:none}.mmc img{width:100%;height:auto;aspect-ratio:600/315;border-radius:6px;border:1px solid #3d5a66;background:#0f1a1f;display:block}
 .mmc-row{display:flex;gap:8px;flex-wrap:wrap}.mmc-row button{flex:1;min-width:120px}
 .mmc button{font:500 14.5px ${fT};border-radius:8px;padding:10px 12px;min-height:44px;cursor:pointer;border:2px solid #3d5a66;background:#1c2e36;color:#f1e7d0}
 .mmc button.pri{background:#e86a3a;border-color:#000;color:#1a0b04;box-shadow:inset 0 -3px 0 #a8431c}

@@ -123,7 +123,7 @@ function css(){const st=document.createElement('style');st.textContent=`
 .hd-st button.ok{background:rgba(134,214,127,.14)}.hd-st button.sel{background:var(--gold,#f4bb4a);color:#1a1206;border-color:transparent}.hd-st button:disabled{opacity:.35;cursor:default}
 .hd-log{background:rgba(0,0,0,.28);border:1px solid var(--line,#2c3a36);border-radius:8px;padding:8px 10px;max-height:240px;overflow-y:auto;font-size:13px;line-height:1.55;margin-top:8px}
 .hd-log div{animation:hdIn .25s ease-out}@keyframes hdIn{from{opacity:0;transform:translateY(3px)}}
-.hd-res{margin-top:6px;padding:8px 10px;border-radius:8px;font-size:13.5px}.hd-res.w{background:rgba(134,214,127,.15)}.hd-res.l{background:rgba(239,107,94,.15)}
+.hd-res{margin-top:6px;padding:8px 10px;border-radius:8px;font-size:13.5px}.hd-res.w{background:rgba(134,214,127,.15);color:var(--ink,#f1e7d0)}.hd-res.l{background:rgba(239,107,94,.15)}
 .hd-pw{font-size:12.5px}.hd-pw.g{color:var(--good,#86d67f)}.hd-pw.m{color:var(--warn,#f2c14e)}.hd-pw.b{color:var(--bad,#ef6b5e)}
 /* การ์ดบอส + ปุ่มลุยติดขอบล่างของหน้าต่าง เลือกตี้ยาวแค่ไหนก็กดสู้ได้โดยไม่ต้องเลื่อนลงไปหา */
 #metaBody .hd-boss{position:sticky;bottom:-12px;padding-bottom:12px;z-index:2;margin:8px 0 0;background:var(--bg,#0e1513);background-image:linear-gradient(rgba(255,255,255,.04),rgba(255,255,255,.04));box-shadow:0 -8px 14px rgba(0,0,0,.55)}

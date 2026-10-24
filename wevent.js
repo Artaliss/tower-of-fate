@@ -76,7 +76,7 @@ window.addEventListener('tof:run-start',ev=>{const d=(ev&&ev.detail)||{},R=d.R,s
 const cnt=R=>Object.values(isObj(R.buys)?R.buys:{}).reduce((a,v)=>a+(+v||0),0);
 M.onRun(R=>{const fl=R.won?100:(R.floor|0),b=R.bosses|0,pets=Array.isArray(R.pets)?R.pets:[],cp=Array.isArray(R.comps)?R.comps:[],W=isObj(R.wev)?R.wev:null;
  upd((P,m,e,A)=>{e.runs++;e.gold+=Math.max(0,Math.round(R.gIn||0));e.bosses+=b;e.bossBest=Math.max(e.bossBest,b);e.maxFl=Math.max(e.maxFl,fl);
-  if(pets.length){e.petRuns++;e.pets+=pets.length;e.petFl=Math.max(e.petFl,fl);}e.buys+=cnt(R);if(cp.length)e.compRuns++;if(R.clanGo||cp.some(c=>c&&c.clan))e.clanRuns++;
+  if(pets.length){e.petRuns++;e.pets+=pets.length;e.petFl=Math.max(e.petFl,fl);}e.buys+=R.nBuy!=null?(R.nBuy|0):cnt(R);if(cp.length)e.compRuns++;if(R.clanGo||cp.some(c=>c&&c.clan))e.clanRuns++;
   e.treas+=(Array.isArray(R.map)?R.map:[]).filter(x=>x==='treasure').length;e.mimic+=(isObj(R.used)&&+R.used['sp:mimic'])||0;
   if((R.karma|0)>=10)e.good++;if((R.potions|0)>0)e.potRuns++;if(R.won)e.wins++;
   M.grantAch('wev_join');
@@ -127,7 +127,7 @@ function regTab(){const A=active();M.tab('wev',{n:`${A.E.ic} อีเวนต�
 // ---------- แบนเนอร์บนหน้าเกิด: ถ้ามีแบนเนอร์เทศกาลอยู่แล้ว ใส่เป็นป้ายเล็กในแบนเนอร์นั้นแทน ----------
 function bText(){const A=active(),E=A.E,m=st(M.load()),e=m.wk[A.key]||{q:{}},d=E.q.filter(q=>e.q&&e.q[q.id]).length,on=joined(m,A),L=m.last&&Date.now()-m.last.t<6e5&&Date.now()>=m.last.t?m.last:null;
  return{A,t:`${E.ic} ${esc(E.n)} · ${on?esc(E.sh):'ยังไม่เข้าร่วม'} · ภารกิจ ${d}/3${L&&L.g?` <span class="mt-dim">(รอบที่แล้ว 🪙 +${L.g}${L.w?' ดาวหาง!':''})</span>`:''}`};}
-function banner(){const c=document.getElementById('card');if(!c)return;const birth=!!(c.querySelector('#btnEnter')&&c.querySelector('#inName'));
+function banner(){const c=document.getElementById('card');if(!c)return;const birth=!!(c.querySelector('#btnEnter')&&document.getElementById('inName'));
  let own=c.querySelector('#wevBan'),fb=c.querySelector('#festBan'),chip=fb&&fb.querySelector('.wev-chip');
  if(!birth){if(own)own.remove();return;}
  const{A,t}=bText(),E=A.E;

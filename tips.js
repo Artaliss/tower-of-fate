@@ -227,7 +227,8 @@ document.addEventListener('click',e=>{const t=e.target;if(box.contains(t))return
   if(ctl){e.preventDefault();e.stopImmediatePropagation();}
   if(cur===el&&pinned)hide();else show(el,true);return;}
  if(pinned)hide();},true);
-addEventListener('scroll',e=>{if(cur&&!box.contains(e.target))hide();},{passive:true,capture:true}); // capture: the card and side panels scroll inside the page nowaddEventListener('resize',()=>{if(cur)hide();});
+addEventListener('scroll',e=>{if(cur&&!box.contains(e.target))hide();},{passive:true,capture:true}); // capture: the card and side panels scroll inside the page now
+addEventListener('resize',()=>{if(cur)hide();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&cur)hide();});
 
 // ---- help window with tabs ----

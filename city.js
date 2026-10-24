@@ -202,7 +202,7 @@ function jobHTML(b,P,s){const J=JOB[b.id];if(!J)return'';const l=lvOf(P,b.id),n=
  h+=W.map(m=>`<div class="cq-w"><span>${fits(b.id,m)?'⭐':'·'} ${esc(m.name)} <span class="mt-dim">${esc(clsN(m.cls))}</span>${b.id==='gate'&&GATE_T[m.cls]?` <span class="mt-dim">(${esc(GATE_T[m.cls])})</span>`:''}</span><button class="mt-btn" data-off="${b.id}|${m.id}">เรียกกลับ</button></div>`).join('');
  if(u&&b.id!=='gate')h+=`<div class="mt-dim">ตอนนี้: ${esc(J.t(u))}</div>`;
  if(!l)h+='<div class="mt-dim">สร้างอาคารก่อนถึงจะส่งคนมาได้</div>';
- else if(W.length<n){const free=P.roster.filter(m=>!JK.some(k=>(s.jobs[k]||[]).includes(m.id))).sort((x,y)=>fits(b.id,y)-fits(b.id,x));
+ else if(W.length<n){const free=P.roster.filter(m=>m.id!==P.head&&!JK.some(k=>(s.jobs[k]||[]).includes(m.id))).sort((x,y)=>fits(b.id,y)-fits(b.id,x));
   h+=free.length?`<div class="cq-w"><select data-js="${b.id}">${free.map(m=>`<option value="${m.id}">${fits(b.id,m)?'⭐ ':''}${esc(m.name)} (${esc(clsN(m.cls)||'ลูกจ้าง')})</option>`).join('')}</select><button class="mt-btn pri" data-on="${b.id}">ส่งไปทำงาน</button></div>`:'<div class="mt-dim">ไม่มีสมาชิกว่างแล้ว</div>';}
  else if(n<2)h+='<div class="mt-dim">ขยายถึงเลเวล 3 รับเพิ่มได้อีกคน</div>';
  return h+'</div>';}

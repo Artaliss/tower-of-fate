@@ -111,10 +111,10 @@ function css(){const s=document.createElement('style');s.textContent=`
 .fest-ban{display:flex;align-items:center;gap:8px;width:100%;margin:0 0 8px;padding:6px 10px;border-radius:8px;border:1px dashed var(--fc,#ff8a3a);background:rgba(255,138,58,.08);color:var(--ink,#f1e7d0);font:inherit;font-size:13px;text-align:left;cursor:pointer}
 .fest-ban .t{flex:1;min-width:0}.fest-ban .go{color:var(--fc,#ff8a3a);flex:none}
 .fs-bx{margin-top:6px;padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.05);font-size:13px}
-body.fest-halloween .cert{box-shadow:0 0 0 1px rgba(255,138,58,.22),0 0 18px rgba(255,138,58,.08)}
-body.fest-loy .cert{box-shadow:0 0 0 1px rgba(255,211,106,.25),0 0 18px rgba(255,211,106,.1)}
-body.fest-xmas .cert{box-shadow:0 0 0 1px rgba(159,216,255,.25),0 0 18px rgba(159,216,255,.1)}
-body.fest-songkran .cert{box-shadow:0 0 0 1px rgba(106,208,255,.25),0 0 18px rgba(106,208,255,.1)}
+body.fest-halloween .cert{box-shadow:inset 0 0 0 3px var(--parch2),inset 0 0 0 5px #8b6a3a,0 0 0 1px rgba(255,138,58,.22),0 0 18px rgba(255,138,58,.08)}
+body.fest-loy .cert{box-shadow:inset 0 0 0 3px var(--parch2),inset 0 0 0 5px #8b6a3a,0 0 0 1px rgba(255,211,106,.25),0 0 18px rgba(255,211,106,.1)}
+body.fest-xmas .cert{box-shadow:inset 0 0 0 3px var(--parch2),inset 0 0 0 5px #8b6a3a,0 0 0 1px rgba(159,216,255,.25),0 0 18px rgba(159,216,255,.1)}
+body.fest-songkran .cert{box-shadow:inset 0 0 0 3px var(--parch2),inset 0 0 0 5px #8b6a3a,0 0 0 1px rgba(106,208,255,.25),0 0 18px rgba(106,208,255,.1)}
 #card.fest-fxon{position:relative;isolation:isolate}
 #card>.fest-fx{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;image-rendering:pixelated;opacity:.55;border-radius:inherit}
 #card>.fest-fx.fest-fxt{z-index:2;opacity:.5}`;document.head.appendChild(s);}
@@ -208,7 +208,7 @@ function fxSync(c,A,on){let cv=c.querySelector(':scope>canvas.fest-fx:not(.fest-
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&FX&&FX.cv.isConnected)fxGo();});
 
 function banner(){const A=active();document.body.className=document.body.className.replace(/\bfest-\w+/g,'').trim();if(A)document.body.classList.add('fest-'+A.F.id);
- const c=document.getElementById('card');if(!c)return;const ex=c.querySelector('#festBan'),birth=!!(c.querySelector('#btnEnter')&&c.querySelector('#inName'));
+ const c=document.getElementById('card');if(!c)return;const ex=c.querySelector('#festBan'),birth=!!(c.querySelector('#btnEnter')&&document.getElementById('inName'));
  fxSync(c,A,!!A&&birth);
  if(!A||!birth){if(ex)ex.remove();return;}
  const P=M.load(),m=st(P),e=m.ev[A.inst]||{},rc=m.last&&m.last.inst===A.inst&&Date.now()-m.last.t<6e5,L=rc?m.last.n:0,LB=rc?m.last.bx|0:0;
