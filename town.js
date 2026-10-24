@@ -1,5 +1,5 @@
 // town.js — ล็อบบี้ตระกูล: ลานหน้าบ้านพิกเซล รูปปั้นหัวหน้าตระกูล สมาชิก/สัตว์เดินเล่น ของตกแต่ง แฟชั่น อาคารลัดไปแท็บอื่น
-// API: window.TOWN = { DECOR:{key:{n,draw(ctx,x,y,t)}}, WEAR:{key:{n,draw(ctx,cx,ty,t)}}, mini() }
+// API: window.TOWN = { DECOR:{key:{n,draw(ctx,x,y,t)}}, WEAR:{key:{n,draw(ctx,cx,ty,t)}} }
 // DECOR: x,y = กลางฐานของชิ้น · WEAR: cx = กลางหัว, ty = ขอบบนของหัว · t = performance.now()
 // อ่าน P.mod.city.decor (key[]), P.mod.fest.wear[memberId] (key), P.mod.hard.statue (0 หิน/1 ทอง/2 รุ้ง)
 // และ P.mod.city.jobs ({bldId:[memberId]}: pen = ยืนในคอกสัตว์, งานอื่น = ไม่อยู่ในลาน), CITY.petMood(petId) ถ้ามี
@@ -248,6 +248,7 @@ function draw(c,D,t){c.imageSmoothingEnabled=false;c.drawImage(bg(),0,0);bldAnim
 const LIVE=new Set();
 function scene(cv,P,mini){const off=mini?document.createElement('canvas'):cv;if(mini){off.width=W;off.height=H;}const c=off.getContext('2d'),D=build(P),S={cv,D,run:false,last:0};
  function frame(now){if(!S.run)return;const dl=cv.closest('dialog');if(!cv.isConnected){S.run=false;LIVE.delete(S);return;}if((dl&&!dl.open)||document.hidden){S.run=false;return;}
+  if(S.last&&now-S.last<40){requestAnimationFrame(frame);return;} // 25fps พอสำหรับพิกเซลอาร์ต ประหยัดแบตมือถือ
   const dt=S.last?Math.min(.1,(now-S.last)/1000):0;S.last=now;if(!RMQ)step(D,dt);draw(c,D,now);
   if(mini){const m=cv.getContext('2d');m.imageSmoothingEnabled=false;m.drawImage(off,0,MINI_Y,W,MINI_H,0,0,W,MINI_H);}
   if(RMQ){S.run=false;return;}requestAnimationFrame(frame);}
@@ -388,6 +389,6 @@ function bindMini(){const b=document.getElementById('twMini');if(!b||b._tw)retur
 const ob=M.button,obd=M.bind;
 M.button=function(){return ob.apply(this,arguments)+mini();};
 M.bind=function(){obd.apply(this,arguments);try{bindMini();}catch(e){}};
-window.TOWN={DECOR,WEAR,mini,W,H,BLD,scene,tapper,hud,hudSync,clanName,go,tabOf,tabLk,css,spOf};
+window.TOWN={DECOR,WEAR,W,H,BLD,scene,tapper,hud,hudSync,clanName,go,tabOf,tabLk,css,spOf};
 window.TOWN.grants=grants; // gate.js: หน้าเมืองตอนเปิดเกมปลดความสำเร็จของลานแบบเดียวกับแท็บล็อบบี้
 })();

@@ -61,7 +61,6 @@ const ins = (id, at, hid = 0) => { s.prepare('INSERT INTO memorial (id, at, dk, 
 ins('aaaaaaaaa', now - 400 * DAY);           // old, never seen -> grace from SEEN_SINCE
 ins('bbbbbbbbb', now - 5 * DAY);
 ins('ccccccccc', now - 200 * DAY);           // will be viewed
-s.prepare('INSERT INTO memorial_img (id, mime, b64) VALUES (?, ?, ?)').run('zzzzzzzzz', 'image/jpeg', jpg);   // orphan
 
 // 1) API GET adds the column and marks seen once
 let r = await api.onRequestGet({ request: new Request(O + '/api/memorial?id=ccccccccc'), env, waitUntil }); await flush();
@@ -82,7 +81,7 @@ ok(s.prepare('SELECT seen FROM memorial WHERE id = ?').get('ccccccccc').seen > s
 // 2) sweep: nothing goes before SEEN_SINCE + 90 days
 await api.sweepOld(db, Date.now());
 ok(s.prepare('SELECT COUNT(*) n FROM memorial').get().n === 3, 'no memorial deleted inside the grace period');
-ok(s.prepare('SELECT COUNT(*) n FROM memorial_img WHERE id = ?').get('zzzzzzzzz').n === 0, 'orphan image deleted');
+ok(s.prepare('SELECT COUNT(*) n FROM memorial_img').get().n === 3, 'no image deleted inside the grace period');
 // jump to SEEN_SINCE + 91 days, keep ccc fresh by viewing it at +80 days
 off = api.SEEN_SINCE + 80 * DAY - realNow();
 await api.onRequestGet({ request: new Request(O + '/api/memorial?id=ccccccccc'), env, waitUntil }); await flush();

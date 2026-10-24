@@ -1,5 +1,5 @@
 // leaderboard.js — กระดานอันดับ + ความสำเร็จ + สถิติของฉัน
-// API: window.LB = { submit(summary), open(tab?), flush(), mine(), live:{start(sid), beat(sid,floor), get(day)} }
+// API: window.LB = { submit(summary), open(tab?), live:{start(sid), get(day), recent()}, ssSoon() }
 // v2.3: แท็บ 'wall' ชีวิตที่แบ่งปัน (/api/posts) + แนบตัวนับการแชร์ (tof-share-stat-v1) ไปกับผลรอบเป็น field ss
 // v2.7: ตัวนับการแชร์ส่งเองผ่าน /api/live {a:'ss'} (LB.ssSoon) ไม่รอผลรอบแล้ว · id เครื่อง 16 hex (tof-dev-v1) ติดไปกับโพสต์ คะแนน และตัวนับ เป็น field dv
 // v0.2.8: หอเกียรติยศ แท็บ 'hof' (GET /api/scores?hof=1) วาดฮีโร่จาก field lk {f,s,p} + gear ['excal'] ที่ติดไปกับผลรอบ (ไม่อยู่ใน canon)
@@ -103,17 +103,15 @@ function submit(summary){try{if(!summary||typeof summary!=='object'||!(num(summa
  const q=rd(K_Q,[]);const Q=Array.isArray(q)?q:[];if(!Q.some(x=>x&&x.id===e.id))Q.push(e);wr(K_Q,Q.slice(-20));
  flush();return e.id;}catch(err){return null;}}
 
-async function flush(){if(flushing||typeof fetch!=='function')return;flushing=true;
+async function flush(){if(flushing||!window.META)return;flushing=true;
  try{let Q0=rd(K_Q,[]);if(!Array.isArray(Q0))Q0=[];
   const old=Date.now()-29*86400e3;const Q=Q0.filter(e=>e&&num(e.date)>old);
   const keep=[];
-  for(const e of Q){let st=0;
-   try{const {id,...body}=e;body.dv=devId();const H={'Content-Type':'application/json'},sa=acSess();if(sa)H.Authorization='Bearer '+sa.tok;
-    const r=await fetch(API,{method:'POST',headers:H,body:JSON.stringify(body),credentials:'same-origin'});st=r.status;
-    if(st>=200&&st<300){let j=null;try{j=await r.json();}catch(err){}if(e.ss&&j&&j.ss===1)ssDone(e.ss);
-     if(j&&j.hof===1){hcache=null;try{window.ACH&&ACH.grant&&ACH.grant('hof');}catch(err){}}}}catch(err){st=0;}
-   // 2xx = ส่งแล้ว, 4xx (ยกเว้น 429/404/408) = ข้อมูลไม่ผ่าน ส่งซ้ำก็ไม่ผ่าน ทิ้งได้
-   const done=(st>=200&&st<300)||(st>=400&&st<500&&st!==429&&st!==404&&st!==408);
+  for(const e of Q){const {id,...body}=e;body.dv=devId();const sa=acSess();
+   const {st,j}=await META.api(API,body,15000,sa?{Authorization:'Bearer '+sa.tok}:{});
+   if(st>=200&&st<300){if(e.ss&&j.ss===1)ssDone(e.ss);if(j.hof===1){hcache=null;try{window.ACH&&ACH.grant&&ACH.grant('hof');}catch(err){}}}
+   // 2xx = ส่งแล้ว, 4xx (ยกเว้น 429/404/408) = ข้อมูลไม่ผ่าน ส่งซ้ำก็ไม่ผ่าน ทิ้งได้ ยกเว้น date ที่ไม่ผ่านเพราะนาฬิกาเครื่องเพี้ยน เก็บไว้ส่งใหม่
+   const done=(st>=200&&st<300)||(st>=400&&st<500&&st!==429&&st!==404&&st!==408&&j.field!=='date');
    if(!done)keep.push(e);
    if(st===429||st===0||st===404||st===503){keep.push(...Q.slice(Q.indexOf(e)+1));break;}}
   // รอบที่ submit เข้ามาระหว่างกำลังส่งต้องไม่หาย
@@ -402,11 +400,11 @@ const LIVE='/api/live';
 async function liveCall(body){if(typeof fetch!=='function')return null;
  try{const r=await fetch(LIVE,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{Accept:'application/json'},body:body?JSON.stringify(body):undefined,credentials:'same-origin'});
   if(!r.ok)return null;const j=await r.json();return j&&!j.error?j:null;}catch(e){return null;}}
-// ลดการเขียน D1: ตัวนับคนกำลังเล่นนับจากตั๋วที่ยังไม่ส่งคะแนน เกมเลยไม่ส่ง beat แล้ว (beat ยังอยู่ให้เรียกได้ เซิร์ฟเวอร์ตอบเฉยๆ ไม่เขียน)
-const live={start:sid=>liveCall({a:'start',sid,dv:devId()}),beat:(sid,f)=>liveCall({a:'beat',sid,f:int(f,1,101)}),
+// ลดการเขียน D1: ตัวนับคนกำลังเล่นนับจากตั๋วที่ยังไม่ส่งคะแนน เกมเลยไม่ส่ง beat แล้ว
+const live={start:sid=>liveCall({a:'start',sid,dv:devId()}),
  get:day=>{if(typeof fetch!=='function')return Promise.resolve(null);return fetch(LIVE+'?day='+encodeURIComponent(day||''),{headers:{Accept:'application/json'},credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(j=>j&&!j.error?j:null).catch(()=>null);},
  recent:()=>load().then(d=>d&&!d.error?d.recent:[])};
-window.LB={submit,open,flush,mine:()=>rd(K_MINE,[]),live,ssSoon};
+window.LB={submit,open,live,ssSoon};
 // ส่งคิวที่ค้างจากรอบก่อน
 try{const go=()=>setTimeout(()=>{flush();ssSoon();},2500);if(document.readyState==='complete')go();else window.addEventListener('load',go);window.addEventListener('online',()=>flush());}catch(e){}
 })();

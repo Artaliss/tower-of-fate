@@ -80,19 +80,19 @@ function checkAch(m,P){const g=M.grantAch;if(joined(m).length)g('fest_join');if(
  if(coins>=FESTS.length)g('fest_coin_4');
  // ภารกิจประจำธีมครบทุกข้อในงานเดียว
  Object.keys(m.ev).forEach(inst=>{const F=BY[inst.slice(0,inst.lastIndexOf('-'))],q=(m.ev[inst]||{}).q||{};if(F&&Array.isArray(F.q)&&F.q.every(x=>q[x.id])){g('fest_theme');if(F.id==='halloween')g('fest_hw_q');}});}
-// โหลด แก้ บันทึก แล้ววาดใหม่ · ส่ง P.mod.fest กลับไปให้ตัวที่ถือ P เดิมอยู่ด้วย
-function upd(f,P0){const P=M.load(),m=st(P);const r=f(P,m);save(P,m);if(P0&&isObj(P0.mod))P0.mod.fest=m,P0.mod.city=P.mod.city;return r;}
+// โหลด แก้ บันทึก แล้ววาดใหม่
+function upd(f){const P=M.load(),m=st(P);const r=f(P,m);save(P,m);return r;}
 function save(P,m){M.save(P);checkAch(m,P);M.refresh();banner();}
 function gain(n,kind,x){const A=active();if(!A)return 0;n=Math.max(0,Math.round(n));const bx=Math.max(0,Math.round((x&&x.bx)||0));
- return upd((P,m)=>{const e=ev(m,A.inst);e.item+=n;e.got+=n;if(kind)kind(e,x);m.last={inst:A.inst,n,bx,t:Date.now()};return n;},x&&x.P);}
+ return upd((P,m)=>{const e=ev(m,A.inst);e.item+=n;e.got+=n;if(kind)kind(e,x);m.last={inst:A.inst,n,bx,t:Date.now()};return n;});}
 
 // จบรอบไต่หอ: ชั้นละครึ่งชิ้น บอสตัวละ 5 พิชิตยอดแถม 30 + โบนัสตามธีมของงานนั้น
 // ตัวนับสำหรับภารกิจประจำธีมก็เก็บจาก R ของรอบนี้ (kills karma pets comps potions cursed)
-M.onRun((R,P)=>{const A=active();if(!A)return;const fl=R.won?100:(R.floor|0),b=R.bosses|0;let bx=0;try{bx=A.F.bonus?Math.max(0,A.F.bonus(R)|0):0;}catch(er){}
+M.onRun(R=>{const A=active();if(!A)return;const fl=R.won?100:(R.floor|0),b=R.bosses|0;let bx=0;try{bx=A.F.bonus?Math.max(0,A.F.bonus(R)|0):0;}catch(er){}
  const cp=Array.isArray(R.comps)?R.comps:[];
  gain(fl/2+b*5+(R.won?30:0)+bx,e=>{e.runs++;e.bosses+=b;e.maxFl=Math.max(e.maxFl,fl);e.kills+=R.kills|0;if(R.won)e.wins++;
   if((R.karma|0)>=10)e.good++;if(Array.isArray(R.pets)&&R.pets.length)e.petRuns++;if(cp.length)e.compRuns++;if((R.potions|0)>0)e.potRuns++;
-  if(R.clanGo||cp.some(c=>c&&c.clan))e.clanRuns++;if((R.cursed|0)>0)e.curseRuns++;e.bonus+=bx;},{P,bx});
+  if(R.clanGo||cp.some(c=>c&&c.clan))e.clanRuns++;if((R.cursed|0)>0)e.curseRuns++;e.bonus+=bx;},{bx});
  if(bx)M.grantAch('fest_bonus');});
 // ชนะด่านโหมดยาก (hard.js): +15 ด่านที่ผ่านครั้งแรกได้ 25
 window.addEventListener('tof:hard-clear',ev=>{const d=(ev&&ev.detail)||{};gain(d.first?25:15,e=>{e.hard++;});});

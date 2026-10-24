@@ -13,7 +13,7 @@
 // candles: functions/api/candle.js (uses the helpers exported here)
 
 import { screen } from './posts.js';
-import { fnv, clean as cl, json, isInt, okId, thDay, sameOrigin, RANKS, CLS, DRG } from './util.js';
+import { ipHash, clean as cl, json, isInt, okId, thDay, sameOrigin, RANKS, CLS, DRG } from './util.js';
 
 // MAX_BODY stays large so old clients (up to ~390 KB image) still get through; their image is just not stored.
 const MAX_BODY = 460000, MAX_IMG = 160000, MAX_D = 16000;
@@ -24,7 +24,7 @@ const MAPK = ['fight', 'treasure', 'trap', 'good', 'evil', 'pet', 'comp', 'boss'
 const clean = (v, max) => cl(v, max, 1);   // memorial fields may be numbers
 const int = (v, lo, hi, d = 0) => typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : d;
 const okTok = s => typeof s === 'string' && /^[a-z0-9_:-]{1,24}$/i.test(s);
-export const ipOf = request => fnv('m|' + (request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown'));
+export const ipOf = request => ipHash(request, 'm|');
 
 // D1 errors -> polite JSON (a missing table means migrations/0001_memorial.sql has not been run yet)
 export function dbErr(e) {
@@ -34,11 +34,12 @@ export function dbErr(e) {
 }
 export const dbOf = env => (env && env.TOF_DB) || null;
 
-// per-key counter with expiry; returns the count after this hit
-export async function bump(db, k, ttl, now) {
-  const r = await db.prepare('INSERT INTO memorial_act (k, n, exp) VALUES (?, 1, ?) ON CONFLICT(k) DO UPDATE SET n = n + 1 RETURNING n').bind(k, now + ttl).first();
+// per-key counter with expiry; returns the count after this hit. Like acctlib.js hit(): once a key is over max it is
+// no longer written (no row comes back), so a flood past the limit costs reads only.
+export async function bump(db, k, ttl, now, max) {
+  const r = await db.prepare('INSERT INTO memorial_act (k, n, exp) VALUES (?, 1, ?) ON CONFLICT(k) DO UPDATE SET n = n + 1 WHERE memorial_act.n <= ? RETURNING n').bind(k, now + ttl, max).first();
   if (Math.random() < 0.02) await db.prepare('DELETE FROM memorial_act WHERE exp < ?').bind(now).run();
-  return r && typeof r.n === 'number' ? r.n : 1;
+  return r && typeof r.n === 'number' ? r.n : max + 1;
 }
 
 // ---- last visit + cleanup of memorials nobody opens ----
@@ -60,13 +61,16 @@ export async function touchSeen(db, id, seen, now = Date.now()) {
   await db.prepare('UPDATE memorial SET seen = ? WHERE id = ? AND seen < ?').bind(now, id, now - SEEN_EVERY).run();
   return true;
 }
-// bounded: at most SWEEP_N memorials and SWEEP_N images per call
+// bounded: at most SWEEP_N memorials (and their images) per call
+// hid IN (0, 1) AND at < cut lets SQLite walk the memorial_hid_at index instead of reading the whole table
 export async function sweepOld(db, now = Date.now()) {
   if (!await ensureSeen(db)) return;
-  await db.batch([
-    db.prepare('DELETE FROM memorial WHERE id IN (SELECT id FROM memorial WHERE MAX(at, seen, ?) < ? LIMIT ?)').bind(SEEN_SINCE, now - KEEP_DAYS * DAY, SWEEP_N),
-    db.prepare('DELETE FROM memorial_img WHERE id IN (SELECT i.id FROM memorial_img i LEFT JOIN memorial m ON m.id = i.id WHERE m.id IS NULL LIMIT ?)').bind(SWEEP_N),
-  ]);
+  const cut = now - KEEP_DAYS * DAY;
+  const r = await db.prepare('SELECT id FROM memorial WHERE hid IN (0, 1) AND at < ? AND MAX(at, seen, ?) < ? LIMIT ?').bind(cut, SEEN_SINCE, cut, SWEEP_N).all();
+  const ids = (r && r.results || []).map(x => x.id);
+  if (!ids.length) return;
+  const q = ids.map(() => '?').join(', ');
+  await db.batch([db.prepare(`DELETE FROM memorial WHERE id IN (${q})`).bind(...ids), db.prepare(`DELETE FROM memorial_img WHERE id IN (${q})`).bind(...ids)]);
 }
 // after a view: refresh seen and sometimes sweep; never fails the request
 export function afterView(db, id, seen, waitUntil, now = Date.now()) {
@@ -207,7 +211,7 @@ export async function onRequestPost({ request, env }) {
       const img = b.img == null ? null : image(b.img);
       if (b.img != null && !img) return json({ error: 'invalid', field: 'img' }, 400);
       const keepImg = img && img.b64.length <= MAX_IMG;
-      if (await bump(db, 'mc:' + ip + ':' + day, 2 * DAY, now) > CREATE_PER_DAY) return json({ error: 'rate-limited' }, 429, { 'Retry-After': '3600' });
+      if (await bump(db, 'mc:' + ip + ':' + day, 2 * DAY, now, CREATE_PER_DAY) > CREATE_PER_DAY) return json({ error: 'rate-limited' }, 429, { 'Retry-After': '3600' });
       const dk = await sha(b.dk);
       for (let t = 0; t < 4; t++) {
         const id = randCode();
@@ -223,15 +227,15 @@ export async function onRequestPost({ request, env }) {
     if (!row || (row.hid && b.a !== 'remove')) return json({ error: 'not-found' }, 404);
     if (b.a === 'word') {
       if (!isInt(b.w, 0, WORDS - 1)) return json({ error: 'invalid', field: 'w' }, 400);
-      if (await bump(db, 'ad:' + ip + ':' + day, 2 * DAY, now) > ACT_PER_DAY) return json({ error: 'rate-limited' }, 429);
-      const dup = await bump(db, 'w:' + b.id + ':' + ip + ':' + day, 2 * DAY, now) > 1;
+      if (await bump(db, 'ad:' + ip + ':' + day, 2 * DAY, now, ACT_PER_DAY) > ACT_PER_DAY) return json({ error: 'rate-limited' }, 429);
+      const dup = await bump(db, 'w:' + b.id + ':' + ip + ':' + day, 2 * DAY, now, 1) > 1;
       if (!dup) await db.prepare(`UPDATE memorial SET w${b.w} = w${b.w} + 1 WHERE id = ?`).bind(b.id).run();
       const r = await db.prepare('SELECT w0, w1, w2, w3, w4 FROM memorial WHERE id = ?').bind(b.id).first();
       return json({ ok: true, dup: dup || undefined, w: r ? [r.w0 | 0, r.w1 | 0, r.w2 | 0, r.w3 | 0, r.w4 | 0] : [] });
     }
     if (b.a === 'report') {
-      if (await bump(db, 'ad:' + ip + ':' + day, 2 * DAY, now) > ACT_PER_DAY) return json({ error: 'rate-limited' }, 429);
-      const dup = await bump(db, 'r:' + b.id + ':' + ip, 60 * DAY, now) > 1;
+      if (await bump(db, 'ad:' + ip + ':' + day, 2 * DAY, now, ACT_PER_DAY) > ACT_PER_DAY) return json({ error: 'rate-limited' }, 429);
+      const dup = await bump(db, 'r:' + b.id + ':' + ip, 60 * DAY, now, 1) > 1;
       if (!dup) await db.prepare('UPDATE memorial SET rp = rp + 1, hid = CASE WHEN rp + 1 >= ? THEN 1 ELSE hid END WHERE id = ?').bind(REPORT_HIDE, b.id).run();
       return json({ ok: true, dup: dup || undefined });
     }

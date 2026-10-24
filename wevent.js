@@ -38,14 +38,13 @@ const EVS=[
 const BY={};EVS.forEach(E=>BY[E.id]=E);
 const MARKET=[{k:'lamp',n:'โคมไฟถนน',ic:'🏮',g:200},{k:'bench',n:'ม้านั่ง',ic:'🪑',g:200},{k:'tree',n:'ต้นไม้',ic:'🌳',g:250},{k:'flag',n:'เสาธงตระกูล',ic:'🚩',g:300},
  {k:'banner',n:'ป้ายผ้าตระกูล',ic:'🎏',g:350},{k:'garden',n:'แปลงดอกไม้',ic:'🌷',g:400},{k:'well',n:'บ่อน้ำ',ic:'🪣',g:500},{k:'fountain',n:'น้ำพุ',ic:'⛲',g:900}];
-const MK_OFF=.7,DMAX=16,BOSS_G=12,HARD_G=40,WORLD_G=100,PET_MOOD=8;
+const MK_OFF=.7,DMAX=16,BOSS_G=12,HARD_G=40,WORLD_G=100;
 const WORLD={n:'ดาวหางผ่านหอ',ic:'☄️',d:'ดาวหางสีรุ้งลากหางผ่านยอดหอ รอบนี้ทองในหอ +25% EXP +20% จบรอบได้ 🪙 100 เหรียญเมือง'};
 
 // ---------- สัปดาห์ (เวลาไทย จันทร์ถึงอาทิตย์) ----------
 const dayNo=()=>Math.floor((Date.now()+7*36e5)/864e5); // 1970-01-05 = วันจันทร์ = วันที่ 4
 const weekNo=d=>Math.floor((d-4)/7);
-function rngOf(s){let h=2166136261;for(let i=0;i<s.length;i++)h=Math.imul(h^s.charCodeAt(i),16777619);
- return()=>{h+=0x6D2B79F5;let t=h;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};}
+const rngOf=s=>window.CITY.rng(s); // ตัวสุ่มเดียวกับเควสรายวัน (city.js โหลดก่อน)
 function perm(c){const r=rngOf('tof-wev|'+c),a=EVS.map((_,i)=>i);for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function evOfWeek(w){const n=EVS.length,c=Math.floor(w/n),p=perm(c);if(c>0&&p[0]===perm(c-1)[n-1])[p[0],p[1]]=[p[1],p[0]];return EVS[p[((w%n)+n)%n]];}
 const dtxt=d=>{const x=new Date(d*864e5);return`${x.getUTCDate()} ${TH_M[x.getUTCMonth()]}`;};
@@ -82,7 +81,6 @@ M.onRun(R=>{const fl=R.won?100:(R.floor|0),b=R.bosses|0,pets=Array.isArray(R.pet
   M.grantAch('wev_join');
   const mine=W&&W.on&&W.id===A.E.id&&W.wk===A.key;let g=0;
   if(mine&&A.E.id==='bossnight'&&b){g+=Math.min(10,b)*BOSS_G;if(b>=5)M.grantAch('wev_boss');}
-  if(mine&&A.E.id==='petfest'&&pets.length&&P.pets.length){const c=isObj(P.mod.city)?P.mod.city:null;if(c){if(!isObj(c.mood))c.mood={};P.pets.forEach(p=>{c.mood[p.id]=Math.min(120,(c.mood[p.id]==null?70:+c.mood[p.id])+PET_MOOD);});}}
   if(W&&W.world){g+=WORLD_G;m.world++;}
   if(g){P.gold+=g;P.goldAll+=g;e.coins+=g;}m.last={g,t:Date.now(),w:W&&W.world?1:0};});});
 window.addEventListener('tof:hard-clear',()=>upd((P,m,e,A)=>{e.hard++;if(A.E.id==='portal'){P.gold+=HARD_G;P.goldAll+=HARD_G;e.coins+=HARD_G;}}));

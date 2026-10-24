@@ -3,7 +3,7 @@
 // เซิร์ฟเวอร์: /api/acct (functions/api/acct.js), /api/pay/checkout, /api/pay/webhook · ตาราง migrations/0003_account.sql
 // เซฟคลาวด์ใช้ชุดคีย์ tof-* เดียวกับโค้ดย้ายเซฟ (MOVE.collect/pack/unpack/apply ใน savemove.js) · โทเคนอยู่ใน tof-acct-v1 ซึ่งไม่ถูกย้าย/อัปโหลด
 // ของที่ซื้อ: เซิร์ฟเวอร์ส่งรายการ ent มาตอนเข้าระบบ/ซิงก์ เกมใส่ให้ครั้งเดียวต่อรายการ จำไว้ใน P.mod.acct.ap[id] (เชื่อแค่ข้อมูลจากเซิร์ฟเวอร์)
-// API: window.ACCT = { name(), me(), sync(force), open() }
+// API: window.ACCT = { name(), me() }
 (function(){
 'use strict';
 if(typeof document==='undefined'||!window.META)return;
@@ -12,7 +12,7 @@ const esc=M.esc,isObj=M.isObj;
 const NAME_RE=/^[a-zA-Z0-9_ก-๎]{3,16}$/;
 const nf=M.nf;
 const baht=a=>(a/100).toLocaleString('th-TH',{maximumFractionDigits:2});
-const dateTxt=t=>{try{return new Date(t).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return'';}};
+const dateTxt=t=>window.MOVE?window.MOVE.dateTxt(t):''; // savemove.js โหลดทีหลัง แต่เรียกตอนวาดหน้าต่างเท่านั้น
 const fnv=s=>{let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return(h>>>0).toString(36);};
 
 // ---------- สถานะในเครื่อง ----------
@@ -46,7 +46,7 @@ function applyEnts(list){if(!Array.isArray(list)||!list.length)return 0;const P=
 const GIVE={slot_m5:P=>{P.slots.m=Math.min(MAXM,P.slots.m+5);},slot_p1:P=>{P.slots.p=Math.min(MAXP,P.slots.p+1);},
  gold_s:P=>{P.gold+=3000;},gold_l:P=>{P.gold+=10000;},wear_halo:(P,a)=>{a.own.halo=1;},wear_drhelm:(P,a)=>{a.own.drhelm=1;}};
 // ซื้อได้ไหม (ช่องเต็มแล้ว/มีชุดแล้ว = ไม่ต้องซื้อ)
-function canBuy(sku,P){const a=ast(P);if(sku==='slot_m5')return P.slots.m<MAXM;if(sku==='slot_p1')return P.slots.p<MAXP;
+function canBuy(sku,P){const a=ast(P);if(sku==='slot_m5')return P.slots.m+5<=MAXM;if(sku==='slot_p1')return P.slots.p<MAXP;
  if(sku.indexOf('wear_')===0)return!a.own[sku.slice(5)];return true;}
 async function loadShop(){if(shop)return shop;const r=await call('/api/pay/checkout');
  shop=r.st===200&&isObj(r.j.items)?{open:!!r.j.open,items:r.j.items}:{open:false,items:{}};return shop;}
@@ -73,7 +73,7 @@ async function upload(force,over){const mv=MV();if(!mv||!name())return{st:0,j:{e
  const r=await acct(b);
  if(r.j.ok){last={at:r.j.at||Date.now(),h,b:r.j.at||0};clash=null;keepLast();if(me0)me0.save={at:last.b,m};M.grantAch('acct_cloud');}
  else if(r.j.error==='conflict'){clash={at:r.j.at||0,m:isObj(r.j.m)?r.j.m:{}};if(me0)me0.save={at:clash.at,m:clash.m};}
- return r;}
+ bindBirth();return r;}
 // ซิงก์เบาๆ: จบรอบหรือปิดหน้าต่างตระกูล → รอให้เซฟเขียนเสร็จก่อน แล้วอัปโหลดถ้าข้อมูลเปลี่ยนและห่างครั้งก่อนพอ
 // ถ้าเซฟบนคลาวด์มาจากเครื่องอื่น (clash) จะหยุดซิงก์ไว้จนกว่าผู้เล่นเลือกเองว่าจะโหลดหรือบันทึกทับ
 function soon(){if(!name()||st().auto===false||clash)return;clearTimeout(timer);const d=Math.max(2000,last.at+GAP-Date.now());
@@ -86,7 +86,7 @@ async function me(){if(!name())return null;const r=await acct({a:'me'});if(!r.j.
  const sv=r.j.save,mv=MV();
  if(sv&&sv.at!==last.b){const m=isObj(sv.m)?sv.m:{};if(mv&&m.h&&m.h===hashOf(mv.collect())){last.b=sv.at;last.h=m.h;keepLast();clash=null;}else clash={at:sv.at,m};}
  else clash=null;
- await loadShop();applyEnts(r.j.ent);return me0;}
+ bindBirth();await loadShop();applyEnts(r.j.ent);return me0;}
 
 // ---------- แท็บ 👤 บัญชี ----------
 function css(){const s=document.createElement('style');s.textContent=`
@@ -153,7 +153,7 @@ function renderIn(el,P){const s=st(),sv=me0&&me0.save,mv=MV();
  q('#acPwF').onsubmit=async e=>{e.preventDefault();if(busy)return;const pw=q('#acOld').value,npw=q('#acNew').value;if(npw.length<8){say(errTxt({st:400,j:{error:'bad-pw'}}),true);return;}
   busy=true;say('กำลังเปลี่ยนรหัสผ่าน…');const r=await acct({a:'passwd',pw,npw});busy=false;
   if(!r.j.ok){say(errTxt(r),true);return;}const s=st();s.tok=r.j.tok;s.exp=r.j.exp;put(s);say('เปลี่ยนรหัสผ่านแล้ว');};
- q('[data-a=out]').onclick=async()=>{if(busy)return;busy=true;await acct({a:'logout'});busy=false;put(null);me0=null;last={at:0,h:'',b:0};clash=null;say('ออกจากระบบแล้ว เซฟในเครื่องนี้ยังอยู่เหมือนเดิม');bindBirth();};
+ q('[data-a=out]').onclick=async()=>{if(busy)return;busy=true;await acct({a:'logout'});busy=false;put(null);me0=null;last={at:0,h:'',b:0};clash=null;bindBirth();say('ออกจากระบบแล้ว เซฟในเครื่องนี้ยังอยู่เหมือนเดิม');bindBirth();};
  bindDress(el);}
 // 💎 ร้านพิเศษ
 function shopHTML(P){if(!shop)return`<div class="ac-box"><h3>💎 ร้านพิเศษ</h3><p class="mt-dim">กำลังเปิดร้าน…</p></div>`;
@@ -185,9 +185,9 @@ M.tab('acct',{n:'👤 บัญชี',o:90,render(el,P){
 
 // ---------- ปุ่มเล็กบนหน้าเกิด ----------
 const b0=M.button,bd0=M.bind;
-M.button=function(){const n=name();return b0.apply(this,arguments)+`<button class="btn" id="btnAcct" type="button" title="บัญชีและเซฟคลาวด์">👤 ${n?esc(n):'บัญชี'}</button>`;};
+M.button=function(){const n=name();return b0.apply(this,arguments)+`<button class="btn" id="btnAcct" type="button" title="บัญชีและเซฟคลาวด์">👤 ${n?esc(n):'บัญชี'}${clash?' ⚠️':''}</button>`;};
 M.bind=function(){bd0.apply(this,arguments);const b=document.getElementById('btnAcct');if(b)b.onclick=()=>M.open('acct');};
-function bindBirth(){const b=document.getElementById('btnAcct');if(b){const n=name();b.textContent='👤 '+(n||'บัญชี');}}
+function bindBirth(){const b=document.getElementById('btnAcct');if(b){const n=name();b.textContent='👤 '+(n||'บัญชี')+(clash?' ⚠️':'');}}
 
 // ---------- ซิงก์อัตโนมัติ ----------
 M.onRun(()=>soon());
@@ -212,5 +212,5 @@ function boot(){regWear();let paid=null;try{const q=new URLSearchParams(location
  poll();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else setTimeout(boot,0);
 
-window.ACCT={name,me,sync:f=>upload(!!f),open:()=>M.open('acct')};
+window.ACCT={name,me};
 })();

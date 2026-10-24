@@ -1,11 +1,11 @@
 // Cloudflare Pages Function: /api/scores
-// storage: store(env) = D1 TOF_DB or KV TOF_KV (keys: 'top' = top 100, 'recent' = last 50, 'rl:<ip>' rate limit for posts without a D1 ticket)
-//          run tickets: D1 table tix (store.js tix()), stamped used by the score = the dedupe; KV-only mode: 'tk:<id>' + 'dup:tk:<id>'
+// storage: store(env) = D1 TOF_DB (keys: 'top' = top 100, 'recent' = last 50); acct_lim counters 'rl:<ip>' / 'dv:<dev>:<day>' for posts without a D1 ticket
+//          run tickets: D1 table tix (store.js tix()), stamped used by the score = the dedupe; tickets from before the D1 cut: kv 'tk:<id>' + counter 'dup:tk:<id>'
 // GET  -> {top:[...], recent:[...]}  (Cache-Control: max-age=30)
 // POST -> body = entry JSON (see LEADERBOARD.md) -> {ok:true, id, rank, v, day, ss} | {error}
 //         optional 'ss' = share counters (v2.3), summed into live.d[day].ss; response ss:1 means they were counted (v2.7 clients send them to /api/live instead)
 //         optional 'dv' = device id (v2.7): must match the dv the ticket was issued to; posts without a D1 ticket also meet
-//         DV_MAX per device per Thai day, counted inside the same 'rl:<ip>' row as the per-IP limit
+//         DV_MAX per device per Thai day
 //         optional 'lk' / 'gear' = hero look + carried gear for the hall of fame (v0.2.8), stored on the row, not part of canon()
 //         ok:0 rows carry nok = why: 'tk' no ticket, 'time' too fast, 'dv' other device, 'score' / 'drg' does not add up
 //         a ticketed win (ok:1) is also kept in 'hof' (newest HOF_N winners): one extra write, only on won runs; response hof:1
@@ -17,7 +17,7 @@
 import { store, tix, update } from './store.js';
 import { who, okName, isAdmin, ensureSchema, hit } from './acctlib.js';
 import { editLive, okDay, okDv, ipKey, shareStats, addShare } from './live.js';
-import { fnv, clean, json, isInt, thDay, sameOrigin, RANKS, CLS, DRG } from './util.js';
+import { fnv, ipHash, clean, json, isInt, thDay, sameOrigin, RANKS, CLS, DRG } from './util.js';
 const TOP_N = 100, RECENT_N = 50, HOF_N = 100;
 const RL_MAX = 10, RL_WIN = 600;          // 10 posts / 10 min / IP
 const DV_MAX = 150;                       // posts / Thai day / device, per IP row (v2.7)
@@ -116,25 +116,10 @@ export function hofMerge(hof, top, recent) {
   return out.sort((a, b) => b.date - a.date).slice(0, HOF_N);
 }
 
-// posts without a D1 ticket. D1: atomic counters (acctlib.js hit) per IP per RL_WIN and per device per Thai day.
-// KV-only: one row per IP, {t, c} = posts in the current RL_WIN window, {d, k:{devHash: n}} = posts per device today
-async function limited(env, kv, ip, dv, now) {
-  const dk = dv ? fnv('tof-dv|' + dv) : '', db = env.TOF_DB;
-  if (db) {
-    if (await hit(db, 'rl:' + fnv(ip), RL_WIN * 1000, now, RL_MAX) > RL_MAX) return { wait: RL_WIN };
-    if (dk && await hit(db, 'dv:' + dk + ':' + thDay(now), 2 * 86400e3, now, DV_MAX) > DV_MAX) return { wait: 3600, dev: 1 };
-    return null;
-  }
-  const key = 'rl:' + fnv(ip);
-  let rl = null; try { rl = JSON.parse(await kv.get(key) || 'null'); } catch { }
-  if (!rl || typeof rl !== 'object' || Array.isArray(rl)) rl = {};
-  if (typeof rl.t !== 'number' || typeof rl.c !== 'number' || now - rl.t >= RL_WIN * 1000) { rl.t = now; rl.c = 0; }
-  if (rl.d !== thDay(now) || !rl.k || typeof rl.k !== 'object') { rl.d = thDay(now); rl.k = {}; }
-  if (rl.c >= RL_MAX) return { wait: Math.max(1, Math.ceil((rl.t + RL_WIN * 1000 - now) / 1000)) };
-  if (dk && (rl.k[dk] | 0) >= DV_MAX) return { wait: 3600, dev: 1 };
-  rl.c++;
-  if (dk) { rl.k[dk] = (rl.k[dk] | 0) + 1; const ks = Object.keys(rl.k); if (ks.length > 64) delete rl.k[ks[0]]; }
-  await kv.put(key, JSON.stringify(rl), { expirationTtl: 2 * 86400 });
+// posts without a D1 ticket: atomic counters (acctlib.js hit) per IP per RL_WIN and per device per Thai day
+async function limited(db, ip, dv, now) {
+  if (await hit(db, 'rl:' + ip, RL_WIN * 1000, now, RL_MAX) > RL_MAX) return { wait: RL_WIN };
+  if (dv && await hit(db, 'dv:' + fnv('tof-dv|' + dv) + ':' + thDay(now), 2 * 86400e3, now, DV_MAX) > DV_MAX) return { wait: 3600, dev: 1 };
   return null;
 }
 
@@ -191,11 +176,11 @@ export async function onRequestPost({ request, env }) {
   const { e, x, err } = validate(body);
   if (err) return json({ error: 'invalid', field: err }, 400);
 
-  const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
+  const ip = ipHash(request, '');   // no salt: the rate-limit key was always 'rl:' + fnv(ip)
   const now = Date.now(), T = tix(env), db = env.TOF_DB;
-  // which ticket: a D1 row (tix), else a KV ticket 'tk:<id>' (KV-only mode, or issued before the D1 cut)
+  // which ticket: a D1 row (tix), else a ticket 'tk:<id>' in the kv table (issued before the D1 cut)
   let tkv = null, how = '';
-  if (x.tk && T) { try { tkv = await T.get(x.tk); } catch { } if (tkv) how = 'd1'; }
+  if (x.tk) { try { tkv = await T.get(x.tk); } catch { } if (tkv) how = 'd1'; }
   if (x.tk && !tkv) { try { tkv = JSON.parse(await kv.get('tk:' + x.tk) || 'null'); } catch { } if (tkv && typeof tkv.t0 === 'number') how = 'kv'; else tkv = null; }
 
   if (how === 'd1') {
@@ -207,19 +192,17 @@ export async function onRequestPost({ request, env }) {
       const [top, recent] = await Promise.all([getList(kv, 'top'), getList(kv, 'recent')]);
       if (recent.some(y => y && y.id === e.id) || top.some(y => y && y.id === e.id)) return json({ ok: true, dup: true, id: e.id });
     }
-    if (db) await ensureSchema(db);
-    const lim = await limited(env, kv, ip, x.dv, now);
+    await ensureSchema(db);
+    const lim = await limited(db, ip, x.dv, now);
     if (lim) return json(lim.dev ? { error: 'rate-limited', scope: 'dev', retryAfter: lim.wait } : { error: 'rate-limited', retryAfter: lim.wait }, 429, { 'Retry-After': String(lim.wait) });
     if (how === 'kv') {
-      // one score per KV ticket; with D1 the counter makes two posts sent at once count as one
-      const dupKey = 'dup:tk:' + x.tk;
-      if (db ? await hit(db, dupKey, DUP_TTL * 1000, now, 1) > 1 : await kv.get(dupKey)) return json({ ok: true, dup: true, id: e.id });
-      if (!db) await kv.put(dupKey, '1', { expirationTtl: DUP_TTL });
+      // one score per old ticket: the counter makes two posts sent at once count as one
+      if (await hit(db, 'dup:tk:' + x.tk, DUP_TTL * 1000, now, 1) > 1) return json({ ok: true, dup: true, id: e.id });
     }
   }
 
   // account name (v0.3.5): only from a live session in D1, cleaned like every other name; anything wrong just leaves 'ac' off
-  if (db && request.headers.get('Authorization')) {
+  if (request.headers.get('Authorization')) {
     try { const u = await who(db, request, now); const ac = u && clean(String(u.name || ''), 16); if (ac && okName(ac)) e.ac = ac; } catch { }
   }
 
@@ -229,28 +212,32 @@ export async function onRequestPost({ request, env }) {
   if (why) e.nok = why;
 
   // every list below goes through update() (store.js), so two scores arriving together cannot wipe each other out
-  let rank = null;
-  if (e.ok) {
-    const row = { ...e, ip: tkv.ip || ipKey(request) };   // kept on 'top' only, for the per-IP cap; GET strips it
-    await update(kv, 'top', s => { const out = addTop(listOf(s), row); rank = out ? out.findIndex(y => y.id === e.id) + 1 : null; return out && JSON.stringify(out); });
+  // a list write that fails (update() busy) gives the D1 ticket back, so the client's retry is not taken for a dup.
+  // Every write below skips a row it already holds, so a retry after a half-done try adds nothing twice.
+  let rank = null, hofOk = 0;
+  try {
+    if (e.ok) {
+      const row = { ...e, ip: tkv.ip || ipKey(request) };   // kept on 'top' only, for the per-IP cap; GET strips it
+      await update(kv, 'top', s => { const out = addTop(listOf(s), row); rank = out ? out.findIndex(y => y.id === e.id) + 1 : null; return out && JSON.stringify(out); });
+    }
+    await update(kv, 'recent', s => JSON.stringify([e, ...listOf(s).filter(y => y && y.id !== e.id)].slice(0, RECENT_N)));
+    // hall of fame (v0.2.8): only ticketed wins, so this write happens on ~3-4% of runs
+    if (e.won && e.ok) {
+      hofOk = await update(kv, 'hof', s => { const hof = listOf(s); return hof.some(y => y && y.id === e.id) ? null : JSON.stringify([hofRow(e), ...hof].slice(0, HOF_N)); }) ? 1 : 0;
+    }
+  } catch {
+    if (how === 'd1') { try { await T.unuse(x.tk); } catch { } }
+    return json({ error: 'busy' }, 503, { 'Retry-After': '5' });
   }
-  await update(kv, 'recent', s => JSON.stringify([e, ...listOf(s).filter(y => y && y.id !== e.id)].slice(0, RECENT_N)));
 
-  // hall of fame (v0.2.8): only ticketed wins, so this write happens on ~3-4% of runs
-  let hofOk = 0;
-  if (e.won && e.ok) {
-    hofOk = await update(kv, 'hof', s => { const hof = listOf(s); return hof.some(y => y && y.id === e.id) ? null : JSON.stringify([hofRow(e), ...hof].slice(0, HOF_N)); }) ? 1 : 0;
-  }
-
-  // the run counts toward its day's stats; KV-only mode also ends its presence in 'live'.u
+  // the run counts toward its day's stats (today or yesterday in Thai time, so a made-up future day cannot push today out of the 3 kept)
   // share counters (x.ss) ride along only when 'live' is written anyway, so they never cost a write of their own
   let day = null, ss = 0;
-  const dayFresh = !!x.day && Math.abs(Date.parse(x.day) - now) < 3 * 86400e3;
-  if (T ? dayFresh || x.ss : x.sid || x.day) {
+  const dayFresh = x.day === thDay(now) || x.day === thDay(now - 86400e3);
+  if (dayFresh || x.ss) {
     try {
       await editLive(kv, v => {
         day = null;
-        if (x.sid) delete v.u[x.sid];
         if (dayFresh) {
           const d = v.d[x.day] || (v.d[x.day] = { n: 0, h: 0, w: 0, f: 0 });
           d.n++; d.h += x.dh; d.w += e.won ? 1 : 0; d.f += e.floor; day = d;

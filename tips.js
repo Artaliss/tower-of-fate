@@ -195,7 +195,9 @@ function tag(root){
  for(const id in FIXED){const el=document.getElementById(id);if(el&&!el.dataset.tip)el.dataset.tip=FIXED[id];}
  const tr=document.getElementById('track');if(tr)tr.dataset.tip='boss';
  root.querySelectorAll(SEL).forEach(el=>{if(el.dataset.tip)return;const s=el.textContent;for(const [w,k] of KW)if(s.includes(w)){el.dataset.tip=k;break;}});}
-let pend=false;const mo=new MutationObserver(()=>{mountIntro();if(pend)return;pend=true;requestAnimationFrame(()=>{pend=false;tag(document);if(cur&&!cur.isConnected)hide();});});
+// แค่เปลี่ยนข้อความ (เลข HP ตัวนับ) ไม่ต้องสแกนทั้งหน้า
+const hasEl=ms=>ms.some(m=>[...m.addedNodes,...m.removedNodes].some(n=>n.nodeType===1));
+let pend=false;const mo=new MutationObserver(ms=>{if(!hasEl(ms))return;mountIntro();if(pend)return;pend=true;requestAnimationFrame(()=>{pend=false;tag(document);if(cur&&!cur.isConnected)hide();});});
 function boot(){tag(document);mountIntro();mo.observe(document.body,{childList:true,subtree:true});addHelp();}
 
 // ---- tooltip: hover/focus shows a preview, tap/click pins it (pinned = game paused) ----
@@ -273,5 +275,5 @@ function mountIntro(){const c=document.getElementById('card');if(!c||!c.querySel
  const a=c.querySelector('.cs')||c;a.insertBefore(w,a.firstChild);}
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
-window.TIPS={T,tag,open:openHelp,close:closeHelp,hide};
+window.TIPS={open:openHelp,close:closeHelp,hide};
 })();

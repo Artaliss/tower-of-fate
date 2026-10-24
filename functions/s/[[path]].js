@@ -26,13 +26,13 @@ function decode(code){
   let ver=b[0],cx=0;if(ver>=5&&ver<=8){ver-=4;cx=8;}
   if(ver===3||ver===4){if(b.length<11||b[1]>>6||b[2]>>1||b[3]<1)return null;
    const rank=(b[1]>>3)&7,cls=(b[1]&7)+cx,human=!!(b[2]&1),gen=b[3],odds=b[4]*16777216+b[5]*65536+b[6]*256+b[7];
-   const rest=body.subarray(8),{z,z2,f}=tailOf(rest);if(z<1)return null;
+   const rest=body.subarray(8),{z,z2,f}=tailOf(rest);if(z<1||!CLS_IDS[cls])return null;
    const dec=x=>ver===3?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
    const name=cleanTxt(dec(rest.subarray(0,z)),16),village=cleanTxt(dec(z2<0?rest.subarray(z+1):rest.subarray(z+1,z2)),20);if(!name)return null;
    return{birth:true,rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],form:human?'human':'slime',gen,odds,name,village,sw:!!(f&1)};}
   if(ver!==1&&ver!==2)return null;const rank=(b[1]>>3)&7,cls=(b[1]&7)+cx,dg=b[1]>>6,floor=b[2]&127,won=!!(b[2]&128),pct=b[3]&127,human=!!(b[3]&128);
   if(dg>2||(dg&&!won)||floor<1||floor>100||pct>100||(won&&floor!==100))return null;
-  const rest=body.subarray(4),{z,z2,f}=tailOf(rest);if(z<1)return null;
+  const rest=body.subarray(4),{z,z2,f}=tailOf(rest);if(z<1||!CLS_IDS[cls])return null;
   const dec=x=>ver===1?unpackThai(x):new TextDecoder('utf-8',{fatal:true}).decode(x);
   const name=cleanTxt(dec(rest.subarray(0,z)),16),title=cleanTxt(dec(z2<0?rest.subarray(z+1):rest.subarray(z+1,z2)),18);if(!name)return null;
   return{rankIdx:rank,rankK:RANK_K[rank],clsId:CLS_IDS[cls],clsN:CLS_N[cls],floor,won,pct,form:human?'human':'slime',name,title,drg:['','f','s'][dg],sw:!!(f&1),exG:!!(f&2)};

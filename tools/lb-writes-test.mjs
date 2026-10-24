@@ -1,13 +1,12 @@
-// Counts storage writes per run for /api/live + /api/scores against a mock D1 (and a KV-only env).
-// Usage: node tools/lb-writes-test.mjs [functionsApiDir=functions/api] [--kv]
+// Counts storage writes per run for /api/live + /api/scores against a mock D1 (old KV bound too, for read-through).
+// Usage: node tools/lb-writes-test.mjs [functionsApiDir=functions/api]
 // The mock understands only the SQL these functions send. "writes" = rows inserted/updated/deleted by the request itself;
 // "D1 rows~" = what D1 would bill, assuming an upsert into kv (rowid table + primary-key index) is 2 rows and a tix row 1.
 // "+sweep" adds the rows that a later cleanup will delete (expiring kv rows and ticket rows), since D1 bills those deletes too.
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const dir = path.resolve(process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : 'functions/api');
-const KV_ONLY = process.argv.includes('--kv');
+const dir = path.resolve(process.argv[2] || 'functions/api');
 const imp = f => import(pathToFileURL(path.join(dir, f)).href);
 const live = await imp('live.js'), scores = await imp('scores.js');
 
@@ -70,7 +69,6 @@ const get = async (mod, p, env) => { const r = await mod.onRequestGet({ request:
 
 function freshEnv() {
   const kv = mockKV();
-  if (KV_ONLY) return { env: { TOF_KV: kv.kv }, st: kv.st };
   const d = mockD1();
   return { env: { TOF_DB: d.db, TOF_KV: kv.kv }, st: d.st, T: d.T };
 }
@@ -90,13 +88,13 @@ async function oneRun(E, { dv = DV, beats = 0, ticket = true, e = {}, ms = 60000
 }
 
 const out = [];
-const line = (name, x) => { out.push(`${name.padEnd(46)} writes ${String(x.w).padStart(2)}  +sweep ${String(x.w + x.sw).padStart(2)}${KV_ONLY ? '' : `  D1 rows~${String(x.d1 ?? '-').padStart(2)}`}  reads ${String(x.r).padStart(4)}  -> ${x.res.s} ok:${x.res.j.v} rank:${x.res.j.rank} hof:${x.res.j.hof ?? '-'}${x.res.j.dup ? ' dup' : ''}`); };
+const line = (name, x) => { out.push(`${name.padEnd(46)} writes ${String(x.w).padStart(2)}  +sweep ${String(x.w + x.sw).padStart(2)}  D1 rows~${String(x.d1 ?? '-').padStart(2)}  reads ${String(x.r).padStart(4)}  -> ${x.res.s} ok:${x.res.j.v} rank:${x.res.j.rank} hof:${x.res.j.hof ?? '-'}${x.res.j.dup ? ' dup' : ''}`); };
 
 { // warm-up so 'top' / 'recent' / 'live' rows already exist (counts below are for a steady state)
   var E = freshEnv();
   for (let i = 0; i < 3; i++) await oneRun(E, { ip: '9.9.9.' + i, e: { floor: 5, score: 8 } });
 }
-line('new client, lose floor 37 (not top)', await (async () => { const top = []; for (let i = 0; i < 100; i++) top.push({ id: 'x' + i, won: true, floor: 100, score: 9999, date: 1 }); await E.env.TOF_DB?.prepare('INSERT INTO kv (k, v, exp) VALUES (?, ?, ?)').bind('top', JSON.stringify(top), null).run(); if (KV_ONLY) await E.env.TOF_KV.put('top', JSON.stringify(top)); E.st.w -= 1; return oneRun(E, { ip: '1.1.1.1' }); })());
+line('new client, lose floor 37 (not top)', await (async () => { const top = []; for (let i = 0; i < 100; i++) top.push({ id: 'x' + i, won: true, floor: 100, score: 9999, date: 1 }); await E.env.TOF_DB.prepare('INSERT INTO kv (k, v, exp) VALUES (?, ?, ?)').bind('top', JSON.stringify(top), null).run(); E.st.w -= 1; return oneRun(E, { ip: '1.1.1.1' }); })());
 { var E2 = freshEnv(); await oneRun(E2, { ip: '9.9.9.9', e: { floor: 3, score: 5 } }); }
 line('new client, lose floor 37 (enters top)', await oneRun(E2, { ip: '1.1.1.2' }));
 line('new client, win floor 100 (top + hof)', await oneRun(E2, { ip: '1.1.1.3', e: { floor: 100, won: true, score: 190 }, ms: 1800e3 }));
@@ -118,11 +116,11 @@ line('win at 16x minimum time (29 s)', await oneRun(E2, { ip: '3.3.3.1', e: { fl
 line('floor 101 dragon friend', await oneRun(E2, { ip: '3.3.3.2', e: { floor: 101, won: true, score: 210, drg: 'f' }, ms: 1800e3 }));
 line('floor 5, heavy bad karma, score 0', await oneRun(E2, { ip: '3.3.3.3', e: { floor: 5, score: 0, karma: -80 } }));
 wait(60e3); await post(live, '/api/live', { a: 'start', sid: SID, dv: DV }, E2.env, '4.4.4.4'); await post(live, '/api/live', { a: 'start', sid: SID }, E2.env, '4.4.4.5');
-out.push('-- two runs started, no score yet: n should be 2 (KV-only: presence by sid, so 1) --');
+out.push('-- two runs started, no score yet: n should be 2 --');
 { const g = await get(live, '/api/live?day=' + new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10), E2.env);
   out.push(`GET /api/live -> ${JSON.stringify(g.j)}`); }
 { const g = await get(scores, '/api/scores', E2.env); out.push(`GET /api/scores -> top ${g.j.top.length} recent ${g.j.recent.length}`); }
-if (!KV_ONLY) { let got = 0; for (let i = 0; i < 65; i++) { const r = await post(live, '/api/live', { a: 'start', sid: SID }, E2.env, '5.5.5.5'); if (r.j.tk) got++; }
+{ let got = 0; for (let i = 0; i < 65; i++) { const r = await post(live, '/api/live', { a: 'start', sid: SID }, E2.env, '5.5.5.5'); if (r.j.tk) got++; }
   out.push(`65 ticket requests from one IP in a burst -> ${got} tickets`); }
-console.log(`${KV_ONLY ? 'KV only' : 'D1'} · ${dir}`);
+console.log(`D1 · ${dir}`);
 console.log(out.join('\n'));

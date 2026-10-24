@@ -2,7 +2,7 @@
 // Tables: migrations/0003_account.sql (created on first use by ensureSchema).
 
 import { dbErr } from './memorial.js';
-import { json, fnv } from './util.js';
+import { json, fnv, ipHash } from './util.js';
 export { json, dbErr, fnv };
 
 export const SESS_DAYS = 30;
@@ -26,7 +26,7 @@ export function same(a, b) {
   let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return d === 0;
 }
-export const ipOf = request => fnv('ac|' + (request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown'));
+export const ipOf = request => ipHash(request, 'ac|');
 
 // ---- names and passwords ----
 // 3-16 characters: Thai letters, a-z, 0-9, _ ; compared lowercased

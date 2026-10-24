@@ -17,8 +17,11 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const C=()=>window.CONTENT||{};
 function blank(){return{v:1,gold:0,goldAll:0,wins:0,runs:0,unlock:{city:false,hard:false},roster:[],pets:[],slots:{m:SLOT_M,p:SLOT_P},head:'',statues:[],mod:{}};}
 function load(){let P=blank();try{const v=JSON.parse(localStorage.getItem(KEY)||'null');if(isObj(v)){P=Object.assign(P,v);P.unlock=Object.assign(blank().unlock,v.unlock);P.slots=Object.assign(blank().slots,v.slots);
- ['roster','pets','statues'].forEach(k=>{if(!Array.isArray(P[k]))P[k]=[];});if(!isObj(P.mod))P.mod={};}}catch(e){}return P;}
-function save(P){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){}}
+ ['roster','pets','statues'].forEach(k=>{if(!Array.isArray(P[k]))P[k]=[];});if(!isObj(P.mod))P.mod={};
+ // an imported save code is untrusted and these land in innerHTML: ids alphanumeric only, stats numbers only
+ const num=(o,ks)=>ks.forEach(k=>{o[k]=+o[k]||0;});num(P,['gold','goldAll','wins','runs']);num(P.slots,['m','p']);
+ [P.roster,P.wait,P.pets].forEach(L=>Array.isArray(L)&&L.forEach(m=>{if(!isObj(m))return;m.id=String(m.id==null?'':m.id).replace(/[^0-9a-z]/gi,'');num(m,['lv','hp','atk','def','luk','floor','ri']);}));}}catch(e){}return P;}
+let full=false;function save(P){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){if(!full){full=true;try{alert('พื้นที่เก็บเซฟในเบราว์เซอร์เต็มแล้ว ความคืบหน้าของตระกูลจะไม่ถูกบันทึก ลองลบข้อมูลเว็บอื่นในเบราว์เซอร์ หรือย้ายเซฟไปเก็บในบัญชี');}catch(x){}}}}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function addGold(n,why){const P=load();n=Math.round(+n||0);P.gold=Math.max(0,P.gold+n);if(n>0)P.goldAll+=n;save(P);refresh();return P.gold;}
 function grantAch(id){try{window.ACH&&window.ACH.grant&&window.ACH.grant(id);}catch(e){}}

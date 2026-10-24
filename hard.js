@@ -132,7 +132,7 @@ function css(){const st=document.createElement('style');st.textContent=`
 .hd-sel{max-width:100%;padding:5px;border-radius:6px;background:var(--panel2,#1c2e36);color:inherit;border:1px solid var(--line,#2c3a36);font:inherit;font-size:13px}`;document.head.appendChild(st);}
 css();
 const bfHTML=m=>{const b=BUFF[m.cls];return b?`<div class="hd-bf">✦ <b>${esc(b.n)}</b>${m.master?' (Master)':''}: ${esc(b.d)}</div>`:'<div class="hd-bf" style="color:var(--dim,#8aa39a)">ไม่มีบัพประจำอาชีพ</div>';};
-const head=(m,P)=>`<div><span class="rk" style="background:${M.rkCol(rkOf(m))}">${rkOf(m)}</span><b>${esc(m.name)}</b>${P&&P.head===m.id?' 👑':''}</div>`;
+const head=(m,P)=>`<div><span class="rk" style="background:${M.rkCol(rkOf(m))}">${esc(rkOf(m))}</span><b>${esc(m.name)}</b>${P&&P.head===m.id?' 👑':''}</div>`;
 const stat=m=>`<div class="mt-dim">${esc(M.clsN(m.cls)||'ไร้อาชีพ')} Lv.${m.lv} · HP ${m.hp} ATK ${m.atk} DEF ${m.def} LUK ${m.luk}</div>`;
 
 // ---------- แท็บลานฝึก ----------

@@ -2319,7 +2319,7 @@ function drawScene(t){const R=S.R,h=R?R.h:S.hero;const b=R?biome(R.floor):0;cons
  VIS.coins=VIS.coins.filter(c=>c.y<140);for(const c of VIS.coins){c.vy+=.18;c.x+=c.vx;c.y+=c.vy;if(c.y>104&&c.vy>0){c.vy*=-.45;c.y=104;c.b++;if(c.b>3)c.y=200;}blit(cx,COIN,c.x,c.y);if(!RM&&Math.random()<.12){cx.fillStyle='#ffffff';cx.fillRect(Math.round(c.x)+3,Math.round(c.y)-1,1,3);cx.fillRect(Math.round(c.x)+2,Math.round(c.y),3,1);}}
  cx.restore();}
 function coinBurst(n){AUDIO.sfx('coin');if(RM)return;for(let i=0;i<Math.min(40,n);i++)VIS.coins.push({x:130,y:80,vx:rr(-2.4,1.2),vy:rr(-4,-1.5),b:0});}
-let lastT=0;function loop(t){requestAnimationFrame(loop);if(document.hidden)return;if(t-lastT<(RM?400:(t<VIS.busy||(S&&S.phase==='combat'))?30:50))return;lastT=t;try{drawScene(t);}catch(e){}}
+let lastT=0;function loop(t){requestAnimationFrame(loop);if(document.hidden||CINE.on)return;if(t-lastT<(RM?400:(t<VIS.busy||(S&&S.phase==='combat'))?30:50))return;lastT=t;try{drawScene(t);}catch(e){}}
 // ---- HUD ----
 let snap=null;
 const HINTS_S=['สั้นมาก','ไม่ค่อยดี','กลางๆ','ยืนยาว','แข็งผิดคน','ลึกลับ'];
@@ -2461,8 +2461,8 @@ const PKEY='tof-causes-v1',POOL_V=2;let POOL=null;
 function loadPool(){if(POOL)return POOL;try{const v=JSON.parse(localStorage.getItem(PKEY)||'null');POOL=isObj(v)&&v.v===POOL_V&&isArr(v.r)?v:{v:POOL_V,r:[]};}catch(e){POOL={v:POOL_V,r:[]};}return POOL;}
 function poolAdd(L){const P=loadPool();P.r.push([L.won?100:L.floor,L.won?'win':(L.ck||'boss')]);if(P.r.length>3000)P.r.splice(0,P.r.length-3000);}
 function poolSave(){try{localStorage.setItem(PKEY,JSON.stringify(loadPool()));}catch(e){}}
-function poolBg(){let n=0;const step=()=>{if(loadPool().r.length>=600){poolSave();return;}if(document.hidden||(S&&S.phase==='combat')){setTimeout(step,700);return;}
-  for(let i=0;i<3;i++)poolAdd(autoLife());n+=3;if(n%30===0)poolSave();setTimeout(step,80);};setTimeout(step,2500);}
+function poolBg(){let n=0;const step=()=>{if(loadPool().r.length>=600){poolSave();return;}if(document.hidden||!S||!['birth','end'].includes(S.phase)){setTimeout(step,700);return;} // one life per slice, only on screens that sit still (phones stuttered)
+  poolAdd(autoLife());n++;if(n%30===0)poolSave();setTimeout(step,80);};setTimeout(step,2500);}
 const CAUSEN={ambush:'ถูกมอนสเตอร์ซุ่มโจมตี',biome:'อุบัติเหตุจากตัวหอ',trap:'กับดักกลไก',bleed:'เสียเลือดจนหมดแรง',scar:'แผลเก่ากำเริบ',karma:'เงากรรมตามทัน',curse:'คำสาป',shadow:'เงาที่ตามติดมาแต่เกิด',alone:'ล้มลงคนเดียว',slip:'ลื่นตกบันได',boss:'แพ้บอส',bossfate:'ชะตาขาดต่อหน้าบอส',fate:'ชะตาขาด'};
 const SUDDEN={boss:1,bossfate:1,ambush:1,trap:1,slip:1,biome:1};
 function causeStat(fl,ck){const r=loadPool().r.filter(x=>x[1]!=='win');if(r.length<20)return null;const b=Math.floor((fl-1)/10),inB=r.filter(x=>Math.floor((x[0]-1)/10)===b),use=inB.length>=25?inB:r;
@@ -2474,17 +2474,20 @@ function clearSave(){try{localStorage.removeItem(SAVEK);}catch(e){}}
 function saveRun(){if(!S||window.__tofMoving)return;
  if(S.phase==='birth'){try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:'birth',hero:S.hero,rerolled:!!S.rerolled,bo:S.bo||null}));}catch(e){}return;} // refresh cannot re-roll the hero
  if(!S.R)return;if(secOpen(S.R)){try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:'secret',runId:S.runId,t0:S.t0||0,hero:S.hero,R:S.R,frame:S.frame}));}catch(e){}return;}
- if(!S.R.alive||S.R.won){finalizeRun();return;}if(!['flow','decide','combat'].includes(S.phase))return;
+ // run over: keep it as 'over' so a reload still reaches the end screen (results sent once via fin/sent) and the heir; newBirth drops it
+ if(!S.R.alive||S.R.won){try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:'over',runId:S.runId,t0:S.t0||0,hero:S.hero,R:S.R,fin:!!S.fin,sent:!!S.sent,cd:!!S.cineDone}));}catch(e){}return;}
+ if(!['flow','decide','combat'].includes(S.phase))return;
  try{localStorage.setItem(SAVEK,JSON.stringify({v:SAVE_V,t:Date.now(),phase:S.phase,paused:!!S.paused,runId:S.runId,t0:S.t0||0,hero:S.hero,R:S.R,K:S.phase==='decide'?S.K:null,frame:S.frame}));}catch(e){}}
-// the run is over: write the memorial once and drop the save
+// the run is over: write the memorial once (FINK = last finalized runId, so a second tab on the same run counts nothing twice)
+const FINK='tof-auto-fin-v1';
 function finalizeRun(){if(!S||!S.R||S.fin||window.__tofMoving)return; // a save being imported must not get this run's death written over it
-S.fin=1;const R=S.R,h=R.h,fl=R.won?100:R.floor;
+S.fin=1;try{if(localStorage.getItem(FINK)===String(S.runId)){S.sent=true;return;}localStorage.setItem(FINK,String(S.runId));}catch(e){}const R=S.R,h=R.h,fl=R.won?100:R.floor;
  try{addLife(R);S.hero.lin=h.lin;S.hero.house=h.house;S.hero.gen=h.gen;}catch(e){}
  try{clanApply(R);}catch(e){}
  try{unlApply(R);}catch(e){}
  try{window.META&&window.META.recordRun(R);}catch(e){}
  let pt=null;try{pt=fatePattern(R);}catch(e){}
- saveMemo(Object.assign({name:h.name,rank:h.rank,cls:CLASSES[h.cls].n,pth:pathHiName(R)||undefined,floor:fl,won:R.won,cause:R.won&&!(R.sec&&R.sec.res==='x')?'พิชิตยอดหอคอย':R.cause,lv:h.lv,gen:h.gen||1,t:Date.now()},pt?{pat:pt.code,patN:pt.n}:{},R.sec&&R.sec.res&&R.sec.res!=='n'?{drg:R.sec.res}:{}));clearSave();poolAdd(R);poolSave();}
+ saveMemo(Object.assign({name:h.name,rank:h.rank,cls:CLASSES[h.cls].n,pth:pathHiName(R)||undefined,floor:fl,won:R.won,cause:R.won&&!(R.sec&&R.sec.res==='x')?'พิชิตยอดหอคอย':R.cause,lv:h.lv,gen:h.gen||1,t:Date.now()},pt?{pat:pt.code,patN:pt.n}:{},R.sec&&R.sec.res&&R.sec.res!=='n'?{drg:R.sec.res}:{}));poolAdd(R);poolSave();}
 const isArr=Array.isArray,isObj=o=>!!o&&typeof o==='object'&&!isArr(o);
 // heroes from older saves have no lineage yet: they become generation 1 of their own line
 function linFix(h){if(!h)return;if(!(h.gen>=1))h.gen=1;if(!h.house)h.house=h.name;if(!h.lin)h.lin=newLinId();}
@@ -2497,7 +2500,8 @@ function resumeRun(){let d=null;try{d=JSON.parse(localStorage.getItem(SAVEK)||'n
    if(hero.look&&hero.look.form)rollHero.form=hero.look.form;linFix(hero);if(!hero.day){const dk=dayKey(),D=dayPick(dk);if(D)hero.day={d:dk,t:D.id};}
    S={phase:'birth',hero,rerolled:!!d.rerolled,bo:isObj(d.bo)?d.bo:null,rvDone:true,R:null,K:null,cb:null,cmp:null,saved:false,runId:0,speed:loadSpeed(),paused:false,tm:0,frame:null};snap=null;VIS.coins=[];VIS.show=null;S.themeId=heroTheme(hero);render();return true;}
   const sec=d.phase==='secret'&&isObj(d.R)&&d.R.won&&isObj(d.R.sec)&&['ask','talk','choose','res'].includes(d.R.sec.st)&&!!DRG[d.R.sec.c];
-  if(!okV||!isObj(d.R)||!isObj(d.hero)||(!sec&&(!d.R.alive||d.R.won)))throw 0;
+  const over=d.phase==='over'&&isObj(d.R)&&(!d.R.alive||d.R.won);
+  if(!okV||!isObj(d.R)||!isObj(d.hero)||(!sec&&!over&&(!d.R.alive||d.R.won)))throw 0;
   const hero=Object.assign(rollHero(),d.hero);if(!CLASSES[hero.cls]||!RANKS[hero.rank]||!PERS[hero.pers])throw 0;
   const R=newRun(hero),sv=Object.assign({},d.R),k=+sv.karma||0;delete sv.karma;R.karma=k;Object.assign(R,sv);
   R.h=Object.assign(JSON.parse(JSON.stringify(hero)),isObj(d.R.h)?d.R.h:{});
@@ -2513,6 +2517,7 @@ function resumeRun(){let d=null;try{d=JSON.parse(localStorage.getItem(SAVEK)||'n
   S={phase:'flow',hero,rerolled:true,R,K:null,cb:null,cmp:null,saved:false,runId:d.runId||Date.now(),t0:+d.t0||Date.now(),speed:loadSpeed(),paused:!!d.paused,tm:0,
    frame:isObj(d.frame)&&isArr(d.frame.msgs)?d.frame:{f:R.floor,tag:`ชั้น ${R.floor}`,title:'',text:'',msgs:[]}};
   snap=null;VIS.coins=[];VIS.show=S.frame.vis||null;VIS.walk0=performance.now();
+  if(over){Object.assign(S,{phase:'end',fin:!!d.fin,sent:!!d.sent,cineDone:!!d.cd});S.themeId=heroTheme(R.h);render();return true;}
   if(isObj(R.net)&&typeof R.net.sid==='string')setTimeout(liveBeat,1500);else R.net=null;
   S.themeId=heroTheme(R.h);if(!R.theme)R.theme=S.themeId;const lead={t:'กลับมาเดินต่อจากที่ค้างไว้',c:'lv'};R.log.unshift({f:R.floor,t:lead.t,c:lead.c});
   if(sec){S.phase='secret';render();return true;}
@@ -2927,8 +2932,8 @@ function ledgerRoll(R){const K=R.karma;let rows=R.ledger.filter(x=>x.d).map((x,i
  rows.forEach(x=>{const good=x.d>0,p=good?clamp(.4+K*.008+x.d*.04,.15,.85):clamp(.4-K*.008-x.d*.04,.15,.85);x.hit=rnd()<p;
   if(x.hit){const pt=Math.min(6,2+Math.abs(x.d));x.pt=good?pt:-pt;pts+=x.pt;if(good)fr++;else er++;x.fx=pick(good?FRUIT:ERUPT).replace('{f}',x.f);}
   x.lab=good?(x.hit?'ส่งผล':'ยังไม่ส่งผล'):(x.hit?'ปะทุ':'ยังไม่ปะทุ');});
- const fl=R.won?100:R.floor,base=fl+R.bosses*3+(R.won?30:0)+Math.round(R.h.lv/2)+(R.sec&&R.sec.win?(R.sec.way?15:10):0);
- return{rows,more,fr,er,pts,base,score:Math.max(0,base+pts),parts:scoreParts(R,pts)};}
+ const parts=scoreParts(R,pts),base=parts.reduce((a,p)=>a+(p.k==='kar'?0:p.v),0);
+ return{rows,more,fr,er,pts,base,score:Math.max(0,base+pts),parts};}
 // where the life score comes from (same terms as ledgerRoll's base, plus the karma rows)
 function scoreParts(R,pts){const P=[{k:'fl',n:'ชั้น',v:R.won?100:R.floor},{k:'bo',n:'บอส',v:R.bosses*3},{k:'won',n:'พิชิตยอด',v:R.won?30:0},{k:'lv',n:'เลเวล',v:Math.round(R.h.lv/2)},
  {k:'sec',n:'ชั้นลับ',v:R.sec&&R.sec.win?(R.sec.way?15:10):0},{k:'kar',n:'กรรม',v:pts|0}];return P.filter(p=>p.v||p.k==='fl');}
@@ -2945,6 +2950,7 @@ function ledgerHTML(R){const L=S.lg,st=RM?0:.25,T=S.title;
  <ol class="ledger">${L.rows.map((x,i)=>`<li style="animation-delay:${(i*st).toFixed(2)}s"><span class="px">${x.f}F</span><span><span class="${x.d>0?'kk':'b'}">${x.d>0?'✦':'✧'} ${esc(x.t)}</span>${x.fx?`<br><span class="x">${esc(x.fx)}</span>`:''}</span><span class="o ${x.hit?(x.d>0?'fr':'er'):'no'}" style="animation-delay:${(i*st+.15).toFixed(2)}s">${x.lab}${x.pt?` ${x.pt>0?'+':''}${x.pt}`:''}</span></li>`).join('')}</ol>
  ${L.more?`<p class="dim" style="font-size:12px;margin:0 0 6px">ยังมีเรื่องเล็กๆ อีก ${L.more} เรื่องที่ไม่มีใครจำ</p>`:''}${sum}`;}
 // death-floor distribution of 2,000 heroes rolled through the same hazard table (birth multiplier only, no bosses)
+let CMP=null; // the 2,000-hero comparison does not depend on this run: once per session
 function hazardSample(n){const a=[];for(let i=0;i<n;i++){const h=rollHero();let f=1;while(f<100&&rnd()>=pRoll(f,h.m0))f++;a.push(f);}return a;}
 // eulogy from the stance history (one letter per rolled floor) plus the deeds of the run and how it ended
 function eulogy(R){const H=R.stH||'',n=H.length,h=R.h,fl=R.won?100:R.floor,cnt=c=>H.split(c).length-1;
@@ -3120,7 +3126,7 @@ function cineClose(quiet){if(!CINE.on)return;if(!quiet&&bxTry())return;CINE.on=f
 function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.floor;clearTimeout(S.tm);clearInterval(cdI);
  if(!S.saved){S.fresh=saveSeen(R);S.title=runTitle(R);S.mont=montage(R);S.lg=ledgerRoll(R);S.eu=eulogy(R);}
  if(!S.saved){S.saved=true;finalizeRun();}
- if(!S.cmp)S.cmp=hazardSample(2000);
+ if(!S.cmp)S.cmp=CMP||(CMP=hazardSample(2000));
  if(!S.pat)try{S.pat=fatePattern(R);}catch(e){S.pat=null;}
  const cells=R.map.map((m,i)=>`<span class="${(i+1)%10===0?'boss ':''}${R.farmed[i]?'farm':''}" style="${m?`background:${MAPC[m]}`:i<fl?'background:#2a3a40':''}" title="ชั้น ${i+1}${m?' · '+(MAPN[m]||'ฟาร์ม'):''}${R.farmed[i]?' · ฟาร์ม '+R.farmed[i]+' ครั้ง':''}"></span>`).join('');
  const a=S.cmp,below=a.filter(x=>x<fl).length,eq=a.filter(x=>x===fl).length,pct=Math.round((below+eq/2)/a.length*100);
@@ -3191,7 +3197,7 @@ function renderEnd(){const R=S.R,h=R.h,C=CLASSES[h.cls],won=R.won,fl=won?100:R.f
  const bl=$('btnLB2');if(bl)bl.onclick=()=>{try{window.LB.open();}catch(e){}};
  try{gwMount(R);}catch(e){}
  memoBtn();
- renderMemo();}
+ renderMemo();saveRun();} // render() saved before fin/sent were set
 // ---- v2.7 after death (1in8b REA v3): wishes left undone, the days given to them (kept in the memorial), and a scene nobody saw ----
 // A wish = {k, t: name of the day, m: what was missing, w: handwritten line, + scene fields for ART.drawWish}. Free, no card needed.
 const GW_MAX=3,GW_TILT=[-2,1.5,-1];

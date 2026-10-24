@@ -1,5 +1,5 @@
 // city.js — กระดานเควส (เควสรายวัน + เควสถาวรหลายขั้น), บริหารเมือง (อาคาร 9 หลัง + ส่งสมาชิกไปทำงาน + ความสุขสัตว์), ร้านของตกแต่ง
-// API: window.CITY = { bonus(k), lv(id), busy(memberId), petMood(petId) 0-100, petMul(petId) 1.1/1/0.8, focus(bldId) }  bonus: 'train' ตัวคูณค่าฝึก (<1), 'gold' ตัวคูณเหรียญดันเจี้ยน, 'hp' ตัวคูณ HP ตี้, 'exp' ตัวคูณ EXP เควส, 'egg' โอกาสไข่
+// API: window.CITY = { bonus(k), rng(seed) ตัวสุ่มตามสตริง (wevent.js ใช้), busy(memberId), petMood(petId) 0-100, petMul(petId) 1.1/1/0.8, focus(bldId) }  bonus: 'train' ตัวคูณค่าฝึก (<1), 'gold' ตัวคูณเหรียญดันเจี้ยน, 'hp' ตัวคูณ HP ตี้, 'exp' ตัวคูณ EXP เควส, 'egg' โอกาสไข่
 // ข้อมูลอยู่ใน META P.mod.city = {b:{id:lv}, decor:[key], c:{runs,wins,sec,hard,train,kills}, best:{f,b}, wc:[cls], q:{day,L:[...]}, perm:{id:ขั้นที่ส่งแล้ว}, n:ส่งเควสแล้ว, pick:id สมาชิกรับ EXP, sl:{m,p}, jobs:{bldId:[memberId]}, mood:{petId:0-100 ณ เวลา mt}, mt, tr:{petId:เวลาให้ขนม}, fg:ผลผลิตลานฝึกสัตว์เลี้ยง}
 // ฟัง: META.onRun, 'tof:hard-clear' (hard.js ชนะด่าน), 'tof:train' (hard.js ฝึกสมาชิก)
 (function(){
@@ -63,11 +63,11 @@ const busy=id=>{const s=st(M.load());return JK.some(b=>(s.jobs[b]||[]).includes(
 // ---------- ความสุขสัตว์: ค่า mood เก็บพร้อมเวลา s.mt แล้วคิดต่อตามเวลาจริง ----------
 const MOOD0=70;
 function moodRate(P){const s=st(P),l=lvOf(P,'pen');return units(P,'pen')*14-15*(1-.1*l)*(gateN(P,'ang')?.85:1);} // ต่อวัน
-function moodAt(P,id){const s=st(P),v=s.mood[id]==null?MOOD0:+s.mood[id];return Math.max(0,Math.min(100,v+moodRate(P)*(Date.now()-s.mt)/864e5));}
+function moodAt(P,id){const s=st(P),v=s.mood[id]==null?MOOD0:+s.mood[id];return Math.max(0,Math.min(100,v+moodRate(P)*Math.max(0,Date.now()-s.mt)/864e5));}
 // บันทึกค่าปัจจุบันลงเซฟ เรียกก่อนเปลี่ยนคนประจำลานหรือแก้ค่า mood
 function tick(P){const s=st(P),now=Date.now(),dt=Math.max(0,(now-s.mt)/864e5),l=lvOf(P,'pen'),u=units(P,'pen');
  P.pets.forEach(p=>{s.mood[p.id]=Math.round(moodAt(P,p.id)*10)/10;});Object.keys(s.mood).forEach(k=>{if(!P.pets.some(p=>p.id===k))delete s.mood[k];});
- if(u)s.fg=Math.min(s.fg+u*(20+10*l)*dt,u*(20+10*l)*3);s.mt=now;
+ if(u)s.fg=Math.min(s.fg+u*(20+10*l)*dt,u*(20+10*l)*3);s.mt=Math.max(s.mt,now); // ถอยนาฬิกาแล้วเดินหน้าใหม่จะไม่ได้ผลผลิตซ้ำ
  if(P.pets.length&&workers(P,'pen').some(m=>m.cls==='far')&&P.pets.every(p=>s.mood[p.id]>=70))ach('city_farm');}
 const petMood=id=>Math.round(moodAt(M.load(),id));
 const petMul=id=>{const v=petMood(id);return v>=70?1.1:v<35?.8:1;};
@@ -151,7 +151,10 @@ M.onRun(R=>upd((P,s)=>{const fl=R.won?100:(R.floor|0),bo=R.bosses|0,ki=R.kills|0
  s.best.f=Math.max(s.best.f,fl);s.best.b=Math.max(s.best.b,bo);
  daily(P,s).forEach(q=>{if(q.k==='floor')q.p=Math.max(q.p|0,fl);else if(q.k==='boss')q.p=Math.max(q.p|0,bo);else if(q.k==='kills')q.p=Math.max(q.p|0,ki);else if(q.k==='wincls'&&R.won&&cid===q.cls)q.p=1;});
  // ตลาด: เหรียญเมืองตอนจบรอบเพิ่มตามเลเวล
- const gm=bon(P,'gold')-1;if(gm>0&&P.last&&P.last.g){const x=Math.round(P.last.g*gm);P.gold+=x;P.goldAll+=x;P.last.cx=x;}}));
+ const gm=bon(P,'gold')-1;if(gm>0&&P.last&&P.last.g){const x=Math.round(P.last.g*gm);P.gold+=x;P.goldAll+=x;P.last.cx=x;}
+ // เทศกาลสัตว์เลี้ยง (wevent.js): จบรอบที่มีสัตว์ไปด้วย สัตว์ทุกตัวอารมณ์ +8 ต้อง tick ก่อน ไม่งั้นค่าที่บวกจะโดนเวลาที่ค้างอยู่กลบ
+ const W=R.wev,A=window.WEV&&window.WEV.active();
+ if(W&&W.on&&A&&A.E.id==='petfest'&&W.id===A.E.id&&W.wk===A.key&&Array.isArray(R.pets)&&R.pets.length&&P.pets.length){tick(P);P.pets.forEach(p=>{s.mood[p.id]=Math.min(100,s.mood[p.id]+8);});}}));
 // ลงดันเจี้ยนแล้วสัตว์เหนื่อย: ถ้า hard.js ส่ง detail.pets มาจะลดเฉพาะตัวนั้น ไม่งั้นลดทุกตัวเล็กน้อย
 window.addEventListener('tof:hard-clear',e=>upd((P,s)=>{s.c.hard++;tick(P);const d=(e&&e.detail)||{},L=Array.isArray(d.pets)?d.pets:null;
  P.pets.forEach(p=>{if(!L||L.includes(p.id))s.mood[p.id]=Math.max(0,s.mood[p.id]-(L?10:5));});}));
@@ -247,5 +250,5 @@ try{window.ACH&&window.ACH.add&&window.ACH.add([
  {id:'city_jobs',n:'เมืองที่ไม่เคยหลับ',d:'มีคนประจำครบทุกอาคารที่รับคนทำงาน',icon:'🌃',tier:'gold'}]);}catch(e){}
 // เปิดแท็บเมืองแล้วเลื่อนไปที่การ์ดอาคาร (town.js เรียกตอนแตะอาคารในล็อบบี้)
 function focus(id){M.open('city');setTimeout(()=>{const c=document.querySelector(`#metaDlg [data-bld="${id}"]`);if(!c)return;c.scrollIntoView({block:'center',behavior:'smooth'});c.classList.add('cq-hi');setTimeout(()=>c.classList.remove('cq-hi'),1600);},60);}
-window.CITY={bonus,lv:id=>lvOf(M.load(),id),busy,petMood,petMul,focus,perm:()=>PERM.map(q=>({id:q.id,ic:q.ic,n:q.n,st:q.st.length,hard:!!q.hard}))}; // perm: ห้องรางวัลใน gate.js
+window.CITY={bonus,busy,rng:rngOf,petMood,petMul,focus,perm:()=>PERM.map(q=>({id:q.id,ic:q.ic,n:q.n,st:q.st.length,hard:!!q.hard}))}; // perm: ห้องรางวัลใน gate.js
 })();

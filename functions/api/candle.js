@@ -18,8 +18,8 @@ export async function onRequestPost({ request, env }) {
   try {
     const row = await db.prepare('SELECT c, hid FROM memorial WHERE id = ?').bind(b.id).first();
     if (!row || row.hid) return json({ error: 'not-found' }, 404);
-    if (await bump(db, 'ad:' + ip + ':' + day, 2 * DAY, now) > ACT_PER_DAY) return json({ error: 'rate-limited' }, 429);
-    const dup = await bump(db, 'c:' + b.id + ':' + ip + ':' + day, 2 * DAY, now) > 1;
+    if (await bump(db, 'ad:' + ip + ':' + day, 2 * DAY, now, ACT_PER_DAY) > ACT_PER_DAY) return json({ error: 'rate-limited' }, 429);
+    const dup = await bump(db, 'c:' + b.id + ':' + ip + ':' + day, 2 * DAY, now, 1) > 1;
     if (dup) return json({ ok: true, dup: true, c: row.c | 0 });
     const r = await db.prepare('UPDATE memorial SET c = c + 1 WHERE id = ? RETURNING c').bind(b.id).first();
     return json({ ok: true, c: r ? r.c | 0 : (row.c | 0) + 1 });

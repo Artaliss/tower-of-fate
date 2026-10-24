@@ -39,10 +39,9 @@ Then play one run in the browser and open "อันดับ & ความส�
 "ล่าสุด" and (if good enough) "อันดับทั่วโลก", marked "คุณ". A hand-made curl POST is
 rejected with 400 `integrity` or 403 (no same-site Origin), which is expected.
 
-Since v2.4.1 the data lives in D1 (`TOF_DB`, table `kv`, see `functions/api/store.js`), with KV as the fallback.
+Since v2.4.1 the data lives in D1 (`TOF_DB`, table `kv`, see `functions/api/store.js`), with KV only read as a fallback for keys D1 does not have yet.
 Keys: `top` (best 100), `recent` (last 50), `hof`, `live`, plus short-lived `rl:*` (rate limit for posts without a D1
-ticket). Run tickets are rows of the D1 table `tix` (see "Run tickets" below); in KV-only mode they are `tk:*` keys with
-`dup:tk:*` as the dedupe. To reset the board, delete `top` and `recent`.
+ticket). Run tickets are rows of the D1 table `tix` (see "Run tickets" below); old `tk:*` KV tickets from before D1 are still honoured. To reset the board, delete `top` and `recent`.
 
 ## API
 
@@ -98,7 +97,7 @@ refused (the response has no `tk`) after 60 tickets from one IP in 10 minutes; t
 
 A score with a D1 ticket stamps it (`UPDATE tix SET u = 1 WHERE ... AND u = 0`). That stamp is the dedupe: a second
 post with the same ticket gets `{ok, dup:true}` and writes nothing. Such posts skip the `rl:` limiter, because tickets
-are already limited when issued. Posts without a D1 ticket (old clients, KV-only mode, tickets from before the change)
+are already limited when issued. Posts without a D1 ticket (old clients, tickets from before the change)
 go through one `rl:<ip>` row that holds both the per-IP window and the per-device daily counts; an identical entry
 already in `top` or `recent` counts as a dup.
 
@@ -117,11 +116,10 @@ All bounds are loose on purpose. If a real player shows up with `ok:0`, read `no
 that check in `functions/api/scores.js`.
 
 "Playing now" (`n` in `GET /api/live`) is the number of tickets issued in the last 20 minutes with no score yet,
-cached per isolate for 20 s. The game no longer sends `{a:'beat'}`; an old client that still does gets `{n}` and
-nothing is written. A run longer than 20 minutes drops out of the count. In KV-only mode `n` still comes from the
-`live.u` presence map that `start` and `beat` write.
+cached per isolate for 120 s. The game no longer sends `{a:'beat'}`; an old client that still does gets `{n}` and
+nothing is written. A run longer than 20 minutes drops out of the count.
 
-Writes per run with D1 (`node tools/lb-writes-test.mjs` counts them against a mock D1, `--kv` for KV-only):
+Writes per run with D1 (`node tools/lb-writes-test.mjs` counts them against a mock D1):
 
 | run | before | now |
 |---|---|---|
@@ -146,9 +144,8 @@ at 50, the rest goes with the next run). `ss` is not part of `canon()`.
 
 `scores.js` keeps only those keys with integers 1 to 50 and adds them into
 `live.d[day].ss` inside the `live` write that the post already does, so it costs no
-extra write. `day` is the entry's `day` when within 3 days, otherwise today's Thai
-date. With D1, `live` is written when the entry has a fresh `day` or carries `ss`; in KV-only
-mode, when it has `sid` or `day`. Otherwise `ss` is not counted and the response says `ss:0`. The client subtracts the sent counters from localStorage only when a
+extra write. `day` is the entry's `day` when it is today or yesterday (Thai time), otherwise today's Thai
+date. With D1, `live` is written when the entry has a fresh `day` or carries `ss`. Otherwise `ss` is not counted and the response says `ss:0`. The client subtracts the sent counters from localStorage only when a
 2xx response has `ss:1`; a dup, 4xx, network error or an older server keeps them for the
 next run.
 

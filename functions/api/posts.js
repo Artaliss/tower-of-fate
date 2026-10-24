@@ -13,7 +13,7 @@
 // POST {a:'report', id}       -> {ok, dup?}         (hidden once rp >= REPORT_HIDE distinct IPs)
 
 import { store, update } from './store.js';
-import { fnv, clean, json, isInt, sameOrigin, RANKS, CLS, DRG } from './util.js';
+import { fnv, ipHash, clean, json, isInt, sameOrigin, RANKS, CLS, DRG } from './util.js';
 
 const KEY = 'posts', MAX_POSTS = 200, GET_N = 50, MAX_BODY = 2048;
 const Q_MIN = 4, Q_MAX = 300;
@@ -108,7 +108,7 @@ export async function onRequestPost({ request, env }) {
   let b; try { b = JSON.parse(text); } catch { return json({ error: 'bad-json' }, 400); }
   if (!b || typeof b !== 'object') return json({ error: 'bad-json' }, 400);
 
-  const ip = fnv('tof-ip|' + (request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown'));
+  const ip = ipHash(request, 'tof-ip|');
   const now = Date.now();
 
   if (b.a === 'post') {

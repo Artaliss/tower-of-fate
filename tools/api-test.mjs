@@ -56,6 +56,7 @@ console.log('store.js update()');
 sql.exec('CREATE TABLE kv (k TEXT PRIMARY KEY, v TEXT NOT NULL, exp INTEGER)');   // a DB from before ver existed
 sql.prepare('INSERT INTO kv (k, v, exp) VALUES (?, ?, NULL)').run('old', 'x');
 const { store, update } = await imp('store.js');
+const { MAX_SAVE, ipHash } = await imp('util.js');
 const s1 = store({ TOF_DB: D1 }), s2 = store({ TOF_DB: D1 });
 ok(await s1.get('old') === 'x', 'old kv row still readable');
 ok(sql.prepare('PRAGMA table_info(kv)').all().some(c => c.name === 'ver'), 'ver column added to an old kv table');
@@ -154,6 +155,29 @@ const tPleb = (await AC({ a: 'signup', name: 'pleb1', pw: 'password1' }, { ip: '
   ok((await S(entry(), '64.0.0.2')).st === 200, 'another IP still posts');
 }
 
+// day stats only for today or yesterday (Thai time): a made-up later day cannot push today out of the 3 kept
+{ const thd = t => new Date(t + 7 * 3600e3).toISOString().slice(0, 10), today = thd(Date.now());
+  for (const k of [1, 2, 3]) {
+    const d = thd(Date.now() + k * 86400e3), r = await S({ ...entry(), day: d }, '65.0.0.' + k);
+    ok(r.st === 200 && r.j.day === null, 'score with day ' + d + ' (future) -> stored, day not counted');
+  }
+  const r = await S({ ...entry(), day: today }, '65.0.0.9');
+  ok(r.j.day && r.j.day.n >= 1, 'score with today -> counted');
+  const v = kvGet('live');
+  ok(v && v.d[today] && Object.keys(v.d).every(k => k <= today), 'live keeps today and no future day: ' + Object.keys(v && v.d || {}).join(','));
+}
+// a list write that fails gives the ticket back, so the retry is stored instead of being a dup
+{ const tk = await ticket('66.0.0.1'); off += 600e3;
+  const b = { ...entry({ score: 61 }), tk };
+  hook = async q => { if (/^(UPDATE kv SET v|INSERT INTO kv)/.test(q)) throw new Error('busy'); };
+  const r1 = await S(b, '66.0.0.1');
+  hook = null;
+  ok(r1.st === 503, 'storage busy while writing lists -> 503: ' + r1.st);
+  const r2 = await S(b, '66.0.0.1');
+  ok(r2.st === 200 && !r2.j.dup && r2.j.v === 1 && (kvGet('recent') || []).some(y => y.id === r2.j.id), 'retry with the same ticket is stored (not a dup)');
+  ok((await S(b, '66.0.0.1')).j.dup === true, 'and a third post is a dup again');
+}
+
 // ---- 3. live.js {a:'ss'} ----
 console.log('live.js share counters');
 clearLists();
@@ -200,10 +224,10 @@ const M = (b, ip) => call(move, '/api/move', b, { ip });
   const rs = await Promise.all([M({ a: 'take', code: put.j.code }, '90.0.0.2'), M({ a: 'take', code: put.j.code }, '90.0.0.3')]);
   ok(count(rs, r => r.st === 200 && typeof r.j.p === 'string') === 1 && count(rs, r => r.st === 410 && r.j.error === 'used') === 1, 'two takes at once -> one save, one 410 used: ' + sts(rs));
   ok((await M({ a: 'peek', code: put.j.code }, '90.0.0.4')).st === 410, 'peek after take -> 410');
-  const thai = n => '{' + 'ก'.repeat(n);
-  const big = await M({ a: 'put', p: thai(700000) }, '90.0.0.5');
-  ok(big.st === 413 && big.j.error === 'too-large', 'put of 700k Thai chars (2.1 MB UTF-8) -> 413');
-  ok((await M({ a: 'put', p: thai(600000) }, '90.0.0.5')).st === 200, 'put of 600k Thai chars (1.8 MB) accepted');
+  const thai = n => '{' + 'ก'.repeat(n - 1);
+  const big = await M({ a: 'put', p: thai(MAX_SAVE + 1) }, '90.0.0.5');
+  ok(big.st === 413 && big.j.error === 'too-large', 'put one char over MAX_SAVE -> 413');
+  ok((await M({ a: 'put', p: thai(MAX_SAVE) }, '90.0.0.5')).st === 200, 'put of MAX_SAVE Thai chars (1.2 MB UTF-8) accepted');
   const pr = await Promise.all(Array.from({ length: 20 }, () => M({ a: 'put', p: '{}' }, '91.0.0.1')));
   ok(count(pr, r => r.st === 200) === 6, '20 puts at once from one IP -> 6 codes: ' + sts(pr));
   const gr = await Promise.all(Array.from({ length: 40 }, (_, i) => M({ a: i % 2 ? 'take' : 'peek', code: 'zzzzzzzzz' }, '92.0.0.1')));
@@ -213,12 +237,27 @@ const M = (b, ip) => call(move, '/api/move', b, { ip });
 // ---- 6. acct.js / acctlib.js / checkout ----
 console.log('acct.js');
 { const tok = (await AC({ a: 'signup', name: 'saver1', pw: 'password1' }, { ip: '100.0.0.1' })).j.tok;
-  const thai = n => '{' + 'ก'.repeat(n);
-  const big = await AC({ a: 'save', z: '', p: thai(700000), m: {} }, { tok });
-  ok(big.st === 413 && big.j.error === 'too-large', 'cloud save of 700k Thai chars -> 413');
-  ok((await AC({ a: 'save', z: '', p: thai(600000), m: {} }, { tok })).st === 200, 'cloud save of 600k Thai chars accepted');
+  const thai = n => '{' + 'ก'.repeat(n - 1);
+  const big = await AC({ a: 'save', z: '', p: thai(MAX_SAVE + 1), m: {} }, { tok });
+  ok(big.st === 413 && big.j.error === 'too-large', 'cloud save one char over MAX_SAVE -> 413');
+  ok((await AC({ a: 'save', z: '', p: thai(MAX_SAVE), m: {} }, { tok })).st === 200, 'cloud save of MAX_SAVE Thai chars accepted');
   const su = await Promise.all(Array.from({ length: 20 }, (_, i) => AC({ a: 'signup', name: 'flood' + i, pw: 'password1' }, { ip: '101.0.0.1' })));
   ok(count(su, r => r.st === 200) === 5, '20 sign-ups at once from one IP -> 5 accounts: ' + sts(su));
+  off += 3 * 3600e3;
+  ok((await AC({ a: 'signup', name: 'flood99', pw: 'password1' }, { ip: '101.0.0.1' })).st === 429, 'sign-up limit lasts a day, not an hour');
+  off += 22 * 3600e3;
+  ok((await AC({ a: 'signup', name: 'flood98', pw: 'password1' }, { ip: '101.0.0.1' })).st === 200, 'and opens again the next day');
+  const v6 = await Promise.all(Array.from({ length: 8 }, (_, i) => AC({ a: 'signup', name: 'sixer' + i, pw: 'password1' }, { ip: '2001:db8:aa:bb:' + i + '::' + (i + 1) })));
+  ok(count(v6, r => r.st === 200) === 5, '8 sign-ups from 8 IPv6 addresses in one /64 -> 5 accounts: ' + sts(v6));
+  ok((await AC({ a: 'signup', name: 'sixer9', pw: 'password1' }, { ip: '2001:db8:aa:bc::1' })).st === 200, 'the next /64 is a different IP');
+
+  // per-IP login count goes first: an IP over it adds no rows, whatever names it tries
+  const lim = () => sql.prepare('SELECT COUNT(*) AS n FROM acct_lim').get().n;
+  for (let i = 0; i < 40; i++) await AC({ a: 'login', name: 'rnd' + i, pw: 'wrongpass' }, { ip: '110.0.0.1' });
+  const n0 = lim(), w1 = writes(), over = [];
+  for (let i = 40; i < 50; i++) over.push(await AC({ a: 'login', name: 'rnd' + i, pw: 'wrongpass' }, { ip: '110.0.0.1' }));
+  ok(over.every(r => r.st === 429), '41st..50th login from one IP -> 429: ' + sts(over));
+  ok(lim() === n0 && writes() - w1 <= 1, `and no new rows for new names (rows +${lim() - n0}, changes ${writes() - w1})`);
 
   await AC({ a: 'signup', name: 'victim1', pw: 'password1' }, { ip: '102.0.0.1' });
   const L = (pw, ip, name = 'victim1') => AC({ a: 'login', name, pw }, { ip });
@@ -264,6 +303,28 @@ addM('ppppppppp'); addM('xxxxxxxxx'); addM('222222222'); addM('mmmmmmmmm', 1); a
 }
 
 // ---- 8. util.clean / cleanMemo ----
+console.log('util.ipHash');
+{ const H = ip => ipHash(new Request(ORIGIN, { headers: { 'CF-Connecting-IP': ip } }), 'ac|');
+  ok(H('1.2.3.4') === fnv('ac|1.2.3.4'), 'IPv4: same hash as before (salt + address)');
+  ok(ipHash(new Request(ORIGIN), 'm|') === fnv('m|unknown'), 'no IP header: same as before');
+  const a = H('2001:db8:1:2::1');
+  ok(a === H('2001:0db8:0001:0002:ffff:ffff:ffff:ffff') && a === H('2001:DB8:1:2:0:0:0:9'), 'IPv6: any address in one /64 -> one hash');
+  ok(a === fnv('ac|2001:db8:1:2'), 'IPv6 key is the first 4 groups without leading zeros');
+  ok(a !== H('2001:db8:1:3::1') && a !== H('2001:db8::1:2:0:1'), 'another /64 -> another hash');
+  ok(H('::1') === fnv('ac|0:0:0:0') && H('2001:db8::') === fnv('ac|2001:db8:0:0'), ':: at either end expands');
+  ok(H('::ffff:1.2.3.4') !== H('::ffff:1.2.3.5'), 'IPv4 written inside IPv6 stays whole');
+}
+console.log('memorial counters');
+{ addM('ccccccccc');
+  const candle = await imp('candle.js'), C = ip => call(candle, '/api/candle', { id: 'ccccccccc' }, { ip });
+  const L = []; for (let i = 0; i < 60; i++) L.push(await C('111.0.0.1'));
+  ok(L.filter(r => r.st === 200 && !r.j.dup).length === 1 && L.every(r => r.st === 200), 'one candle per IP per day, 60 actions allowed: ' + sts(L));
+  const w = writes(), more = [];
+  for (let i = 0; i < 10; i++) more.push(await C('111.0.0.1'));
+  ok(more.every(r => r.st === 429), '61st..70th action -> 429');
+  ok(writes() - w <= 1, `and they write nothing past the limit (changes ${writes() - w})`);
+}
+
 console.log('util.clean');
 const { clean } = await imp('util.js');
 ok(clean(1234, 10, 1) === '1234', 'clean(number, max, 1) accepts a number');

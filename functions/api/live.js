@@ -1,24 +1,22 @@
 // Cloudflare Pages Function: /api/live (v2.2)
-// storage: store(env) = D1 TOF_DB, falling back to KV TOF_KV (see store.js)
-//   'live'      = {u:{sid:[lastSeenMin, floor]}, d:{'YYYY-MM-DD':{n,h,w,f}}}  per-day stats (last 3 days); u = presence, KV-only mode
+// storage: store(env) = D1 TOF_DB (see store.js)
+//   'live'      = {u:{}, d:{'YYYY-MM-DD':{n,h,w,f}}}  per-day stats (last 3 days); u = presence from the old KV-only mode, now always empty
 //   D1 table tix (store.js tix()) = one row per run ticket; /api/scores only lets ticketed, plausibly long runs into 'top'
-//   KV-only mode keeps tickets as 'tk:<id>' = {t0}
 // GET  ?day=YYYY-MM-DD           -> {n, day:{n,h,w,f}|null}
-// POST {a:'start', sid, dv?}      -> {tk, n}   dv = device id, the score must come from the same device to count (D1 mode)
-// POST {a:'beat', sid, f}         -> {n}       old clients only; with D1 it writes nothing
+// POST {a:'start', sid, dv?}      -> {tk, n}   dv = device id, the score must come from the same device to count
+// POST {a:'beat', sid, f}         -> {n}       old clients only; writes nothing
 // POST {a:'ss', dv?, ss:{...}}    -> {ok, ss:1}   share counters (v2.7) summed into d[today].ss; no sid, nothing about the player is kept
-// Writes per run start: D1 = 1 (the ticket row). "n" playing now = tickets from the last LIVE_MIN minutes that have no score yet,
-// counted with a read and cached in this isolate for CACHE_MS. KV-only = 2 (ticket + 'live'), and a beat writes when the sid
-// was last written >= 5 min ago.
+// Writes per run start: 1 (the ticket row). "n" playing now = tickets from the last LIVE_MIN minutes that have no score yet,
+// counted with a read and cached in this isolate for CACHE_MS.
 
 import { store, tix, update } from './store.js';
 import { ensureSchema, hit } from './acctlib.js';
-import { fnv, json, thDay, sameOrigin } from './util.js';
+import { ipHash, json, thDay, sameOrigin } from './util.js';
 
-const WIN_MIN = 10, BEAT_MIN = 5, TK_TTL = 3 * 86400;
-const LIVE_MIN = 20, CACHE_MS = 20e3;
-const TK_IP_MAX = 60, TK_IP_WIN = 600e3;   // tickets / IP / 10 min (D1 mode); above it the run just gets no ticket
-const SS_IP_MAX = 20;                      // share-counter posts / IP / day (D1 mode)
+const WIN_MIN = 10;
+const LIVE_MIN = 20, CACHE_MS = 120e3;     // the count is a read of every open ticket, so each isolate asks at most every 2 min
+const TK_IP_MAX = 60, TK_IP_WIN = 600e3;   // tickets / IP / 10 min; above it the run just gets no ticket
+const SS_IP_MAX = 20;                      // share-counter posts / IP / day
 const okSid = s => typeof s === 'string' && /^[a-z0-9]{6,24}$/.test(s);
 export const okDay = d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
 export const okDv = d => typeof d === 'string' && /^[0-9a-f]{16}$/.test(d);   // device id (v2.7), random per browser
@@ -55,13 +53,11 @@ export function prune(v) {
   for (const k in v.d) if (!days.slice(0, 3).includes(k)) delete v.d[k];
   return v;
 }
-export const liveN = v => Object.keys(v.u).length;
-export const writeLive = (kv, v) => kv.put('live', JSON.stringify(v));
 // change 'live' without losing a change made at the same moment (store.js update)
 export const editLive = (kv, fn) => update(kv, 'live', s => { const v = prune(liveOf(s)); fn(v); return JSON.stringify(prune(v)); });
-export const ipKey = request => fnv('tof-ip|' + (request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown'));
+export const ipKey = request => ipHash(request, 'tof-ip|');
 
-// playing now, D1 mode: read-only count, cached per isolate so a burst of birth screens costs one query
+// playing now: read-only count, cached per isolate so a burst of birth screens costs one query
 let liveC = { n: 0, at: 0 };
 async function openN(T) {
   const now = Date.now();
@@ -76,8 +72,8 @@ export async function onRequestGet({ request, env }) {
   const o = request.headers.get('Origin');
   if (o && o !== new URL(request.url).origin) return json({ error: 'forbidden' }, 403);
   const day = new URL(request.url).searchParams.get('day');
-  const v = prune(await readLive(kv)), T = tix(env);
-  return json({ n: T ? await openN(T) : liveN(v), day: okDay(day) && v.d[day] ? v.d[day] : null }, 200, { 'Cache-Control': 'public, max-age=20' });
+  const v = prune(await readLive(kv));
+  return json({ n: await openN(tix(env)), day: okDay(day) && v.d[day] ? v.d[day] : null }, 200, { 'Cache-Control': 'public, max-age=20' });
 }
 
 export async function onRequestPost({ request, env }) {
@@ -91,37 +87,22 @@ export async function onRequestPost({ request, env }) {
     const ss = shareStats(b.ss);
     if (!ss) return json({ error: 'invalid', field: 'ss' }, 400);
     const db = env.TOF_DB, now = Date.now();
-    if (db) { await ensureSchema(db); if (await hit(db, 'ss:' + ipKey(request), 86400e3, now, SS_IP_MAX) > SS_IP_MAX) return json({ error: 'rate-limited' }, 429, { 'Retry-After': '3600' }); }
+    await ensureSchema(db);
+    if (await hit(db, 'ss:' + ipKey(request), 86400e3, now, SS_IP_MAX) > SS_IP_MAX) return json({ error: 'rate-limited' }, 429, { 'Retry-After': '3600' });
     await editLive(kv, v => addShare(v, thDay(now), ss));
     return json({ ok: true, ss: 1 });
   }
   if (!b || !okSid(b.sid)) return json({ error: 'sid' }, 400);
   const T = tix(env);
-  if (T) {
-    if (b.a === 'start') {
-      const ip = ipKey(request), now = Date.now();
-      let many = false; try { many = await T.byIp(ip, now - TK_IP_WIN) >= TK_IP_MAX; } catch { }
-      if (many) return json({ n: await openN(T) });
-      const tk = await T.issue(ip, okDv(b.dv) ? b.dv : '');
-      liveC.n++;
-      return json({ tk, n: await openN(T) });
-    }
-    // old clients still send a beat every 5.5 min; the ticket already counts them
-    if (b.a === 'beat') return json({ n: await openN(T) });
-    return json({ error: 'a' }, 400);
-  }
-  const v = prune(await readLive(kv)), m = nowMin(), f = Number.isInteger(b.f) && b.f >= 1 && b.f <= 101 ? b.f : 1;
   if (b.a === 'start') {
-    const tk = crypto.randomUUID().replace(/-/g, '').slice(0, 20);
-    await kv.put('tk:' + tk, JSON.stringify(okDv(b.dv) ? { t0: Date.now(), dv: b.dv } : { t0: Date.now() }), { expirationTtl: TK_TTL });
-    v.u[b.sid] = [m, 1];
-    await writeLive(kv, v);
-    return json({ tk, n: liveN(v) });
+    const ip = ipKey(request), now = Date.now();
+    let many = false; try { many = await T.byIp(ip, now - TK_IP_WIN) >= TK_IP_MAX; } catch { }
+    if (many) return json({ n: await openN(T) });
+    const tk = await T.issue(ip, okDv(b.dv) ? b.dv : '');
+    liveC.n++;
+    return json({ tk, n: await openN(T) });
   }
-  if (b.a === 'beat') {
-    const x = v.u[b.sid];
-    if (!x || m - x[0] >= BEAT_MIN) { v.u[b.sid] = [m, f]; await writeLive(kv, v); }
-    return json({ n: liveN(v) });
-  }
+  // old clients still send a beat every 5.5 min; the ticket already counts them
+  if (b.a === 'beat') return json({ n: await openN(T) });
   return json({ error: 'a' }, 400);
 }

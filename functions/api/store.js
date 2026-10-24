@@ -1,6 +1,6 @@
 // Storage shim (v2.4.1). KV's free tier allows 1,000 writes/day (~160 runs), so data lives in D1 (100,000 rows written/day free).
-// store(env) -> KV-like {get(k), put(k, v, {expirationTtl})}: D1 binding TOF_DB when present, else plain TOF_KV.
-// A key missing from D1 is read from KV once, so 'top', 'recent', 'posts' and old run tickets carry over without a migration step.
+// store(env) -> KV-like {get(k), put(k, v, {expirationTtl}), update(k, fn)} over the D1 binding TOF_DB; null without it.
+// A key missing from D1 is read from the old KV (TOF_KV, if still bound) once, so 'top', 'recent', 'posts' and old run tickets carry over without a migration step.
 // D1 table: kv(k TEXT PRIMARY KEY, v TEXT, exp INTEGER ms|null, ver INTEGER), created on first use.
 // ver (migrations/0005_kv_ver.sql, added here on first use) counts writes, so update() can tell when someone wrote in between.
 
@@ -13,18 +13,12 @@ const init = db => ready || (ready = (async () => {
 
 // read-modify-write of one key: fn(current string | null) -> new string, or null to write nothing. Returns true if it wrote.
 // D1: the write only lands if nobody wrote the row since it was read, else fn runs again on the fresh value (up to 10 tries, with a short random wait so racers spread out),
-// so two requests at once cannot wipe each other's change. fn may run more than once. Plain KV (no D1) cannot do this.
-export async function update(kv, k, fn, o) {
-  if (kv.update) return kv.update(k, fn);
-  const v = fn(await kv.get(k));
-  if (v == null) return false;
-  await kv.put(k, String(v), o);
-  return true;
-}
+// so two requests at once cannot wipe each other's change. fn may run more than once. The row keeps the expiry it had.
+export const update = (kv, k, fn) => kv.update(k, fn);
 
 export function store(env) {
   const db = env && env.TOF_DB, kv = env && env.TOF_KV;
-  if (!db) return kv || null;
+  if (!db) return null;
   return {
     async get(k) {
       await init(db);
@@ -64,8 +58,7 @@ export function store(env) {
 // The primary key starts with the issue time, so "playing now" (tickets from the last 20 min not yet used) and the per-IP
 // ticket limit are short range scans that only read; WITHOUT ROWID keeps every insert/update at 1 row written.
 // tk = issue time in ms as 11 hex digits + 9 random hex digits (still the 20-hex format old clients accept).
-// Table: migrations/0002_tix.sql, also created here on first use. Without TOF_DB, tix(env) is null and live.js / scores.js
-// keep the older KV keys ('live' presence, 'tk:<id>', 'dup:tk:<id>').
+// Table: migrations/0002_tix.sql, also created here on first use.
 const TIX_SQL = "CREATE TABLE IF NOT EXISTS tix (t INTEGER NOT NULL, r TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', dv TEXT NOT NULL DEFAULT '', u INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (t, r)) WITHOUT ROWID";
 const TIX_IP = 'CREATE INDEX IF NOT EXISTS tix_ip ON tix (ip, t)';   // byIp() without a full scan
 let tixReady = null;
@@ -102,6 +95,11 @@ export function tix(env) {
       const p = tkSplit(tk); if (!p) return false;
       const r = await db.prepare('UPDATE tix SET u = 1 WHERE t = ? AND r = ? AND u = 0').bind(p.t, p.r).run();
       return !!(r && r.meta && r.meta.changes);
+    },
+    // gives a used ticket back when its score could not be stored (scores.js), so the retry still counts
+    async unuse(tk) {
+      const p = tkSplit(tk); if (!p) return;
+      await db.prepare('UPDATE tix SET u = 0 WHERE t = ? AND r = ?').bind(p.t, p.r).run();
     },
     async open(since) {
       await tixInit(db);

@@ -157,5 +157,5 @@ M.tab('trophy',{n:'🏆 ห้องรางวัล',o:6,render(el,P){css();l
  <h3>🏅 ความสำเร็จของตระกูล ${got}/${L.length}</h3><div class="tp-grid">${L.map(a=>{const sh=a.got||!a.hid;return`<div class="tp-it ${a.got?esc(a.tier==='legend'?'tp-leg':(a.tier||'')):'off'}"><span class="ic" aria-hidden="true">${sh?esc(a.icon||'🏅'):'❔'}</span><span><b>${sh?esc(a.n):'???'}</b><small>${sh?esc(a.d):'ยังเป็นความลับ'}</small></span></div>`;}).join('')||'<span class="mt-dim">ยังไม่มี</span>'}</div>
  <h3>🎖 เหรียญตราเทศกาล ${fs.length}</h3>${fs.length?`<div class="tp-row">${fs.map(coin).join('')}</div>`:'<p class="mt-dim">ยังไม่มี ทำภารกิจเทศกาลให้ครบแล้วจะได้เหรียญประจำปีมาเก็บไว้ที่นี่</p>'}
  <h3>🏆 โล่รางวัลเควส</h3>${PQ.length?`<div class="tp-grid">${PQ.map(q=>{const n=Math.min(q.st,cp[q.id]|0);return`<div class="tp-it ${n>=q.st?'gold':n?'silver':'off'}"><span class="ic" aria-hidden="true">${esc(q.ic)}</span><span><b>${esc(q.n)}</b><small>${'🏆'.repeat(n)}${'▫️'.repeat(q.st-n)} ส่งแล้ว ${n}/${q.st} ขั้น</small></span></div>`;}).join('')}</div>`:'<p class="mt-dim">กระดานเควสยังไม่เปิด</p>'}`;}});
-window.HIRE={take,offers,open:()=>M.open('merc'),gate:gateOpen,closeGate:gateClose};
+window.HIRE={take,closeGate:gateClose};
 })();

@@ -12,26 +12,15 @@
 // POST {a:'load'}                      -> {ok, at, z, p, m} | 404 {error:'no-save'}
 
 import { readBody } from './memorial.js';
-import { sameOrigin, fitsRow } from './util.js';
+import { sameOrigin, fitsRow, saveMeta, MAX_SAVE as MAX_P } from './util.js';
 import { ensureSchema, json, dbErr, ipOf, iterOf, okName, okPw, nameKey, pbkdf2, hex, rand, same, hit, unhit, newSession, who, ents, shopOpen, isAdmin } from './acctlib.js';
 
-const MAX_BODY = 1200000, MAX_P = 1100000;
-const FAIL_NAME = 8, FAIL_IP = 40, FAIL_WIN = 15 * 60e3;   // wrong passwords: 8 per name from one IP, 40 per IP, per 15 min
+const MAX_BODY = MAX_P + 10000;
+const FAIL_NAME = 8, FAIL_IP = 40, FAIL_WIN = 15 * 60e3;   // wrong passwords: 8 per name from one IP, per 15 min; 40 logins of any kind per IP
 const FAIL_NAME_ALL = 200;                                 // per name from all IPs, so nobody can lock someone else out with 8 tries
-const SIGNUP_IP = 5, SIGNUP_WIN = 3600e3;                  // 5 new accounts / IP / hour
+const SIGNUP_IP = 5, SIGNUP_WIN = 86400e3;                 // 5 new accounts / IP / day
 const SAVE_GAP = 15e3;                                     // at most one upload per 15 s per account
 
-function meta(m) {
-  if (!m || typeof m !== 'object' || Array.isArray(m)) return {};
-  const o = {};
-  for (const k of ['keys', 'memo', 'lines', 'ach', 'unl', 'gen']) if (typeof m[k] === 'number' && Number.isInteger(m[k]) && m[k] >= 0 && m[k] <= 1e6) o[k] = m[k];
-  for (const [h, r] of [['hero', 'run'], ['chero', 'crun']]) {   // chero/crun = run left open in the classic copy (tofc-*)
-    if (typeof m[h] === 'string') o[h] = m[h].replace(/[<>"'`\\&\u0000-\u001f]/g, '').slice(0, 24);
-    if (typeof m[r] === 'number' && m[r] >= 0 && m[r] <= 101) o[r] = Math.floor(m[r]);
-  }
-  if (typeof m.h === 'string' && /^[0-9a-z]{1,13}$/.test(m.h)) o.h = m.h;   // hash of the save, so a browser can tell the cloud copy is its own
-  return o;
-}
 const wait = (ms) => { const s = Math.max(1, Math.ceil(ms / 1000)); return json({ error: 'rate-limited', retryAfter: s }, 429, { 'Retry-After': String(s) }); };
 
 export async function onRequestPost({ request, env }) {
@@ -62,8 +51,11 @@ export async function onRequestPost({ request, env }) {
     if (b.a === 'login') {
       if (!okName(b.name) || typeof b.pw !== 'string' || b.pw.length > 200) return json({ error: 'bad-login' }, 401);
       const nk = nameKey(b.name);
-      // every try is counted before the password check; a right password gives its hits back
-      const ks = ['fn:' + nk + ':' + ip, 'fn:' + nk, 'fi:' + ip], max = [FAIL_NAME, FAIL_NAME_ALL, FAIL_IP];
+      // every try is counted before the password check. The per-IP count goes first and alone, so an IP over it writes
+      // nothing more (not even rows for new names), and it keeps right logins too, so they cannot write without limit.
+      // A right password gives back only the per-name hits.
+      if (await hit(db, 'fi:' + ip, FAIL_WIN, now, FAIL_IP) > FAIL_IP) return wait(FAIL_WIN);
+      const ks = ['fn:' + nk + ':' + ip, 'fn:' + nk], max = [FAIL_NAME, FAIL_NAME_ALL];
       const ns = await Promise.all(ks.map((k, i) => hit(db, k, FAIL_WIN, now, max[i])));
       if (ns.some((n, i) => n > max[i])) return wait(FAIL_WIN);
       const a = await db.prepare('SELECT id, name, salt, hash, iter FROM acct WHERE nk = ?').bind(nk).first();
@@ -111,7 +103,7 @@ export async function onRequestPost({ request, env }) {
       if (sv && now - sv.at < SAVE_GAP) return wait(SAVE_GAP - (now - sv.at));
       // with a base the overwrite only happens if the row is still the one checked above (two uploads at once)
       const r = await db.prepare('INSERT INTO acct_save (uid, at, z, p, m) VALUES (?, ?, ?, ?, ?) ON CONFLICT(uid) DO UPDATE SET at = excluded.at, z = excluded.z, p = excluded.p, m = excluded.m' + (sv && base != null ? ' WHERE acct_save.at = ?' : ''))
-        .bind(...[u.uid, now, z, b.p, JSON.stringify(meta(b.m))].concat(sv && base != null ? [base] : [])).run();
+        .bind(...[u.uid, now, z, b.p, JSON.stringify(saveMeta(b.m))].concat(sv && base != null ? [base] : [])).run();
       if (sv && base != null && r && r.meta && r.meta.changes === 0) return clash();
       return json({ ok: true, at: now });
     }
